@@ -20,6 +20,7 @@ import {
   Edit,
   Save,
   X,
+  Trash2,
 } from 'lucide-react';
 
 export default function MemberDetail() {
@@ -97,6 +98,24 @@ export default function MemberDetail() {
         );
       }
 
+      if (data.children) {
+        for (const child of data.children) {
+          if (child.id) {
+            updates.push(
+              supabase.from('children').update(child).eq('id', child.id)
+            );
+          }
+        }
+      }
+
+      if (data.deletedChildren && data.deletedChildren.length > 0) {
+        for (const childId of data.deletedChildren) {
+          updates.push(
+            supabase.from('children').delete().eq('id', childId)
+          );
+        }
+      }
+
       await Promise.all(updates);
     },
     onSuccess: () => {
@@ -112,6 +131,8 @@ export default function MemberDetail() {
       jointMember: memberData?.jointMember ? { ...memberData.jointMember } : null,
       nextOfKin: memberData?.nextOfKin?.[0] ? { ...memberData.nextOfKin[0] } : null,
       gpDetails: memberData?.gpDetails ? { ...memberData.gpDetails } : null,
+      children: memberData?.children ? memberData.children.map((child: any) => ({ ...child })) : [],
+      deletedChildren: [],
     });
     setIsEditing(true);
   };
@@ -133,6 +154,36 @@ export default function MemberDetail() {
         [field]: value,
       },
     }));
+  };
+
+  const updateChild = (childIndex: number, field: string, value: any) => {
+    setEditedData((prev: any) => {
+      const updatedChildren = [...prev.children];
+      updatedChildren[childIndex] = {
+        ...updatedChildren[childIndex],
+        [field]: value,
+      };
+      return {
+        ...prev,
+        children: updatedChildren,
+      };
+    });
+  };
+
+  const removeChild = (childIndex: number) => {
+    setEditedData((prev: any) => {
+      const childToRemove = prev.children[childIndex];
+      const updatedChildren = prev.children.filter((_: any, index: number) => index !== childIndex);
+      const updatedDeletedChildren = childToRemove.id
+        ? [...prev.deletedChildren, childToRemove.id]
+        : prev.deletedChildren;
+
+      return {
+        ...prev,
+        children: updatedChildren,
+        deletedChildren: updatedDeletedChildren,
+      };
+    });
   };
 
   const calculateAge = (dob: string): number => {
@@ -350,7 +401,14 @@ export default function MemberDetail() {
               updateField={(field: string, value: any) => updateField('jointMember', field, value)}
             />
           )}
-          {activeTab === 'children' && <ChildrenTab children={children} />}
+          {activeTab === 'children' && (
+            <ChildrenTab
+              children={isEditing ? editedData?.children : children}
+              isEditing={isEditing}
+              updateChild={updateChild}
+              removeChild={removeChild}
+            />
+          )}
           {activeTab === 'nok' && (
             <NextOfKinTab
               nextOfKin={isEditing && editedData?.nextOfKin ? [editedData.nextOfKin] : nextOfKin}
@@ -632,8 +690,10 @@ function JointMemberTab({ jointMember, age, isEditing, updateField }: any) {
   );
 }
 
-function ChildrenTab({ children }: any) {
-  if (children.length === 0) {
+function ChildrenTab({ children, isEditing, updateChild, removeChild }: any) {
+  const today = new Date().toISOString().split('T')[0];
+
+  if (!children || children.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
         <Baby className="h-12 w-12 mx-auto mb-4 text-gray-400" />
@@ -645,13 +705,47 @@ function ChildrenTab({ children }: any) {
   return (
     <div className="space-y-4">
       {children.map((child: any, index: number) => (
-        <div key={child.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+        <div key={child.id || index} className="border border-gray-200 rounded-lg p-4 bg-gray-50 relative">
+          {isEditing && (
+            <button
+              onClick={() => removeChild?.(index)}
+              className="absolute top-3 right-3 p-1 text-red-600 hover:bg-red-50 rounded"
+              title="Remove child"
+            >
+              <Trash2 className="h-5 w-5" />
+            </button>
+          )}
           <h3 className="font-semibold text-gray-900 mb-3">Child {index + 1}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <InfoField label="First Name" value={child.first_name} />
-            <InfoField label="Last Name" value={child.last_name} />
-            <InfoField label="Date of Birth" value={child.dob ? new Date(child.dob).toLocaleDateString() : 'N/A'} />
-            <InfoField label="Relation" value={child.relation} />
+            <EditableField
+              label="First Name"
+              value={child.first_name}
+              isEditing={isEditing}
+              onChange={(value: any) => updateChild?.(index, 'first_name', value)}
+            />
+            <EditableField
+              label="Last Name"
+              value={child.last_name}
+              isEditing={isEditing}
+              onChange={(value: any) => updateChild?.(index, 'last_name', value)}
+            />
+            <EditableField
+              label="Date of Birth"
+              value={child.dob}
+              displayValue={child.dob ? new Date(child.dob).toLocaleDateString() : 'N/A'}
+              isEditing={isEditing}
+              type="date"
+              max={today}
+              onChange={(value: any) => updateChild?.(index, 'dob', value)}
+            />
+            <EditableField
+              label="Relation"
+              value={child.relation}
+              isEditing={isEditing}
+              type="select"
+              options={['son', 'daughter', 'stepson', 'stepdaughter']}
+              onChange={(value: any) => updateChild?.(index, 'relation', value)}
+            />
           </div>
         </div>
       ))}
