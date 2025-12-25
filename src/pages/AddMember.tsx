@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import DateInput from '../components/DateInput';
 import {
   ArrowLeft,
   ArrowRight,
@@ -16,8 +17,8 @@ import {
   CheckSquare,
   CreditCard,
   Loader2,
+  X,
   Plus,
-  Trash2,
 } from 'lucide-react';
 
 const stepIcons = [Users, User, Users, Baby, Heart, Stethoscope, FileText, Upload, CheckSquare, CreditCard];
@@ -96,8 +97,6 @@ interface FormData {
 export default function AddMember() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [childValidationErrors, setChildValidationErrors] = useState<Record<number, Record<string, string>>>({});
   const [formData, setFormData] = useState<FormData>({
     app_type: 'single',
     title: '',
@@ -272,76 +271,7 @@ export default function AddMember() {
 
   const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'GP Details', 'Medical Info', 'Documents', 'Declarations', 'Payment'];
 
-  const validateMainMemberStep = (): boolean => {
-    const errors: Record<string, string> = {};
-
-    if (!formData.title) errors.title = 'Title is required';
-    if (!formData.first_name) errors.first_name = 'First name is required';
-    if (!formData.last_name) errors.last_name = 'Last name is required';
-    if (!formData.dob) errors.dob = 'Date of birth is required';
-    if (!formData.address_line_1) errors.address_line_1 = 'Address is required';
-    if (!formData.town) errors.town = 'Town is required';
-    if (!formData.city) errors.city = 'City is required';
-    if (!formData.postcode) errors.postcode = 'Postcode is required';
-    if (!formData.mobile) errors.mobile = 'Mobile phone is required';
-    if (!formData.email) errors.email = 'Email is required';
-
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const validateChildAge = (dob: string): boolean => {
-    if (!dob) return true;
-    const age = calculateAge(dob);
-    return age < 18;
-  };
-
-  const validateChildrenStep = (): boolean => {
-    if (formData.children.length === 0) return true;
-
-    const childErrors: Record<number, Record<string, string>> = {};
-    let hasErrors = false;
-
-    formData.children.forEach((child, index) => {
-      const errors: Record<string, string> = {};
-
-      if (!child.first_name) errors.first_name = 'First name is required';
-      if (!child.last_name) errors.last_name = 'Last name is required';
-      if (!child.dob) {
-        errors.dob = 'Date of birth is required';
-      } else if (!validateChildAge(child.dob)) {
-        errors.dob = 'Child must be under 18 years of age';
-      }
-      if (!child.relation) errors.relation = 'Relation is required';
-
-      if (Object.keys(errors).length > 0) {
-        childErrors[index] = errors;
-        hasErrors = true;
-      }
-    });
-
-    setChildValidationErrors(childErrors);
-    return !hasErrors;
-  };
-
-  const canProceedFromStep = (): boolean => {
-    if (currentStep === 1) {
-      return validateMainMemberStep();
-    }
-    if (currentStep === 3) {
-      return validateChildrenStep();
-    }
-    return true;
-  };
-
   const handleNext = () => {
-    if (!canProceedFromStep()) {
-      return;
-    }
-
-    setValidationErrors({});
-    setChildValidationErrors({});
-
     if (currentStep === 1 && formData.app_type === 'single') {
       setCurrentStep(3);
     } else {
@@ -376,20 +306,6 @@ export default function AddMember() {
     }));
   };
 
-  const visibleSteps = formData.app_type === 'single'
-    ? steps.filter((_, index) => index !== 2)
-    : steps;
-
-  const visibleStepIcons = formData.app_type === 'single'
-    ? stepIcons.filter((_, index) => index !== 2)
-    : stepIcons;
-
-  const stepIndexMap = formData.app_type === 'single'
-    ? [0, 1, 3, 4, 5, 6, 7, 8, 9]
-    : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-
-  const currentVisibleStepIndex = stepIndexMap.indexOf(currentStep);
-
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
@@ -399,26 +315,26 @@ export default function AddMember() {
 
       <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
-          {visibleSteps.map((step, visualIndex) => {
-            const actualIndex = stepIndexMap[visualIndex];
-            const Icon = visibleStepIcons[visualIndex];
-            const isActive = actualIndex === currentStep;
-            const isCompleted = actualIndex < currentStep;
+          {steps.map((step, index) => {
+            const Icon = stepIcons[index];
+            const isActive = index === currentStep;
+            const isCompleted = index < currentStep;
+            const isSkipped = formData.app_type === 'single' && index === 2 && currentStep > 2;
 
             return (
               <div key={step} className="flex items-center">
                 <div className="flex flex-col items-center">
                   <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all ${
                       isActive ? 'border-emerald-600 bg-emerald-600 text-white' :
-                      isCompleted ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-300 bg-white text-gray-400'
+                      isCompleted || isSkipped ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-300 bg-white text-gray-400'
                     }`}>
-                    {isCompleted ? <Check className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+                    {isCompleted || isSkipped ? <Check className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
                   </div>
                   <span className={`mt-2 text-xs font-medium hidden md:block ${isActive ? 'text-emerald-600' : 'text-gray-500'}`}>
                     {step}
                   </span>
                 </div>
-                {visualIndex < visibleSteps.length - 1 && <div className={`h-0.5 w-8 mx-2 ${isCompleted ? 'bg-emerald-600' : 'bg-gray-300'}`} />}
+                {index < steps.length - 1 && <div className={`h-0.5 w-8 mx-2 ${isCompleted || isSkipped ? 'bg-emerald-600' : 'bg-gray-300'}`} />}
               </div>
             );
           })}
@@ -427,9 +343,9 @@ export default function AddMember() {
 
       <div className="bg-white rounded-xl shadow-md border border-gray-200 p-8">
         {currentStep === 0 && <StepMembershipType formData={formData} updateFormData={updateFormData} />}
-        {currentStep === 1 && <StepMainMember formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
+        {currentStep === 1 && <StepMainMember formData={formData} updateFormData={updateFormData} />}
         {currentStep === 2 && <StepJointMember formData={formData} updateFormData={updateFormData} />}
-        {currentStep === 3 && <StepChildren formData={formData} addChild={addChild} removeChild={removeChild} updateChild={updateChild} childValidationErrors={childValidationErrors} />}
+        {currentStep === 3 && <StepChildren formData={formData} addChild={addChild} removeChild={removeChild} updateChild={updateChild} />}
         {currentStep === 4 && <StepNextOfKin formData={formData} updateFormData={updateFormData} />}
         {currentStep === 5 && <StepGPDetails formData={formData} updateFormData={updateFormData} />}
         {currentStep === 6 && <StepMedicalInfo formData={formData} updateFormData={updateFormData} />}
@@ -444,7 +360,7 @@ export default function AddMember() {
           <ArrowLeft className="h-4 w-4 mr-2" /> Back
         </button>
 
-        <span className="text-sm text-gray-600">Step {currentVisibleStepIndex + 1} of {visibleSteps.length}</span>
+        <span className="text-sm text-gray-600">Step {currentStep + 1} of {steps.length}</span>
 
         {currentStep < steps.length - 1 ? (
           <button onClick={handleNext}
@@ -511,7 +427,7 @@ function StepMembershipType({ formData, updateFormData }: any) {
   );
 }
 
-function StepMainMember({ formData, updateFormData, validationErrors }: any) {
+function StepMainMember({ formData, updateFormData }: any) {
   return (
     <div className="space-y-6">
       <div>
@@ -520,9 +436,9 @@ function StepMainMember({ formData, updateFormData, validationErrors }: any) {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Title <span className="text-red-500">*</span></label>
-          <select value={formData.title} onChange={(e) => updateFormData('title', e.target.value)} required
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.title ? 'border-red-500' : 'border-gray-300'}`}>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+          <select value={formData.title} onChange={(e) => updateFormData('title', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
             <option value="">Select title</option>
             <option value="Mr">Mr</option>
             <option value="Mrs">Mrs</option>
@@ -531,55 +447,49 @@ function StepMainMember({ formData, updateFormData, validationErrors }: any) {
             <option value="Dr">Dr</option>
             <option value="Prof">Prof</option>
           </select>
-          {validationErrors.title && <p className="text-red-500 text-xs mt-1">{validationErrors.title}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
           <input type="text" required value={formData.first_name} onChange={(e) => updateFormData('first_name', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
-          {validationErrors.first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.first_name}</p>}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter first name" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
           <input type="text" required value={formData.last_name} onChange={(e) => updateFormData('last_name', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
-          {validationErrors.last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.last_name}</p>}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter last name" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth <span className="text-red-500">*</span></label>
-          <input type="date" required value={formData.dob} onChange={(e) => updateFormData('dob', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.dob ? 'border-red-500' : 'border-gray-300'}`} />
-          {validationErrors.dob && <p className="text-red-500 text-xs mt-1">{validationErrors.dob}</p>}
+          <DateInput
+            label="Date of Birth"
+            required
+            value={formData.dob}
+            onChange={(value) => updateFormData('dob', value)}
+          />
         </div>
         <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1 <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.address_line_1} onChange={(e) => updateFormData('address_line_1', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.address_line_1 ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter street address" />
-          {validationErrors.address_line_1 && <p className="text-red-500 text-xs mt-1">{validationErrors.address_line_1}</p>}
+          <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1</label>
+          <input type="text" value={formData.address_line_1} onChange={(e) => updateFormData('address_line_1', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter street address" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Town <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.town} onChange={(e) => updateFormData('town', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.town ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter town" />
-          {validationErrors.town && <p className="text-red-500 text-xs mt-1">{validationErrors.town}</p>}
+          <label className="block text-sm font-medium text-gray-700 mb-2">Town</label>
+          <input type="text" value={formData.town} onChange={(e) => updateFormData('town', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter town" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">City <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.city} onChange={(e) => updateFormData('city', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.city ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter city" />
-          {validationErrors.city && <p className="text-red-500 text-xs mt-1">{validationErrors.city}</p>}
+          <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+          <input type="text" value={formData.city} onChange={(e) => updateFormData('city', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter city" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Postcode <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.postcode} onChange={(e) => updateFormData('postcode', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.postcode ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter postcode" />
-          {validationErrors.postcode && <p className="text-red-500 text-xs mt-1">{validationErrors.postcode}</p>}
+          <label className="block text-sm font-medium text-gray-700 mb-2">Postcode</label>
+          <input type="text" value={formData.postcode} onChange={(e) => updateFormData('postcode', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter postcode" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone <span className="text-red-500">*</span></label>
-          <input type="tel" required value={formData.mobile} onChange={(e) => updateFormData('mobile', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.mobile ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter mobile number" />
-          {validationErrors.mobile && <p className="text-red-500 text-xs mt-1">{validationErrors.mobile}</p>}
+          <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone</label>
+          <input type="tel" value={formData.mobile} onChange={(e) => updateFormData('mobile', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter mobile number" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Home Phone</label>
@@ -592,10 +502,9 @@ function StepMainMember({ formData, updateFormData, validationErrors }: any) {
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter work phone" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Email <span className="text-red-500">*</span></label>
-          <input type="email" required value={formData.email} onChange={(e) => updateFormData('email', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.email ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter email address" />
-          {validationErrors.email && <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>}
+          <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+          <input type="email" value={formData.email} onChange={(e) => updateFormData('email', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter email address" />
         </div>
       </div>
     </div>
@@ -634,9 +543,12 @@ function StepJointMember({ formData, updateFormData }: any) {
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter last name" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth <span className="text-red-500">*</span></label>
-          <input type="date" required value={formData.joint_dob} onChange={(e) => updateFormData('joint_dob', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
+          <DateInput
+            label="Date of Birth"
+            required
+            value={formData.joint_dob}
+            onChange={(value) => updateFormData('joint_dob', value)}
+          />
         </div>
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1</label>
@@ -683,9 +595,7 @@ function StepJointMember({ formData, updateFormData }: any) {
   );
 }
 
-function StepChildren({ formData, addChild, removeChild, updateChild, childValidationErrors }: any) {
-  const today = new Date().toISOString().split('T')[0];
-
+function StepChildren({ formData, addChild, removeChild, updateChild }: any) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -707,50 +617,54 @@ function StepChildren({ formData, addChild, removeChild, updateChild, childValid
         </div>
       ) : (
         <div className="space-y-4">
-          {formData.children.map((child: any, index: number) => {
-            const errors = childValidationErrors[index] || {};
-            return (
-              <div key={index} className="p-4 border border-gray-200 rounded-lg bg-gray-50 relative">
-                <button type="button" onClick={() => removeChild(index)}
-                  className="absolute top-3 right-3 p-1 text-red-600 hover:bg-red-50 rounded">
-                  <Trash2 className="h-5 w-5" />
-                </button>
-                <h3 className="font-medium text-gray-900 mb-3">Child {index + 1}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
-                    <input type="text" required value={child.first_name} onChange={(e) => updateChild(index, 'first_name', e.target.value)}
-                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
-                    {errors.first_name && <p className="text-red-500 text-xs mt-1">{errors.first_name}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
-                    <input type="text" required value={child.last_name} onChange={(e) => updateChild(index, 'last_name', e.target.value)}
-                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
-                    {errors.last_name && <p className="text-red-500 text-xs mt-1">{errors.last_name}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth <span className="text-red-500">*</span></label>
-                    <input type="date" required value={child.dob} max={today} onChange={(e) => updateChild(index, 'dob', e.target.value)}
-                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.dob ? 'border-red-500' : 'border-gray-300'}`} />
-                    {errors.dob && <p className="text-red-500 text-xs mt-1">{errors.dob}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Relation <span className="text-red-500">*</span></label>
-                    <select required value={child.relation} onChange={(e) => updateChild(index, 'relation', e.target.value)}
-                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.relation ? 'border-red-500' : 'border-gray-300'}`}>
-                      <option value="">Select relation</option>
-                      <option value="son">Son</option>
-                      <option value="daughter">Daughter</option>
-                      <option value="stepson">Stepson</option>
-                      <option value="stepdaughter">Stepdaughter</option>
-                    </select>
-                    {errors.relation && <p className="text-red-500 text-xs mt-1">{errors.relation}</p>}
-                  </div>
+          {formData.children.map((child: any, index: number) => (
+            <div key={index} className="p-4 border border-gray-200 rounded-lg bg-gray-50 relative">
+              <button type="button" onClick={() => removeChild(index)}
+                className="absolute top-3 right-3 p-1 text-red-600 hover:bg-red-50 rounded">
+                <X className="h-5 w-5" />
+              </button>
+              <h3 className="font-medium text-gray-900 mb-3">Child {index + 1}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                  <input type="text" value={child.first_name} onChange={(e) => updateChild(index, 'first_name', e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter first name" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                  <input type="text" value={child.last_name} onChange={(e) => updateChild(index, 'last_name', e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter last name" />
+                </div>
+                <div>
+                  <DateInput
+                    label="Date of Birth"
+                    value={child.dob}
+                    onChange={(value) => updateChild(index, 'dob', value)}
+                    minDate={(() => {
+                      // 18 years ago from today (day before 18th birthday)
+                      const date = new Date();
+                      date.setFullYear(date.getFullYear() - 18);
+                      date.setDate(date.getDate() + 1); // Day AFTER 18th birthday = under 18
+                      return date.toISOString().split('T')[0];
+                    })()}
+                    maxDate={new Date().toISOString().split('T')[0]} // Today
+                    errorMessage="Child must be under 18 years old and DOB cannot be in the future"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Relation</label>
+                  <select value={child.relation} onChange={(e) => updateChild(index, 'relation', e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    <option value="">Select relation</option>
+                    <option value="son">Son</option>
+                    <option value="daughter">Daughter</option>
+                    <option value="stepson">Stepson</option>
+                    <option value="stepdaughter">Stepdaughter</option>
+                  </select>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
     </div>
