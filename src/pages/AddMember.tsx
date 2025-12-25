@@ -488,18 +488,18 @@ export default function AddMember() {
     if (currentStep === 1 && formData.app_type === 'single') {
       setCurrentStep(3);
     } else {
-      setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
+      setCurrentStep((prev: number) => Math.min(prev + 1, steps.length - 1));
     }
   };
 
   const handleBack = () => {
     setValidationErrors({});
     setChildValidationErrors({});
-    
+
     if (currentStep === 3 && formData.app_type === 'single') {
       setCurrentStep(1);
     } else {
-      setCurrentStep((prev) => Math.max(prev - 1, 0));
+      setCurrentStep((prev: number) => Math.max(prev - 1, 0));
     }
   };
 

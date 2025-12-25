@@ -30,6 +30,8 @@ export default function DateInput({
   const inputRef = useRef<HTMLInputElement>(null);
   const calendarRef = useRef<HTMLInputElement>(null);
 
+  console.log(showCalendar);
+
   // Convert ISO date (YYYY-MM-DD) to display format (DD/MM/YYYY)
   useEffect(() => {
     if (value) {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import {
   ArrowLeft,
@@ -18,11 +18,16 @@ import {
   MapPin,
   Calendar,
   Edit,
+  Save,
+  X,
 } from 'lucide-react';
 
 export default function MemberDetail() {
   const { id } = useParams();
   const [activeTab, setActiveTab] = useState('personal');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedData, setEditedData] = useState<any>(null);
+  const queryClient = useQueryClient();
 
   // Fetch member with all related data
   const { data: memberData, isLoading } = useQuery({
@@ -63,6 +68,72 @@ export default function MemberDetail() {
       };
     },
   });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const updates = [];
+
+      if (data.member) {
+        updates.push(
+          supabase.from('members').update(data.member).eq('id', id)
+        );
+      }
+
+      if (data.jointMember && memberData?.jointMember) {
+        updates.push(
+          supabase.from('joint_members').update(data.jointMember).eq('member_id', id)
+        );
+      }
+
+      if (data.nextOfKin && memberData?.nextOfKin?.[0]) {
+        updates.push(
+          supabase.from('next_of_kin').update(data.nextOfKin).eq('member_id', id)
+        );
+      }
+
+      if (data.gpDetails && memberData?.gpDetails) {
+        updates.push(
+          supabase.from('gp_details').update(data.gpDetails).eq('member_id', id)
+        );
+      }
+
+      await Promise.all(updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', id] });
+      setIsEditing(false);
+      setEditedData(null);
+    },
+  });
+
+  const handleEdit = () => {
+    setEditedData({
+      member: { ...memberData?.member },
+      jointMember: memberData?.jointMember ? { ...memberData.jointMember } : null,
+      nextOfKin: memberData?.nextOfKin?.[0] ? { ...memberData.nextOfKin[0] } : null,
+      gpDetails: memberData?.gpDetails ? { ...memberData.gpDetails } : null,
+    });
+    setIsEditing(true);
+  };
+
+  const handleSave = () => {
+    updateMutation.mutate(editedData);
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setEditedData(null);
+  };
+
+  const updateField = (section: string, field: string, value: any) => {
+    setEditedData((prev: any) => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [field]: value,
+      },
+    }));
+  };
 
   const calculateAge = (dob: string): number => {
     if (!dob) return 0;
@@ -140,10 +211,43 @@ export default function MemberDetail() {
         </div>
         <div className="flex items-center space-x-3">
           {getStatusBadge(member.status)}
-          <button className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors">
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
-          </button>
+          {isEditing ? (
+            <>
+              <button
+                onClick={handleCancel}
+                disabled={updateMutation.isPending}
+                className="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={updateMutation.isPending}
+                className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
+              >
+                {updateMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={handleEdit}
+              className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </button>
+          )}
         </div>
       </div>
 
@@ -230,11 +334,37 @@ export default function MemberDetail() {
         </div>
 
         <div className="p-6">
-          {activeTab === 'personal' && <PersonalInfoTab member={member} age={mainAge} />}
-          {activeTab === 'joint' && <JointMemberTab jointMember={jointMember} age={jointAge} />}
+          {activeTab === 'personal' && (
+            <PersonalInfoTab
+              member={isEditing ? editedData?.member : member}
+              age={mainAge}
+              isEditing={isEditing}
+              updateField={(field: string, value: any) => updateField('member', field, value)}
+            />
+          )}
+          {activeTab === 'joint' && (
+            <JointMemberTab
+              jointMember={isEditing ? editedData?.jointMember : jointMember}
+              age={jointAge}
+              isEditing={isEditing}
+              updateField={(field: string, value: any) => updateField('jointMember', field, value)}
+            />
+          )}
           {activeTab === 'children' && <ChildrenTab children={children} />}
-          {activeTab === 'nok' && <NextOfKinTab nextOfKin={nextOfKin} />}
-          {activeTab === 'gp' && <GPDetailsTab gpDetails={gpDetails} />}
+          {activeTab === 'nok' && (
+            <NextOfKinTab
+              nextOfKin={isEditing && editedData?.nextOfKin ? [editedData.nextOfKin] : nextOfKin}
+              isEditing={isEditing}
+              updateField={(field: string, value: any) => updateField('nextOfKin', field, value)}
+            />
+          )}
+          {activeTab === 'gp' && (
+            <GPDetailsTab
+              gpDetails={isEditing ? editedData?.gpDetails : gpDetails}
+              isEditing={isEditing}
+              updateField={(field: string, value: any) => updateField('gpDetails', field, value)}
+            />
+          )}
           {activeTab === 'medical' && <MedicalInfoTab medicalInfo={medicalInfo} appType={member.app_type} />}
           {activeTab === 'documents' && <DocumentsTab documents={documents} />}
           {activeTab === 'declarations' && <DeclarationsTab declarations={declarations} />}
@@ -247,25 +377,83 @@ export default function MemberDetail() {
 
 // Tab Components
 
-function PersonalInfoTab({ member, age }: any) {
+function PersonalInfoTab({ member, age, isEditing, updateField }: any) {
+  const today = new Date().toISOString().split('T')[0];
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <InfoField label="Title" value={member.title} />
-        <InfoField label="First Name" value={member.first_name} />
-        <InfoField label="Last Name" value={member.last_name} />
-        <InfoField label="Date of Birth" value={member.dob ? new Date(member.dob).toLocaleDateString() : 'N/A'} />
+        <EditableField
+          label="Title"
+          value={member?.title}
+          isEditing={isEditing}
+          type="select"
+          options={['Mr', 'Mrs', 'Miss', 'Ms', 'Dr']}
+          onChange={(value: any) => updateField?.('title', value)}
+        />
+        <EditableField
+          label="First Name"
+          value={member?.first_name}
+          isEditing={isEditing}
+          onChange={(value: any) => updateField?.('first_name', value)}
+        />
+        <EditableField
+          label="Last Name"
+          value={member?.last_name}
+          isEditing={isEditing}
+          onChange={(value: any) => updateField?.('last_name', value)}
+        />
+        <EditableField
+          label="Date of Birth"
+          value={member?.dob}
+          displayValue={member?.dob ? new Date(member.dob).toLocaleDateString() : 'N/A'}
+          isEditing={isEditing}
+          type="date"
+          max={today}
+          onChange={(value: any) => updateField?.('dob', value)}
+        />
         <InfoField label="Current Age" value={`${age} years old`} highlight />
-        <InfoField label="Status" value={member.status} badge />
+        <EditableField
+          label="Status"
+          value={member?.status}
+          isEditing={isEditing}
+          type="select"
+          options={['active', 'pending', 'inactive', 'deceased']}
+          onChange={(value: any) => updateField?.('status', value)}
+        />
       </div>
 
       <div className="border-t border-gray-200 pt-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <InfoField label="Mobile Phone" value={member.mobile} icon={Phone} />
-          <InfoField label="Home Phone" value={member.home_phone} icon={Phone} />
-          <InfoField label="Work Phone" value={member.work_phone} icon={Phone} />
-          <InfoField label="Email" value={member.email} icon={Mail} />
+          <EditableField
+            label="Mobile Phone"
+            value={member?.mobile}
+            isEditing={isEditing}
+            icon={Phone}
+            onChange={(value: any) => updateField?.('mobile', value)}
+          />
+          <EditableField
+            label="Home Phone"
+            value={member?.home_phone}
+            isEditing={isEditing}
+            icon={Phone}
+            onChange={(value: any) => updateField?.('home_phone', value)}
+          />
+          <EditableField
+            label="Work Phone"
+            value={member?.work_phone}
+            isEditing={isEditing}
+            icon={Phone}
+            onChange={(value: any) => updateField?.('work_phone', value)}
+          />
+          <EditableField
+            label="Email"
+            value={member?.email}
+            isEditing={isEditing}
+            type="email"
+            icon={Mail}
+            onChange={(value: any) => updateField?.('email', value)}
+          />
         </div>
       </div>
 
@@ -273,32 +461,62 @@ function PersonalInfoTab({ member, age }: any) {
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Address</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="md:col-span-2">
-            <InfoField label="Address Line 1" value={member.address_line_1} icon={MapPin} />
+            <EditableField
+              label="Address Line 1"
+              value={member?.address_line_1}
+              isEditing={isEditing}
+              icon={MapPin}
+              onChange={(value: any) => updateField?.('address_line_1', value)}
+            />
           </div>
-          <InfoField label="Town" value={member.town} />
-          <InfoField label="City" value={member.city} />
-          <InfoField label="Postcode" value={member.postcode} />
+          <EditableField
+            label="Town"
+            value={member?.town}
+            isEditing={isEditing}
+            onChange={(value: any) => updateField?.('town', value)}
+          />
+          <EditableField
+            label="City"
+            value={member?.city}
+            isEditing={isEditing}
+            onChange={(value: any) => updateField?.('city', value)}
+          />
+          <EditableField
+            label="Postcode"
+            value={member?.postcode}
+            isEditing={isEditing}
+            onChange={(value: any) => updateField?.('postcode', value)}
+          />
         </div>
       </div>
 
-      {member.notes && (
-        <div className="border-t border-gray-200 pt-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Notes</h3>
-          <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">{member.notes}</p>
-        </div>
-      )}
+      <div className="border-t border-gray-200 pt-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Notes</h3>
+        {isEditing ? (
+          <textarea
+            value={member?.notes || ''}
+            onChange={(e) => updateField?.('notes', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[100px]"
+            placeholder="Add notes..."
+          />
+        ) : (
+          <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">{member?.notes || 'No notes'}</p>
+        )}
+      </div>
 
       <div className="border-t border-gray-200 pt-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <InfoField label="Created On" value={new Date(member.created_at).toLocaleString()} />
-          <InfoField label="Last Updated" value={new Date(member.updated_at).toLocaleString()} />
+          <InfoField label="Created On" value={new Date(member?.created_at).toLocaleString()} />
+          <InfoField label="Last Updated" value={new Date(member?.updated_at).toLocaleString()} />
         </div>
       </div>
     </div>
   );
 }
 
-function JointMemberTab({ jointMember, age }: any) {
+function JointMemberTab({ jointMember, age, isEditing, updateField }: any) {
+  const today = new Date().toISOString().split('T')[0];
+
   if (!jointMember) {
     return (
       <div className="text-center py-12 text-gray-500">
@@ -311,20 +529,70 @@ function JointMemberTab({ jointMember, age }: any) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <InfoField label="Title" value={jointMember.title} />
-        <InfoField label="First Name" value={jointMember.first_name} />
-        <InfoField label="Last Name" value={jointMember.last_name} />
-        <InfoField label="Date of Birth" value={jointMember.dob ? new Date(jointMember.dob).toLocaleDateString() : 'N/A'} />
+        <EditableField
+          label="Title"
+          value={jointMember?.title}
+          isEditing={isEditing}
+          type="select"
+          options={['Mr', 'Mrs', 'Miss', 'Ms', 'Dr']}
+          onChange={(value: any) => updateField?.('title', value)}
+        />
+        <EditableField
+          label="First Name"
+          value={jointMember?.first_name}
+          isEditing={isEditing}
+          onChange={(value: any) => updateField?.('first_name', value)}
+        />
+        <EditableField
+          label="Last Name"
+          value={jointMember?.last_name}
+          isEditing={isEditing}
+          onChange={(value: any) => updateField?.('last_name', value)}
+        />
+        <EditableField
+          label="Date of Birth"
+          value={jointMember?.dob}
+          displayValue={jointMember?.dob ? new Date(jointMember.dob).toLocaleDateString() : 'N/A'}
+          isEditing={isEditing}
+          type="date"
+          max={today}
+          onChange={(value: any) => updateField?.('dob', value)}
+        />
         {age && <InfoField label="Current Age" value={`${age} years old`} highlight />}
       </div>
 
       <div className="border-t border-gray-200 pt-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <InfoField label="Mobile Phone" value={jointMember.mobile} icon={Phone} />
-          <InfoField label="Home Phone" value={jointMember.home_phone} icon={Phone} />
-          <InfoField label="Work Phone" value={jointMember.work_phone} icon={Phone} />
-          <InfoField label="Email" value={jointMember.email} icon={Mail} />
+          <EditableField
+            label="Mobile Phone"
+            value={jointMember?.mobile}
+            isEditing={isEditing}
+            icon={Phone}
+            onChange={(value: any) => updateField?.('mobile', value)}
+          />
+          <EditableField
+            label="Home Phone"
+            value={jointMember?.home_phone}
+            isEditing={isEditing}
+            icon={Phone}
+            onChange={(value: any) => updateField?.('home_phone', value)}
+          />
+          <EditableField
+            label="Work Phone"
+            value={jointMember?.work_phone}
+            isEditing={isEditing}
+            icon={Phone}
+            onChange={(value: any) => updateField?.('work_phone', value)}
+          />
+          <EditableField
+            label="Email"
+            value={jointMember?.email}
+            isEditing={isEditing}
+            type="email"
+            icon={Mail}
+            onChange={(value: any) => updateField?.('email', value)}
+          />
         </div>
       </div>
 
@@ -332,11 +600,32 @@ function JointMemberTab({ jointMember, age }: any) {
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Address</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="md:col-span-2">
-            <InfoField label="Address Line 1" value={jointMember.address_line_1} icon={MapPin} />
+            <EditableField
+              label="Address Line 1"
+              value={jointMember?.address_line_1}
+              isEditing={isEditing}
+              icon={MapPin}
+              onChange={(value: any) => updateField?.('address_line_1', value)}
+            />
           </div>
-          <InfoField label="Town" value={jointMember.town} />
-          <InfoField label="City" value={jointMember.city} />
-          <InfoField label="Postcode" value={jointMember.postcode} />
+          <EditableField
+            label="Town"
+            value={jointMember?.town}
+            isEditing={isEditing}
+            onChange={(value: any) => updateField?.('town', value)}
+          />
+          <EditableField
+            label="City"
+            value={jointMember?.city}
+            isEditing={isEditing}
+            onChange={(value: any) => updateField?.('city', value)}
+          />
+          <EditableField
+            label="Postcode"
+            value={jointMember?.postcode}
+            isEditing={isEditing}
+            onChange={(value: any) => updateField?.('postcode', value)}
+          />
         </div>
       </div>
     </div>
@@ -370,7 +659,7 @@ function ChildrenTab({ children }: any) {
   );
 }
 
-function NextOfKinTab({ nextOfKin }: any) {
+function NextOfKinTab({ nextOfKin, isEditing, updateField }: any) {
   if (nextOfKin.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
@@ -380,44 +669,104 @@ function NextOfKinTab({ nextOfKin }: any) {
     );
   }
 
+  const nok = nextOfKin[0];
+
   return (
-    <div className="space-y-4">
-      {nextOfKin.map((nok: any) => (
-        <div key={nok.id} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <InfoField label="Title" value={nok.title} />
-            <InfoField label="First Name" value={nok.first_name} />
-            <InfoField label="Last Name" value={nok.last_name} />
-            <InfoField label="Relationship" value={nok.relationship} />
-          </div>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <EditableField
+          label="Title"
+          value={nok?.title}
+          isEditing={isEditing}
+          type="select"
+          options={['Mr', 'Mrs', 'Miss', 'Ms', 'Dr']}
+          onChange={(value: any) => updateField?.('title', value)}
+        />
+        <EditableField
+          label="First Name"
+          value={nok?.first_name}
+          isEditing={isEditing}
+          onChange={(value: any) => updateField?.('first_name', value)}
+        />
+        <EditableField
+          label="Last Name"
+          value={nok?.last_name}
+          isEditing={isEditing}
+          onChange={(value: any) => updateField?.('last_name', value)}
+        />
+        <EditableField
+          label="Relationship"
+          value={nok?.relationship}
+          isEditing={isEditing}
+          onChange={(value: any) => updateField?.('relationship', value)}
+        />
+      </div>
 
-          <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <InfoField label="Mobile Phone" value={nok.mobile} icon={Phone} />
-              <InfoField label="Home Phone" value={nok.phone} icon={Phone} />
-              <InfoField label="Email" value={nok.email} icon={Mail} />
-            </div>
-          </div>
-
-          <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Address</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <InfoField label="Address Line 1" value={nok.address_line_1} icon={MapPin} />
-              </div>
-              <InfoField label="Town" value={nok.town} />
-              <InfoField label="City" value={nok.city} />
-              <InfoField label="Postcode" value={nok.postcode} />
-            </div>
-          </div>
+      <div className="border-t border-gray-200 pt-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <EditableField
+            label="Mobile Phone"
+            value={nok?.mobile}
+            isEditing={isEditing}
+            icon={Phone}
+            onChange={(value: any) => updateField?.('mobile', value)}
+          />
+          <EditableField
+            label="Home Phone"
+            value={nok?.phone}
+            isEditing={isEditing}
+            icon={Phone}
+            onChange={(value: any) => updateField?.('phone', value)}
+          />
+          <EditableField
+            label="Email"
+            value={nok?.email}
+            isEditing={isEditing}
+            type="email"
+            icon={Mail}
+            onChange={(value: any) => updateField?.('email', value)}
+          />
         </div>
-      ))}
+      </div>
+
+      <div className="border-t border-gray-200 pt-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Address</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="md:col-span-2">
+            <EditableField
+              label="Address Line 1"
+              value={nok?.address_line_1}
+              isEditing={isEditing}
+              icon={MapPin}
+              onChange={(value: any) => updateField?.('address_line_1', value)}
+            />
+          </div>
+          <EditableField
+            label="Town"
+            value={nok?.town}
+            isEditing={isEditing}
+            onChange={(value: any) => updateField?.('town', value)}
+          />
+          <EditableField
+            label="City"
+            value={nok?.city}
+            isEditing={isEditing}
+            onChange={(value: any) => updateField?.('city', value)}
+          />
+          <EditableField
+            label="Postcode"
+            value={nok?.postcode}
+            isEditing={isEditing}
+            onChange={(value: any) => updateField?.('postcode', value)}
+          />
+        </div>
+      </div>
     </div>
   );
 }
 
-function GPDetailsTab({ gpDetails }: any) {
+function GPDetailsTab({ gpDetails, isEditing, updateField }: any) {
   if (!gpDetails) {
     return (
       <div className="text-center py-12 text-gray-500">
@@ -431,15 +780,33 @@ function GPDetailsTab({ gpDetails }: any) {
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="md:col-span-2">
-          <InfoField label="GP Name / Surgery" value={gpDetails.gp_name_surgery} />
+          <EditableField
+            label="GP Name / Surgery"
+            value={gpDetails?.gp_name_surgery}
+            isEditing={isEditing}
+            onChange={(value: any) => updateField?.('gp_name_surgery', value)}
+          />
         </div>
       </div>
 
       <div className="border-t border-gray-200 pt-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <InfoField label="Phone" value={gpDetails.phone} icon={Phone} />
-          <InfoField label="Email" value={gpDetails.email} icon={Mail} />
+          <EditableField
+            label="Phone"
+            value={gpDetails?.phone}
+            isEditing={isEditing}
+            icon={Phone}
+            onChange={(value: any) => updateField?.('phone', value)}
+          />
+          <EditableField
+            label="Email"
+            value={gpDetails?.email}
+            isEditing={isEditing}
+            type="email"
+            icon={Mail}
+            onChange={(value: any) => updateField?.('email', value)}
+          />
         </div>
       </div>
 
@@ -447,11 +814,32 @@ function GPDetailsTab({ gpDetails }: any) {
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Address</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="md:col-span-2">
-            <InfoField label="Address Line 1" value={gpDetails.address_line_1} icon={MapPin} />
+            <EditableField
+              label="Address Line 1"
+              value={gpDetails?.address_line_1}
+              isEditing={isEditing}
+              icon={MapPin}
+              onChange={(value: any) => updateField?.('address_line_1', value)}
+            />
           </div>
-          <InfoField label="Town" value={gpDetails.town} />
-          <InfoField label="City" value={gpDetails.city} />
-          <InfoField label="Postcode" value={gpDetails.postcode} />
+          <EditableField
+            label="Town"
+            value={gpDetails?.town}
+            isEditing={isEditing}
+            onChange={(value: any) => updateField?.('town', value)}
+          />
+          <EditableField
+            label="City"
+            value={gpDetails?.city}
+            isEditing={isEditing}
+            onChange={(value: any) => updateField?.('city', value)}
+          />
+          <EditableField
+            label="Postcode"
+            value={gpDetails?.postcode}
+            isEditing={isEditing}
+            onChange={(value: any) => updateField?.('postcode', value)}
+          />
         </div>
       </div>
     </div>
@@ -656,6 +1044,59 @@ function PaymentsTab({ payments }: any) {
 }
 
 // Helper Components
+
+function EditableField({ label, value, displayValue, isEditing, type = 'text', icon: Icon, options, max, onChange }: any) {
+  if (!isEditing) {
+    return (
+      <div>
+        <label className="block text-sm font-medium text-gray-500 mb-1">{label}</label>
+        <div className="flex items-center">
+          {Icon && <Icon className="h-4 w-4 text-gray-400 mr-2" />}
+          <p className={`text-gray-900 ${!value || value === 'N/A' ? 'text-gray-400' : ''}`}>
+            {displayValue || value || 'N/A'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === 'select') {
+    return (
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+        <select
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+        >
+          <option value="">Select {label}</option>
+          {options?.map((opt: string) => (
+            <option key={opt} value={opt}>
+              {opt.charAt(0).toUpperCase() + opt.slice(1)}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <div className="flex items-center">
+        {Icon && <Icon className="h-4 w-4 text-gray-400 mr-2" />}
+        <input
+          type={type}
+          value={value || ''}
+          max={max}
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+          placeholder={`Enter ${label.toLowerCase()}`}
+        />
+      </div>
+    </div>
+  );
+}
 
 function InfoField({ label, value, icon: Icon, highlight }: any) {
   return (
