@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { supabase, Member } from '../lib/supabase';
-import { Search, Filter, Plus, Eye, Mail, Phone } from 'lucide-react';
+import { Search, Filter, Plus, Eye, Mail, Phone, Users } from 'lucide-react';
 
 export default function MemberList() {
   const [searchTerm, setSearchTerm] = useState('');

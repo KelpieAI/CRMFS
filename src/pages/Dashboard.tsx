@@ -1,4 +1,3 @@
-import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -7,7 +6,6 @@ import {
   UserCheck,
   Clock,
   DollarSign,
-  TrendingUp,
   AlertCircle,
   Plus,
 } from 'lucide-react';
