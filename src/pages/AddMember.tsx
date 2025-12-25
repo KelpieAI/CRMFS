@@ -291,9 +291,27 @@ export default function AddMember() {
     return Object.keys(errors).length === 0;
   };
 
+  const validateJointMemberStep = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!formData.joint_first_name) errors.joint_first_name = 'First name is required';
+    if (!formData.joint_last_name) errors.joint_last_name = 'Last name is required';
+    if (!formData.joint_dob) errors.joint_dob = 'Date of birth is required';
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const validateChildAge = (dob: string): boolean => {
     if (!dob) return true;
     const age = calculateAge(dob);
+    const today = new Date();
+    const dobDate = new Date(dob);
+    
+    // Check if date is in the future
+    if (dobDate > today) return false;
+    
+    // Check if child is 18 or older
     return age < 18;
   };
 
@@ -311,7 +329,7 @@ export default function AddMember() {
       if (!child.dob) {
         errors.dob = 'Date of birth is required';
       } else if (!validateChildAge(child.dob)) {
-        errors.dob = 'Child must be under 18 years of age';
+        errors.dob = 'Child must be under 18 years old and DOB cannot be in the future';
       }
       if (!child.relation) errors.relation = 'Relation is required';
 
@@ -325,12 +343,62 @@ export default function AddMember() {
     return !hasErrors;
   };
 
+  const validateNextOfKinStep = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!formData.nok_first_name) errors.nok_first_name = 'First name is required';
+    if (!formData.nok_last_name) errors.nok_last_name = 'Last name is required';
+    if (!formData.nok_relationship) errors.nok_relationship = 'Relationship is required';
+    if (!formData.nok_mobile) errors.nok_mobile = 'Mobile phone is required';
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateDeclarationsStep = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!formData.agreement_sig_1) errors.agreement_sig_1 = 'Main member agreement is required';
+    if (!formData.funding_sig_1) errors.funding_sig_1 = 'Main member funding acknowledgment is required';
+    if (!formData.declaration_sig_1) errors.declaration_sig_1 = 'Main member declaration is required';
+
+    if (formData.app_type === 'joint') {
+      if (!formData.agreement_sig_2) errors.agreement_sig_2 = 'Joint member agreement is required';
+      if (!formData.funding_sig_2) errors.funding_sig_2 = 'Joint member funding acknowledgment is required';
+      if (!formData.declaration_sig_2) errors.declaration_sig_2 = 'Joint member declaration is required';
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validatePaymentStep = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!formData.payment_method) errors.payment_method = 'Payment method is required';
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const canProceedFromStep = (): boolean => {
     if (currentStep === 1) {
       return validateMainMemberStep();
     }
+    if (currentStep === 2) {
+      return validateJointMemberStep();
+    }
     if (currentStep === 3) {
       return validateChildrenStep();
+    }
+    if (currentStep === 4) {
+      return validateNextOfKinStep();
+    }
+    if (currentStep === 8) {
+      return validateDeclarationsStep();
+    }
+    if (currentStep === 9) {
+      return validatePaymentStep();
     }
     return true;
   };
@@ -351,6 +419,9 @@ export default function AddMember() {
   };
 
   const handleBack = () => {
+    setValidationErrors({});
+    setChildValidationErrors({});
+    
     if (currentStep === 3 && formData.app_type === 'single') {
       setCurrentStep(1);
     } else {
@@ -368,6 +439,22 @@ export default function AddMember() {
 
   const removeChild = (index: number) => {
     setFormData((prev) => ({ ...prev, children: prev.children.filter((_, i) => i !== index) }));
+    // Clear validation errors for this child
+    setChildValidationErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors[index];
+      // Reindex remaining errors
+      const reindexed: Record<number, Record<string, string>> = {};
+      Object.keys(newErrors).forEach((key) => {
+        const idx = parseInt(key);
+        if (idx > index) {
+          reindexed[idx - 1] = newErrors[idx];
+        } else {
+          reindexed[idx] = newErrors[idx];
+        }
+      });
+      return reindexed;
+    });
   };
 
   const updateChild = (index: number, field: string, value: string) => {
@@ -429,14 +516,14 @@ export default function AddMember() {
       <div className="bg-white rounded-xl shadow-md border border-gray-200 p-8">
         {currentStep === 0 && <StepMembershipType formData={formData} updateFormData={updateFormData} />}
         {currentStep === 1 && <StepMainMember formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
-        {currentStep === 2 && <StepJointMember formData={formData} updateFormData={updateFormData} />}
+        {currentStep === 2 && <StepJointMember formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
         {currentStep === 3 && <StepChildren formData={formData} addChild={addChild} removeChild={removeChild} updateChild={updateChild} childValidationErrors={childValidationErrors} />}
-        {currentStep === 4 && <StepNextOfKin formData={formData} updateFormData={updateFormData} />}
+        {currentStep === 4 && <StepNextOfKin formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
         {currentStep === 5 && <StepGPDetails formData={formData} updateFormData={updateFormData} />}
         {currentStep === 6 && <StepMedicalInfo formData={formData} updateFormData={updateFormData} />}
         {currentStep === 7 && <StepDocuments formData={formData} updateFormData={updateFormData} />}
-        {currentStep === 8 && <StepDeclarations formData={formData} updateFormData={updateFormData} />}
-        {currentStep === 9 && <StepPayment formData={formData} updateFormData={updateFormData} />}
+        {currentStep === 8 && <StepDeclarations formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
+        {currentStep === 9 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
       </div>
 
       <div className="flex justify-between items-center bg-white rounded-xl shadow-md border border-gray-200 p-6">
@@ -606,7 +693,7 @@ function StepMainMember({ formData, updateFormData, validationErrors }: any) {
   );
 }
 
-function StepJointMember({ formData, updateFormData }: any) {
+function StepJointMember({ formData, updateFormData, validationErrors }: any) {
   return (
     <div className="space-y-6">
       <div>
@@ -630,12 +717,14 @@ function StepJointMember({ formData, updateFormData }: any) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
           <input type="text" required value={formData.joint_first_name} onChange={(e) => updateFormData('joint_first_name', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter first name" />
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
+          {validationErrors.joint_first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_first_name}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
           <input type="text" required value={formData.joint_last_name} onChange={(e) => updateFormData('joint_last_name', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter last name" />
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
+          {validationErrors.joint_last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_last_name}</p>}
         </div>
         <div>
           <DateInput
@@ -644,6 +733,7 @@ function StepJointMember({ formData, updateFormData }: any) {
             value={formData.joint_dob}
             onChange={(value) => updateFormData('joint_dob', value)}
           />
+          {validationErrors.joint_dob && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_dob}</p>}
         </div>
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1</label>
@@ -773,7 +863,7 @@ function StepChildren({ formData, addChild, removeChild, updateChild, childValid
   );
 }
 
-function StepNextOfKin({ formData, updateFormData }: any) {
+function StepNextOfKin({ formData, updateFormData, validationErrors }: any) {
   return (
     <div className="space-y-6">
       <div>
@@ -794,19 +884,22 @@ function StepNextOfKin({ formData, updateFormData }: any) {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
-          <input type="text" value={formData.nok_first_name} onChange={(e) => updateFormData('nok_first_name', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter first name" />
+          <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
+          <input type="text" required value={formData.nok_first_name} onChange={(e) => updateFormData('nok_first_name', e.target.value)}
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
+          {validationErrors.nok_first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_first_name}</p>}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
-          <input type="text" value={formData.nok_last_name} onChange={(e) => updateFormData('nok_last_name', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter last name" />
+          <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
+          <input type="text" required value={formData.nok_last_name} onChange={(e) => updateFormData('nok_last_name', e.target.value)}
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
+          {validationErrors.nok_last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_last_name}</p>}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Relationship</label>
-          <input type="text" value={formData.nok_relationship} onChange={(e) => updateFormData('nok_relationship', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="e.g., Son, Daughter, Brother" />
+          <label className="block text-sm font-medium text-gray-700 mb-2">Relationship <span className="text-red-500">*</span></label>
+          <input type="text" required value={formData.nok_relationship} onChange={(e) => updateFormData('nok_relationship', e.target.value)}
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_relationship ? 'border-red-500' : 'border-gray-300'}`} placeholder="e.g., Son, Daughter, Brother" />
+          {validationErrors.nok_relationship && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_relationship}</p>}
         </div>
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1</label>
@@ -829,14 +922,15 @@ function StepNextOfKin({ formData, updateFormData }: any) {
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter postcode" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone</label>
-          <input type="tel" value={formData.nok_mobile} onChange={(e) => updateFormData('nok_mobile', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter mobile number" />
+          <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone <span className="text-red-500">*</span></label>
+          <input type="tel" required value={formData.nok_mobile} onChange={(e) => updateFormData('nok_mobile', e.target.value)}
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_mobile ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter mobile number" />
+          {validationErrors.nok_mobile && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_mobile}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Home Phone</label>
           <input type="tel" value={formData.nok_phone} onChange={(e) => updateFormData('nok_phone', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter home phone" />
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-emerald-500 focus:border-emerald-500" placeholder="Enter home phone" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
@@ -981,7 +1075,7 @@ function StepDocuments({ formData, updateFormData }: any) {
   );
 }
 
-function StepDeclarations({ formData, updateFormData }: any) {
+function StepDeclarations({ formData, updateFormData, validationErrors }: any) {
   return (
     <div className="space-y-6">
       <div>
@@ -990,7 +1084,7 @@ function StepDeclarations({ formData, updateFormData }: any) {
       </div>
       <div className="space-y-4">
         <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-          <h3 className="font-medium text-gray-900 mb-3">Agreement Signatures</h3>
+          <h3 className="font-medium text-gray-900 mb-3">Agreement Signatures <span className="text-red-500">*</span></h3>
           <div className="space-y-2">
             <label className="flex items-start">
               <input type="checkbox" checked={formData.agreement_sig_1}
@@ -1000,21 +1094,25 @@ function StepDeclarations({ formData, updateFormData }: any) {
                 Main member agrees to the terms and conditions of the funeral service
               </span>
             </label>
+            {validationErrors.agreement_sig_1 && <p className="text-red-500 text-xs mt-1 ml-6">{validationErrors.agreement_sig_1}</p>}
             {formData.app_type === 'joint' && (
-              <label className="flex items-start">
-                <input type="checkbox" checked={formData.agreement_sig_2}
-                  onChange={(e) => updateFormData('agreement_sig_2', e.target.checked)}
-                  className="h-4 w-4 mt-1 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
-                <span className="ml-2 text-sm text-gray-700">
-                  Joint member agrees to the terms and conditions of the funeral service
-                </span>
-              </label>
+              <>
+                <label className="flex items-start">
+                  <input type="checkbox" checked={formData.agreement_sig_2}
+                    onChange={(e) => updateFormData('agreement_sig_2', e.target.checked)}
+                    className="h-4 w-4 mt-1 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
+                  <span className="ml-2 text-sm text-gray-700">
+                    Joint member agrees to the terms and conditions of the funeral service
+                  </span>
+                </label>
+                {validationErrors.agreement_sig_2 && <p className="text-red-500 text-xs mt-1 ml-6">{validationErrors.agreement_sig_2}</p>}
+              </>
             )}
           </div>
         </div>
 
         <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-          <h3 className="font-medium text-gray-900 mb-3">Funding Signatures</h3>
+          <h3 className="font-medium text-gray-900 mb-3">Funding Signatures <span className="text-red-500">*</span></h3>
           <div className="space-y-2">
             <label className="flex items-start">
               <input type="checkbox" checked={formData.funding_sig_1}
@@ -1024,21 +1122,25 @@ function StepDeclarations({ formData, updateFormData }: any) {
                 Main member acknowledges the funding requirements
               </span>
             </label>
+            {validationErrors.funding_sig_1 && <p className="text-red-500 text-xs mt-1 ml-6">{validationErrors.funding_sig_1}</p>}
             {formData.app_type === 'joint' && (
-              <label className="flex items-start">
-                <input type="checkbox" checked={formData.funding_sig_2}
-                  onChange={(e) => updateFormData('funding_sig_2', e.target.checked)}
-                  className="h-4 w-4 mt-1 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
-                <span className="ml-2 text-sm text-gray-700">
-                  Joint member acknowledges the funding requirements
-                </span>
-              </label>
+              <>
+                <label className="flex items-start">
+                  <input type="checkbox" checked={formData.funding_sig_2}
+                    onChange={(e) => updateFormData('funding_sig_2', e.target.checked)}
+                    className="h-4 w-4 mt-1 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
+                  <span className="ml-2 text-sm text-gray-700">
+                    Joint member acknowledges the funding requirements
+                  </span>
+                </label>
+                {validationErrors.funding_sig_2 && <p className="text-red-500 text-xs mt-1 ml-6">{validationErrors.funding_sig_2}</p>}
+              </>
             )}
           </div>
         </div>
 
         <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-          <h3 className="font-medium text-gray-900 mb-3">Declaration Signatures</h3>
+          <h3 className="font-medium text-gray-900 mb-3">Declaration Signatures <span className="text-red-500">*</span></h3>
           <div className="space-y-2">
             <label className="flex items-start">
               <input type="checkbox" checked={formData.declaration_sig_1}
@@ -1048,15 +1150,19 @@ function StepDeclarations({ formData, updateFormData }: any) {
                 Main member declares all information provided is accurate
               </span>
             </label>
+            {validationErrors.declaration_sig_1 && <p className="text-red-500 text-xs mt-1 ml-6">{validationErrors.declaration_sig_1}</p>}
             {formData.app_type === 'joint' && (
-              <label className="flex items-start">
-                <input type="checkbox" checked={formData.declaration_sig_2}
-                  onChange={(e) => updateFormData('declaration_sig_2', e.target.checked)}
-                  className="h-4 w-4 mt-1 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
-                <span className="ml-2 text-sm text-gray-700">
-                  Joint member declares all information provided is accurate
-                </span>
-              </label>
+              <>
+                <label className="flex items-start">
+                  <input type="checkbox" checked={formData.declaration_sig_2}
+                    onChange={(e) => updateFormData('declaration_sig_2', e.target.checked)}
+                    className="h-4 w-4 mt-1 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
+                  <span className="ml-2 text-sm text-gray-700">
+                    Joint member declares all information provided is accurate
+                  </span>
+                </label>
+                {validationErrors.declaration_sig_2 && <p className="text-red-500 text-xs mt-1 ml-6">{validationErrors.declaration_sig_2}</p>}
+              </>
             )}
           </div>
         </div>
@@ -1065,7 +1171,7 @@ function StepDeclarations({ formData, updateFormData }: any) {
   );
 }
 
-function StepPayment({ formData, updateFormData }: any) {
+function StepPayment({ formData, updateFormData, validationErrors }: any) {
   return (
     <div className="space-y-6">
       <div>
@@ -1104,7 +1210,7 @@ function StepPayment({ formData, updateFormData }: any) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">Payment Method</label>
+        <label className="block text-sm font-medium text-gray-700 mb-3">Payment Method <span className="text-red-500">*</span></label>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button type="button" onClick={() => updateFormData('payment_method', 'cash')}
             className={`p-4 rounded-lg border-2 transition-all ${formData.payment_method === 'cash' ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300'}`}>
@@ -1128,6 +1234,7 @@ function StepPayment({ formData, updateFormData }: any) {
             </div>
           </button>
         </div>
+        {validationErrors.payment_method && <p className="text-red-500 text-xs mt-2">{validationErrors.payment_method}</p>}
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
