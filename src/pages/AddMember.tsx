@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import DateInput from '../components/DateInput';
+import { useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRight,
