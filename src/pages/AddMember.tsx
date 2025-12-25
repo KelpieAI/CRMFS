@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import DateInput from '../components/DateInput';
-import { useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRight,
@@ -97,10 +96,17 @@ interface FormData {
 
 export default function AddMember() {
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(0);
+  const location = useLocation();
+  const savedApplication = location.state?.savedApplication;
+
+  const [currentStep, setCurrentStep] = useState(savedApplication?.current_step || 0);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [childValidationErrors, setChildValidationErrors] = useState<Record<number, Record<string, string>>>({});
-  const [formData, setFormData] = useState<FormData>({
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
+  const [applicationReference, setApplicationReference] = useState<string | null>(savedApplication?.application_reference || null);
+  
+  const [formData, setFormData] = useState<FormData>(savedApplication?.form_data || {
     app_type: 'single',
     title: '',
     first_name: '',
@@ -271,6 +277,73 @@ export default function AddMember() {
       navigate(`/members/${memberId}`);
     },
   });
+
+  const saveProgressMutation = useMutation({
+    mutationFn: async () => {
+      setIsSaving(true);
+      
+      // Check if this is an update or new save
+      if (applicationReference) {
+        // Update existing
+        const { error } = await supabase
+          .from('applications_in_progress')
+          .update({
+            form_data: formData,
+            current_step: currentStep,
+            app_type: formData.app_type,
+            main_first_name: formData.first_name,
+            main_last_name: formData.last_name,
+            main_email: formData.email,
+            main_mobile: formData.mobile,
+            joint_first_name: formData.joint_first_name,
+            joint_last_name: formData.joint_last_name,
+          })
+          .eq('application_reference', applicationReference);
+        
+        if (error) throw error;
+        return applicationReference;
+      } else {
+        // Create new
+        const { data, error } = await supabase
+          .from('applications_in_progress')
+          .insert({
+            form_data: formData,
+            current_step: currentStep,
+            app_type: formData.app_type,
+            main_first_name: formData.first_name,
+            main_last_name: formData.last_name,
+            main_email: formData.email,
+            main_mobile: formData.mobile,
+            joint_first_name: formData.joint_first_name,
+            joint_last_name: formData.joint_last_name,
+            status: 'in_progress',
+          })
+          .select('application_reference')
+          .single();
+        
+        if (error) throw error;
+        return data.application_reference;
+      }
+    },
+    onSuccess: (reference) => {
+      setApplicationReference(reference);
+      setSaveMessage(`✓ Progress saved! Reference: ${reference}`);
+      setIsSaving(false);
+      
+      // Clear message after 3 seconds
+      setTimeout(() => setSaveMessage(''), 3000);
+    },
+    onError: (error) => {
+      console.error('Save error:', error);
+      setSaveMessage('✗ Failed to save progress');
+      setIsSaving(false);
+      setTimeout(() => setSaveMessage(''), 3000);
+    },
+  });
+
+  const handleSaveProgress = () => {
+    saveProgressMutation.mutate();
+  };
 
   const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'GP Details', 'Medical Info', 'Documents', 'Declarations', 'Payment'];
 
@@ -528,12 +601,44 @@ export default function AddMember() {
       </div>
 
       <div className="flex justify-between items-center bg-white rounded-xl shadow-md border border-gray-200 p-6">
-        <button onClick={handleBack} disabled={currentStep === 0}
-          className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Back
-        </button>
+        <div className="flex items-center gap-4">
+          <button onClick={handleBack} disabled={currentStep === 0}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+            <ArrowLeft className="h-4 w-4 mr-2" /> Back
+          </button>
+          
+          <button
+            onClick={handleSaveProgress}
+            disabled={isSaving || !formData.first_name || !formData.last_name}
+            className="inline-flex items-center px-4 py-2 border-2 border-emerald-600 text-emerald-600 rounded-lg text-sm font-medium hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                </svg>
+                Save Progress
+              </>
+            )}
+          </button>
+        </div>
 
-        <span className="text-sm text-gray-600">Step {currentVisibleStepIndex + 1} of {visibleSteps.length}</span>
+        <div className="flex flex-col items-center">
+          <span className="text-sm text-gray-600">Step {currentVisibleStepIndex + 1} of {visibleSteps.length}</span>
+          {saveMessage && (
+            <span className={`text-xs mt-1 ${saveMessage.includes('✓') ? 'text-green-600' : 'text-red-600'}`}>
+              {saveMessage}
+            </span>
+          )}
+          {applicationReference && (
+            <span className="text-xs text-gray-500 mt-1">Ref: {applicationReference}</span>
+          )}
+        </div>
 
         {currentStep < steps.length - 1 ? (
           <button onClick={handleNext}
@@ -1000,7 +1105,11 @@ function StepMedicalInfo({ formData, updateFormData }: any) {
       </div>
       <div className="space-y-6">
         <div>
-          <h3 className="font-medium text-gray-900 mb-3">Main Member</h3>
+          <h3 className="font-medium text-gray-900 mb-3">
+            {formData.first_name && formData.last_name 
+              ? `${formData.first_name} ${formData.last_name}` 
+              : 'Main Member'}
+          </h3>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Disclaimer</label>
@@ -1017,7 +1126,11 @@ function StepMedicalInfo({ formData, updateFormData }: any) {
 
         {formData.app_type === 'joint' && (
           <div>
-            <h3 className="font-medium text-gray-900 mb-3">Joint Member</h3>
+            <h3 className="font-medium text-gray-900 mb-3">
+              {formData.joint_first_name && formData.joint_last_name 
+                ? `${formData.joint_first_name} ${formData.joint_last_name}` 
+                : 'Joint Member'}
+            </h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Disclaimer</label>
@@ -1077,6 +1190,13 @@ function StepDocuments({ formData, updateFormData }: any) {
 }
 
 function StepDeclarations({ formData, updateFormData, validationErrors }: any) {
+  const mainName = formData.first_name && formData.last_name 
+    ? `${formData.first_name} ${formData.last_name}` 
+    : 'Main member';
+  const jointName = formData.joint_first_name && formData.joint_last_name 
+    ? `${formData.joint_first_name} ${formData.joint_last_name}` 
+    : 'Joint member';
+
   return (
     <div className="space-y-6">
       <div>
@@ -1092,7 +1212,7 @@ function StepDeclarations({ formData, updateFormData, validationErrors }: any) {
                 onChange={(e) => updateFormData('agreement_sig_1', e.target.checked)}
                 className="h-4 w-4 mt-1 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
               <span className="ml-2 text-sm text-gray-700">
-                Main member agrees to the terms and conditions of the funeral service
+                <strong>{mainName}</strong> agrees to the terms and conditions of the funeral service
               </span>
             </label>
             {validationErrors.agreement_sig_1 && <p className="text-red-500 text-xs mt-1 ml-6">{validationErrors.agreement_sig_1}</p>}
@@ -1103,7 +1223,7 @@ function StepDeclarations({ formData, updateFormData, validationErrors }: any) {
                     onChange={(e) => updateFormData('agreement_sig_2', e.target.checked)}
                     className="h-4 w-4 mt-1 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
                   <span className="ml-2 text-sm text-gray-700">
-                    Joint member agrees to the terms and conditions of the funeral service
+                    <strong>{jointName}</strong> agrees to the terms and conditions of the funeral service
                   </span>
                 </label>
                 {validationErrors.agreement_sig_2 && <p className="text-red-500 text-xs mt-1 ml-6">{validationErrors.agreement_sig_2}</p>}
@@ -1120,7 +1240,7 @@ function StepDeclarations({ formData, updateFormData, validationErrors }: any) {
                 onChange={(e) => updateFormData('funding_sig_1', e.target.checked)}
                 className="h-4 w-4 mt-1 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
               <span className="ml-2 text-sm text-gray-700">
-                Main member acknowledges the funding requirements
+                <strong>{mainName}</strong> acknowledges the funding requirements
               </span>
             </label>
             {validationErrors.funding_sig_1 && <p className="text-red-500 text-xs mt-1 ml-6">{validationErrors.funding_sig_1}</p>}
@@ -1131,7 +1251,7 @@ function StepDeclarations({ formData, updateFormData, validationErrors }: any) {
                     onChange={(e) => updateFormData('funding_sig_2', e.target.checked)}
                     className="h-4 w-4 mt-1 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
                   <span className="ml-2 text-sm text-gray-700">
-                    Joint member acknowledges the funding requirements
+                    <strong>{jointName}</strong> acknowledges the funding requirements
                   </span>
                 </label>
                 {validationErrors.funding_sig_2 && <p className="text-red-500 text-xs mt-1 ml-6">{validationErrors.funding_sig_2}</p>}
@@ -1148,7 +1268,7 @@ function StepDeclarations({ formData, updateFormData, validationErrors }: any) {
                 onChange={(e) => updateFormData('declaration_sig_1', e.target.checked)}
                 className="h-4 w-4 mt-1 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
               <span className="ml-2 text-sm text-gray-700">
-                Main member declares all information provided is accurate
+                <strong>{mainName}</strong> declares all information provided is accurate
               </span>
             </label>
             {validationErrors.declaration_sig_1 && <p className="text-red-500 text-xs mt-1 ml-6">{validationErrors.declaration_sig_1}</p>}
@@ -1159,7 +1279,7 @@ function StepDeclarations({ formData, updateFormData, validationErrors }: any) {
                     onChange={(e) => updateFormData('declaration_sig_2', e.target.checked)}
                     className="h-4 w-4 mt-1 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
                   <span className="ml-2 text-sm text-gray-700">
-                    Joint member declares all information provided is accurate
+                    <strong>{jointName}</strong> declares all information provided is accurate
                   </span>
                 </label>
                 {validationErrors.declaration_sig_2 && <p className="text-red-500 text-xs mt-1 ml-6">{validationErrors.declaration_sig_2}</p>}
@@ -1173,6 +1293,13 @@ function StepDeclarations({ formData, updateFormData, validationErrors }: any) {
 }
 
 function StepPayment({ formData, updateFormData, validationErrors }: any) {
+  const mainName = formData.first_name && formData.last_name 
+    ? `${formData.first_name} ${formData.last_name}` 
+    : 'Main Member';
+  const jointName = formData.joint_first_name && formData.joint_last_name 
+    ? `${formData.joint_first_name} ${formData.joint_last_name}` 
+    : 'Joint Member';
+
   return (
     <div className="space-y-6">
       <div>
@@ -1184,21 +1311,21 @@ function StepPayment({ formData, updateFormData, validationErrors }: any) {
         <h3 className="font-semibold text-emerald-900 mb-4">Fee Breakdown</h3>
         <div className="space-y-3">
           <div className="flex justify-between items-center pb-2 border-b border-emerald-200">
-            <span className="text-gray-700">Main Member - Joining Fee</span>
+            <span className="text-gray-700">{mainName} - Joining Fee</span>
             <span className="font-semibold text-gray-900">£{formData.main_joining_fee.toFixed(2)}</span>
           </div>
           <div className="flex justify-between items-center pb-2 border-b border-emerald-200">
-            <span className="text-gray-700">Main Member - Membership Fee</span>
+            <span className="text-gray-700">{mainName} - Membership Fee</span>
             <span className="font-semibold text-gray-900">£{formData.main_membership_fee.toFixed(2)}</span>
           </div>
           {formData.app_type === 'joint' && (
             <>
               <div className="flex justify-between items-center pb-2 border-b border-emerald-200">
-                <span className="text-gray-700">Joint Member - Joining Fee</span>
+                <span className="text-gray-700">{jointName} - Joining Fee</span>
                 <span className="font-semibold text-gray-900">£{formData.joint_joining_fee.toFixed(2)}</span>
               </div>
               <div className="flex justify-between items-center pb-2 border-b border-emerald-200">
-                <span className="text-gray-700">Joint Member - Membership Fee</span>
+                <span className="text-gray-700">{jointName} - Membership Fee</span>
                 <span className="font-semibold text-gray-900">£{formData.joint_membership_fee.toFixed(2)}</span>
               </div>
             </>
