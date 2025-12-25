@@ -100,6 +100,7 @@ export default function AddMember() {
   const savedApplication = location.state?.savedApplication;
 
   const [currentStep, setCurrentStep] = useState(savedApplication?.current_step || 0);
+  const [highestStepReached, setHighestStepReached] = useState(savedApplication?.current_step || 0);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [childValidationErrors, setChildValidationErrors] = useState<Record<number, Record<string, string>>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -216,6 +217,15 @@ export default function AddMember() {
       (formData.app_type === 'joint' ? formData.joint_joining_fee + formData.joint_membership_fee : 0);
     setFormData((prev) => ({ ...prev, total_amount: total }));
   }, [formData.main_joining_fee, formData.main_membership_fee, formData.joint_joining_fee, formData.joint_membership_fee, formData.app_type]);
+
+  useEffect(() => {
+    if (formData.app_type === 'single' && currentStep === 2) {
+      setCurrentStep(3);
+    }
+    if (formData.app_type === 'single' && highestStepReached === 2) {
+      setHighestStepReached(3);
+    }
+  }, [formData.app_type, currentStep, highestStepReached]);
 
   const submitMutation = useMutation({
     mutationFn: async () => {
@@ -485,11 +495,15 @@ export default function AddMember() {
     setValidationErrors({});
     setChildValidationErrors({});
 
+    let nextStep: number;
     if (currentStep === 1 && formData.app_type === 'single') {
-      setCurrentStep(3);
+      nextStep = 3;
     } else {
-      setCurrentStep((prev: number) => Math.min(prev + 1, steps.length - 1));
+      nextStep = Math.min(currentStep + 1, steps.length - 1);
     }
+
+    setCurrentStep(nextStep);
+    setHighestStepReached((prev: number) => Math.max(prev, nextStep));
   };
 
   const handleBack = () => {
@@ -566,7 +580,8 @@ export default function AddMember() {
             const Icon = visibleStepIcons[visualIndex];
             const isActive = actualIndex === currentStep;
             const isCompleted = actualIndex < currentStep;
-            const isClickable = isCompleted || isActive;
+            const isAccessible = actualIndex <= highestStepReached;
+            const isClickable = isAccessible;
 
             const handleStepClick = () => {
               if (isClickable) {
@@ -583,21 +598,20 @@ export default function AddMember() {
                     type="button"
                     onClick={handleStepClick}
                     disabled={!isClickable}
-                    className={`relative flex items-center justify-center w-14 h-14 rounded-full border-2 transition-all duration-300 ${
+                    className={`relative flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-300 ${
                       isActive
-                        ? 'border-emerald-600 bg-emerald-600 text-white shadow-lg shadow-emerald-200 scale-110'
+                        ? 'border-emerald-600 bg-emerald-600 text-white shadow-lg shadow-emerald-300 ring-2 ring-emerald-300 ring-offset-2'
                         : isCompleted
                         ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:border-emerald-700 hover:shadow-md cursor-pointer'
+                        : isAccessible
+                        ? 'border-emerald-400 bg-white text-emerald-600 hover:bg-emerald-50 cursor-pointer'
                         : 'border-gray-300 bg-white text-gray-400 cursor-not-allowed'
-                    } ${isClickable && !isActive ? 'hover:scale-105' : ''}`}
+                    }`}
                   >
-                    {isCompleted ? <Check className="h-6 w-6" /> : <Icon className="h-6 w-6" />}
-                    {isActive && (
-                      <div className="absolute inset-0 rounded-full border-2 border-emerald-400 animate-pulse"></div>
-                    )}
+                    {isCompleted ? <Check className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
                   </button>
-                  <span className={`mt-3 text-xs font-medium text-center max-w-[80px] leading-tight transition-colors duration-300 ${
-                    isActive ? 'text-emerald-600 font-semibold' : isCompleted ? 'text-emerald-700' : 'text-gray-500'
+                  <span className={`mt-2 text-xs font-medium text-center max-w-[80px] leading-tight transition-colors duration-300 ${
+                    isActive ? 'text-emerald-600 font-semibold' : isCompleted ? 'text-emerald-700' : isAccessible ? 'text-emerald-600' : 'text-gray-500'
                   }`}>
                     {step}
                   </span>
