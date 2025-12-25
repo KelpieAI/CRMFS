@@ -16,8 +16,8 @@ import {
   CheckSquare,
   CreditCard,
   Loader2,
-  X,
   Plus,
+  Trash2,
 } from 'lucide-react';
 
 const stepIcons = [Users, User, Users, Baby, Heart, Stethoscope, FileText, Upload, CheckSquare, CreditCard];
@@ -684,6 +684,8 @@ function StepJointMember({ formData, updateFormData }: any) {
 }
 
 function StepChildren({ formData, addChild, removeChild, updateChild, childValidationErrors }: any) {
+  const today = new Date().toISOString().split('T')[0];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -711,7 +713,7 @@ function StepChildren({ formData, addChild, removeChild, updateChild, childValid
               <div key={index} className="p-4 border border-gray-200 rounded-lg bg-gray-50 relative">
                 <button type="button" onClick={() => removeChild(index)}
                   className="absolute top-3 right-3 p-1 text-red-600 hover:bg-red-50 rounded">
-                  <X className="h-5 w-5" />
+                  <Trash2 className="h-5 w-5" />
                 </button>
                 <h3 className="font-medium text-gray-900 mb-3">Child {index + 1}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -729,7 +731,7 @@ function StepChildren({ formData, addChild, removeChild, updateChild, childValid
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth <span className="text-red-500">*</span></label>
-                    <input type="date" required value={child.dob} onChange={(e) => updateChild(index, 'dob', e.target.value)}
+                    <input type="date" required value={child.dob} max={today} onChange={(e) => updateChild(index, 'dob', e.target.value)}
                       className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.dob ? 'border-red-500' : 'border-gray-300'}`} />
                     {errors.dob && <p className="text-red-500 text-xs mt-1">{errors.dob}</p>}
                   </div>
