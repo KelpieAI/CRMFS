@@ -407,6 +407,7 @@ export default function MemberDetail() {
               isEditing={isEditing}
               updateChild={updateChild}
               removeChild={removeChild}
+              calculateAge={calculateAge}
             />
           )}
           {activeTab === 'nok' && (
@@ -690,7 +691,7 @@ function JointMemberTab({ jointMember, age, isEditing, updateField }: any) {
   );
 }
 
-function ChildrenTab({ children, isEditing, updateChild, removeChild }: any) {
+function ChildrenTab({ children, isEditing, updateChild, removeChild, calculateAge }: any) {
   const today = new Date().toISOString().split('T')[0];
 
   if (!children || children.length === 0) {
@@ -704,51 +705,56 @@ function ChildrenTab({ children, isEditing, updateChild, removeChild }: any) {
 
   return (
     <div className="space-y-4">
-      {children.map((child: any, index: number) => (
-        <div key={child.id || index} className="border border-gray-200 rounded-lg p-4 bg-gray-50 relative">
-          {isEditing && (
-            <button
-              onClick={() => removeChild?.(index)}
-              className="absolute top-3 right-3 p-1 text-red-600 hover:bg-red-50 rounded"
-              title="Remove child"
-            >
-              <Trash2 className="h-5 w-5" />
-            </button>
-          )}
-          <h3 className="font-semibold text-gray-900 mb-3">Child {index + 1}</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <EditableField
-              label="First Name"
-              value={child.first_name}
-              isEditing={isEditing}
-              onChange={(value: any) => updateChild?.(index, 'first_name', value)}
-            />
-            <EditableField
-              label="Last Name"
-              value={child.last_name}
-              isEditing={isEditing}
-              onChange={(value: any) => updateChild?.(index, 'last_name', value)}
-            />
-            <EditableField
-              label="Date of Birth"
-              value={child.dob}
-              displayValue={child.dob ? new Date(child.dob).toLocaleDateString() : 'N/A'}
-              isEditing={isEditing}
-              type="date"
-              max={today}
-              onChange={(value: any) => updateChild?.(index, 'dob', value)}
-            />
-            <EditableField
-              label="Relation"
-              value={child.relation}
-              isEditing={isEditing}
-              type="select"
-              options={['son', 'daughter', 'stepson', 'stepdaughter']}
-              onChange={(value: any) => updateChild?.(index, 'relation', value)}
-            />
+      {children.map((child: any, index: number) => {
+        const childAge = child.dob ? calculateAge(child.dob) : 0;
+
+        return (
+          <div key={child.id || index} className="border border-gray-200 rounded-lg p-4 bg-gray-50 relative">
+            {isEditing && (
+              <button
+                onClick={() => removeChild?.(index)}
+                className="absolute top-3 right-3 p-1 text-red-600 hover:bg-red-50 rounded"
+                title="Remove child"
+              >
+                <Trash2 className="h-5 w-5" />
+              </button>
+            )}
+            <h3 className="font-semibold text-gray-900 mb-3">Child {index + 1}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <EditableField
+                label="First Name"
+                value={child.first_name}
+                isEditing={isEditing}
+                onChange={(value: any) => updateChild?.(index, 'first_name', value)}
+              />
+              <EditableField
+                label="Last Name"
+                value={child.last_name}
+                isEditing={isEditing}
+                onChange={(value: any) => updateChild?.(index, 'last_name', value)}
+              />
+              <EditableField
+                label="Date of Birth"
+                value={child.dob}
+                displayValue={child.dob ? new Date(child.dob).toLocaleDateString() : 'N/A'}
+                isEditing={isEditing}
+                type="date"
+                max={today}
+                onChange={(value: any) => updateChild?.(index, 'dob', value)}
+              />
+              <InfoField label="Current Age" value={child.dob ? `${childAge} years old` : 'N/A'} highlight />
+              <EditableField
+                label="Relation"
+                value={child.relation}
+                isEditing={isEditing}
+                type="select"
+                options={['son', 'daughter', 'stepson', 'stepdaughter']}
+                onChange={(value: any) => updateChild?.(index, 'relation', value)}
+              />
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
