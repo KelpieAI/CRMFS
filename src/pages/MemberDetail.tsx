@@ -381,7 +381,6 @@ export default function MemberDetail() {
           <ActivityLogTab memberId={id!} />
         )}
 
-        {/* Payments and Activity tabs will use existing components */}
         {!['personal', 'joint', 'children', 'nok', 'medical', 'gp', 'declarations', 'documents', 'payments', 'activity'].includes(activeTab) && (
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <p className="text-gray-500">Content for {activeTab} tab coming soon...</p>
