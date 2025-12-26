@@ -827,3 +827,488 @@ function DeclarationsTab({ declarations }: any) {
     </div>
   );
 }
+
+// Children Tab Component
+function ChildrenTab({ children, memberId }: any) {
+  const queryClient = useQueryClient();
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingChild, setEditingChild] = useState<any>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+
+  const deleteChildMutation = useMutation({
+    mutationFn: async (childId: string) => {
+      const { error } = await supabase
+        .from('children')
+        .delete()
+        .eq('id', childId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+      setShowDeleteConfirm(null);
+    },
+  });
+
+  if (children.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="text-center py-8">
+          <Baby className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+          <p className="text-gray-500 font-medium">No children registered</p>
+          <p className="text-sm text-gray-400 mt-1 mb-4">
+            Add children to this membership
+          </p>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            <Baby className="h-4 w-4 mr-2" />
+            Add Child
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header with Add Button */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">
+          Children ({children.length})
+        </h3>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="inline-flex items-center px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+        >
+          <Baby className="h-4 w-4 mr-1" />
+          Add Child
+        </button>
+      </div>
+
+      {/* Children List */}
+      <div className="space-y-3">
+        {children.map((child: any) => {
+          const age = child.dob
+            ? Math.floor(
+                (new Date().getTime() - new Date(child.dob).getTime()) /
+                  (365.25 * 24 * 60 * 60 * 1000)
+              )
+            : null;
+
+          return (
+            <div
+              key={child.id}
+              className="bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <h4 className="text-base font-semibold text-gray-900">
+                      {child.first_name} {child.last_name}
+                    </h4>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                      {child.gender || 'N/A'}
+                    </span>
+                    {age !== null && (
+                      <span className="text-sm text-gray-500">
+                        {age} year{age !== 1 ? 's' : ''} old
+                      </span>
+                    )}
+                  </div>
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                    <div>
+                      <dt className="text-xs text-gray-500">Date of Birth</dt>
+                      <dd className="text-gray-900">
+                        {child.dob
+                          ? new Date(child.dob).toLocaleDateString()
+                          : 'N/A'}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+                <div className="flex items-center space-x-2 ml-4">
+                  <button
+                    onClick={() => setEditingChild(child)}
+                    className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                    title="Edit"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirm(child.id)}
+                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Modals would go here - placeholder for now */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold mb-4">Add Child</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Child add/edit modal to be implemented
+            </p>
+            <button
+              onClick={() => setShowAddModal(false)}
+              className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <ConfirmModal
+          title="Delete Child"
+          message="Are you sure you want to remove this child from the membership?"
+          confirmText="Delete"
+          confirmColor="red"
+          onConfirm={() => deleteChildMutation.mutate(showDeleteConfirm)}
+          onCancel={() => setShowDeleteConfirm(null)}
+          isLoading={deleteChildMutation.isPending}
+        />
+      )}
+    </div>
+  );
+}
+
+// Next of Kin Tab Component
+function NextOfKinTab({ nextOfKin, memberId }: any) {
+  const queryClient = useQueryClient();
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingContact, setEditingContact] = useState<any>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+
+  const deleteContactMutation = useMutation({
+    mutationFn: async (contactId: string) => {
+      const { error } = await supabase
+        .from('next_of_kin')
+        .delete()
+        .eq('id', contactId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+      setShowDeleteConfirm(null);
+    },
+  });
+
+  if (nextOfKin.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="text-center py-8">
+          <Heart className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+          <p className="text-gray-500 font-medium">No emergency contacts</p>
+          <p className="text-sm text-gray-400 mt-1 mb-4">
+            Add emergency contacts for this member
+          </p>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            <Heart className="h-4 w-4 mr-2" />
+            Add Contact
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header with Add Button */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">
+          Emergency Contacts ({nextOfKin.length})
+        </h3>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="inline-flex items-center px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+        >
+          <Heart className="h-4 w-4 mr-1" />
+          Add Contact
+        </button>
+      </div>
+
+      {/* Contacts List */}
+      <div className="space-y-3">
+        {nextOfKin.map((contact: any, index: number) => (
+          <div
+            key={contact.id}
+            className="bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors"
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center space-x-2 mb-2">
+                  <h4 className="text-base font-semibold text-gray-900">
+                    {contact.name}
+                  </h4>
+                  {index === 0 && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">
+                      Primary
+                    </span>
+                  )}
+                </div>
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                  <div>
+                    <dt className="text-xs text-gray-500">Relationship</dt>
+                    <dd className="text-gray-900 capitalize">
+                      {contact.relationship || 'N/A'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-gray-500">Phone</dt>
+                    <dd className="text-gray-900">{contact.phone || 'N/A'}</dd>
+                  </div>
+                  <div className="col-span-2">
+                    <dt className="text-xs text-gray-500">Email</dt>
+                    <dd className="text-gray-900">{contact.email || 'N/A'}</dd>
+                  </div>
+                  {contact.address && (
+                    <div className="col-span-2">
+                      <dt className="text-xs text-gray-500">Address</dt>
+                      <dd className="text-gray-900">{contact.address}</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+              <div className="flex items-center space-x-2 ml-4">
+                <button
+                  onClick={() => setEditingContact(contact)}
+                  className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                  title="Edit"
+                >
+                  <Edit className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(contact.id)}
+                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  title="Delete"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Modals placeholder */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold mb-4">Add Emergency Contact</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Contact add/edit modal to be implemented
+            </p>
+            <button
+              onClick={() => setShowAddModal(false)}
+              className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <ConfirmModal
+          title="Delete Contact"
+          message="Are you sure you want to remove this emergency contact?"
+          confirmText="Delete"
+          confirmColor="red"
+          onConfirm={() => deleteContactMutation.mutate(showDeleteConfirm)}
+          onCancel={() => setShowDeleteConfirm(null)}
+          isLoading={deleteContactMutation.isPending}
+        />
+      )}
+    </div>
+  );
+}
+
+// Medical Info Tab Component
+function MedicalInfoTab({ medicalInfo, memberId }: any) {
+  const queryClient = useQueryClient();
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingInfo, setEditingInfo] = useState<any>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+
+  const deleteInfoMutation = useMutation({
+    mutationFn: async (infoId: string) => {
+      const { error } = await supabase
+        .from('medical_info')
+        .delete()
+        .eq('id', infoId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+      setShowDeleteConfirm(null);
+    },
+  });
+
+  // Group by type
+  const conditions = medicalInfo.filter((m: any) => m.type === 'condition');
+  const allergies = medicalInfo.filter((m: any) => m.type === 'allergy');
+  const medications = medicalInfo.filter((m: any) => m.type === 'medication');
+
+  if (medicalInfo.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="text-center py-8">
+          <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+          <p className="text-gray-500 font-medium">No medical information</p>
+          <p className="text-sm text-gray-400 mt-1 mb-4">
+            Add medical conditions, allergies, or medications
+          </p>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Add Information
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const MedicalSection = ({ title, items, color }: any) => {
+    if (items.length === 0) return null;
+
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">{title}</h3>
+        <ul className="space-y-2">
+          {items.map((item: any) => (
+            <li
+              key={item.id}
+              className="flex items-start justify-between py-2 border-b border-gray-100 last:border-0"
+            >
+              <div className="flex-1">
+                <div className="flex items-center space-x-2">
+                  <span className={`w-2 h-2 rounded-full ${color}`}></span>
+                  <p className="text-sm font-medium text-gray-900">
+                    {item.description}
+                  </p>
+                </div>
+                {item.notes && (
+                  <p className="text-xs text-gray-500 mt-1 ml-4">{item.notes}</p>
+                )}
+              </div>
+              <div className="flex items-center space-x-2 ml-4">
+                <button
+                  onClick={() => setEditingInfo(item)}
+                  className="p-1 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                  title="Edit"
+                >
+                  <Edit className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(item.id)}
+                  className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  title="Delete"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header with Add Button */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">
+          Medical Information ({medicalInfo.length})
+        </h3>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="inline-flex items-center px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+        >
+          <FileText className="h-4 w-4 mr-1" />
+          Add Information
+        </button>
+      </div>
+
+      {/* Sections */}
+      <MedicalSection
+        title="Conditions"
+        items={conditions}
+        color="bg-blue-500"
+      />
+      <MedicalSection
+        title="Allergies"
+        items={allergies}
+        color="bg-red-500"
+      />
+      <MedicalSection
+        title="Medications"
+        items={medications}
+        color="bg-green-500"
+      />
+
+      {/* Modals placeholder */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold mb-4">Add Medical Information</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Medical info add/edit modal to be implemented
+            </p>
+            <button
+              onClick={() => setShowAddModal(false)}
+              className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <ConfirmModal
+          title="Delete Medical Information"
+          message="Are you sure you want to remove this medical information?"
+          confirmText="Delete"
+          confirmColor="red"
+          onConfirm={() => deleteInfoMutation.mutate(showDeleteConfirm)}
+          onCancel={() => setShowDeleteConfirm(null)}
+          isLoading={deleteInfoMutation.isPending}
+        />
+      )}
+    </div>
+  );
+}
+
+// Documents Tab Component (Simple placeholder)
+function DocumentsTab({ documents, memberId }: any) {
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="text-center py-8">
+        <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+        <p className="text-gray-500 font-medium">Document Management</p>
+        <p className="text-sm text-gray-400 mt-1">
+          File upload functionality to be implemented
+        </p>
+        <p className="text-xs text-gray-400 mt-2">
+          {documents.length} document{documents.length !== 1 ? 's' : ''} recorded
+        </p>
+      </div>
+    </div>
+  );
+}
