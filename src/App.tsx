@@ -52,7 +52,7 @@ function App() {
                   <Route path="members/:id" element={<MemberDetail />} />
                   <Route path="payments" element={<Payments />} />
                   <Route path="reports" element={<Reports />} />
-                  <Route path="deceased" element={<DeceasedMembers />} />
+                  <Route path="/deceased" element={<DeceasedMembers />} />
                   <Route path="registration-success" element={<RegistrationSuccess />} />
                 </Route>
 
