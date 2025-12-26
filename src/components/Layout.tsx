@@ -28,6 +28,7 @@ export default function Layout() {
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Members', href: '/members', icon: Users },
     { name: 'Payments', href: '/payments', icon: CreditCard },
+    { name: 'Deceased', to: '/deceased', icon: Skull },
     { name: 'Reports', href: '/reports', icon: FileText },
   ];
 
