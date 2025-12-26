@@ -1344,3 +1344,103 @@ function DocumentsTab({ documents, memberId }: any) {
     </div>
   );
 }
+
+function PaymentsTab({ payments, memberId }: any) {
+  const totalPaid = payments
+    .filter((p: any) => p.payment_status === 'completed')
+    .reduce((sum: number, p: any) => sum + Number(p.total_amount), 0);
+
+  const pendingAmount = payments
+    .filter((p: any) => p.payment_status === 'pending')
+    .reduce((sum: number, p: any) => sum + Number(p.total_amount), 0);
+
+  if (payments.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="text-center py-8">
+          <CreditCard className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+          <p className="text-gray-500 font-medium">No payments recorded</p>
+          <p className="text-sm text-gray-400 mt-1">
+            Payment history will appear here
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="flex items-center space-x-2 mb-1">
+            <PoundSterling className="h-4 w-4 text-green-600" />
+            <p className="text-xs text-gray-500 font-medium">Total Paid</p>
+          </div>
+          <p className="text-2xl font-bold text-green-600">£{totalPaid.toFixed(2)}</p>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="flex items-center space-x-2 mb-1">
+            <AlertTriangle className="h-4 w-4 text-yellow-600" />
+            <p className="text-xs text-gray-500 font-medium">Pending</p>
+          </div>
+          <p className="text-2xl font-bold text-yellow-600">£{pendingAmount.toFixed(2)}</p>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="flex items-center space-x-2 mb-1">
+            <CreditCard className="h-4 w-4 text-blue-600" />
+            <p className="text-xs text-gray-500 font-medium">Total Payments</p>
+          </div>
+          <p className="text-2xl font-bold text-blue-600">{payments.length}</p>
+        </div>
+      </div>
+
+      {/* Payments List */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+          <h3 className="text-sm font-semibold text-gray-900">Payment History</h3>
+        </div>
+        <div className="divide-y divide-gray-200">
+          {payments.map((payment: any) => (
+            <div key={payment.id} className="p-4 hover:bg-gray-50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2 mb-1">
+                    <span className="text-sm font-semibold text-gray-900">
+                      £{Number(payment.total_amount).toFixed(2)}
+                    </span>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                        payment.payment_status === 'completed'
+                          ? 'bg-green-100 text-green-800'
+                          : payment.payment_status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}
+                    >
+                      {payment.payment_status}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-4 text-sm text-gray-500">
+                    <span className="capitalize">{payment.payment_type}</span>
+                    <span>•</span>
+                    <span className="capitalize">{payment.payment_method}</span>
+                    <span>•</span>
+                    <span>
+                      {new Date(payment.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  {payment.notes && (
+                    <p className="text-xs text-gray-500 mt-1">{payment.notes}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
