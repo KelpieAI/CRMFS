@@ -71,7 +71,7 @@ This CRM serves the death committee's operational needs by:
   - Total revenue
 - **Applications In Progress** - Shows saved registrations
 - **Upcoming Renewals** (30-day advance warning):
-  - Color-coded urgency (Red: ≤7 days, Orange: 8-14 days, Yellow: 15-30 days)
+  - Colour-coded urgency (Red: ≤7 days, Orange: 8–14 days, Yellow: 15–30 days)
   - Automatic anniversary calculation
   - Direct links to member profiles
 - Recent member activity feed
@@ -83,7 +83,7 @@ This CRM serves the death committee's operational needs by:
 - Empty states with helpful guidance
 - Error boundaries for graceful failure handling
 - Custom 404 page
-- Islamic-themed color scheme (emerald green + gold)
+- Islamic-themed colour scheme (emerald green + gold)
 - Professional Montserrat typography
 
 ### 📈 Reports (Basic)
@@ -219,54 +219,49 @@ All tables include Row Level Security (RLS) policies for data protection.
 ### Local Development
 
 1. **Clone the repository**
-   ```bash
+   bash
    git clone https://github.com/yourusername/CRMFS.git
    cd CRMFS
-   ```
 
 2. **Install dependencies**
-   ```bash
+   bash
    npm install
-   ```
 
 3. **Configure environment variables**
-   ```bash
+   bash
    # Create .env file
    VITE_SUPABASE_URL=your_supabase_url
    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
 
 4. **Run development server**
-   ```bash
+   bash
    npm run dev
-   ```
 
 5. **Build for production**
-   ```bash
+   bash
    npm run build
-   ```
 
 ### Database Setup
 
-1. Create a Supabase project
-2. Run the provided SQL schema (see `/supabase` directory)
-3. Configure Row Level Security policies
-4. Set up authentication provider
-5. Update environment variables
+1. Create a Supabase project  
+2. Run the provided SQL schema (see `/supabase` directory)  
+3. Configure Row Level Security policies  
+4. Set up authentication provider  
+5. Update environment variables  
 
 ---
 
-## 🎨 Customization
+## 🎨 Customisation
 
 ### Branding
-The system uses Falkirk Central Mosque's color scheme:
+The system uses Falkirk Central Mosque's colour scheme:
 - **Primary:** Emerald Green (#10b981) - Islamic tradition
-- **Secondary:** Gold (#eab308) - Accent color
+- **Secondary:** Gold (#eab308) - Accent colour
 - **Font:** Montserrat - Modern, readable typography
 
 ### Theme Modification
 1. **Font**: Update `src/index.css` and `tailwind.config.js`
-2. **Colors**: Find & replace color classes (e.g., `emerald` → `blue`)
+2. **Colours**: Find & replace colour classes (e.g., `emerald` → `blue`)
 3. **Logo**: Replace in `src/components/Layout.tsx`
 
 See `STYLING_GUIDE.md` for detailed instructions.
@@ -286,37 +281,37 @@ See `STYLING_GUIDE.md` for detailed instructions.
 
 ## 🤝 Contributing
 
-This is a private project developed by Kelpie AI for Falkirk Central Mosque. For inquiries about similar projects or custom development:
+This is a private project developed by Kelpie AI for Falkirk Central Mosque. For enquiries about similar projects or custom development:
 
 **Contact:** [Kelpie AI](https://kelpieai.co.uk)  
-**Email:** info@kelpieai.co.uk
-**Phone:** +447984 058973
+**Email:** info@kelpieai.co.uk  
+**Phone:** +447984 058973  
 **Location:** Falkirk, Scotland
 
 ---
 
-## 📄 License
+## 📄 Licence
 
 This project is proprietary software developed for Falkirk Central Mosque. All rights reserved.
 
-Unauthorized copying, modification, distribution, or use of this software is strictly prohibited without explicit written permission from Kelpie AI.
+Unauthorised copying, modification, distribution, or use of this software is strictly prohibited without explicit written permission from Kelpie AI.
 
 ---
 
-## 🙏 Acknowledgments
+## 🙏 Acknowledgements
 
-- **Falkirk Central Mosque** - For the opportunity and requirements
-- **Central Region Muslim Funeral Service** - For subject matter expertise
-- **Supabase** - For the excellent backend platform
-- **React Community** - For the robust ecosystem
+- **Falkirk Central Mosque** - For the opportunity and requirements  
+- **Central Region Muslim Funeral Service** - For subject matter expertise  
+- **Supabase** - For the excellent backend platform  
+- **React Community** - For the robust ecosystem  
 
 ---
 
 ## 📞 Support
 
 For technical support or feature requests:
-- Open an issue in this repository
-- Contact Kelpie AI: info@kelpieai.co.uk
+- Open an issue in this repository  
+- Contact Kelpie AI: info@kelpieai.co.uk  
 - Visit: [kelpieai.co.uk](https://kelpieai.co.uk)
 
 ---
@@ -357,7 +352,7 @@ This system handles sensitive personal data. Security measures include:
 
 ## 🎯 Goals
 
-**Mission:** Modernize and streamline the administrative operations of Central Region Muslim Funeral Service, enabling the committee to focus on serving the community rather than managing paperwork.
+**Mission:** Modernise and streamline the administrative operations of Central Region Muslim Funeral Service, enabling the committee to focus on serving the community rather than managing paperwork.
 
 **Vision:** A fully integrated, automated system that handles member lifecycle management, financial tracking, and community engagement—setting the standard for mosque administrative systems in Scotland.
 
