@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import {
-  Skull,
+  FileHeart,
   Search,
   Filter,
   Calendar,
@@ -141,7 +141,7 @@ export default function DeceasedMembers() {
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0 rounded-lg p-3 bg-gray-100">
-                <Skull className="h-6 w-6 text-gray-600" />
+                <FileHeart className="h-6 w-6 text-gray-600" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
@@ -365,7 +365,7 @@ export default function DeceasedMembers() {
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center">
                     <div className="text-gray-500">
-                      <Skull className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                      <FileHeart className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                       <p className="text-lg font-medium">No deceased members found</p>
                       <p className="text-sm mt-1">
                         {searchTerm || statusFilter !== 'all' || dateFilter !== 'all'
