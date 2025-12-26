@@ -12,6 +12,7 @@ import MemberDetail from './pages/MemberDetail';
 import AddMember from './pages/AddMember';
 import Payments from './pages/Payments';
 import Reports from './pages/Reports';
+import DeceasedMembers from './pages/DeceasedMembers';
 import RegistrationSuccess from './pages/RegistrationSuccess';
 import NotFound from './pages/NotFound';
 
