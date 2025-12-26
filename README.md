@@ -289,7 +289,8 @@ See `STYLING_GUIDE.md` for detailed instructions.
 This is a private project developed by Kelpie AI for Falkirk Central Mosque. For inquiries about similar projects or custom development:
 
 **Contact:** [Kelpie AI](https://kelpieai.co.uk)  
-**Email:** hello@kelpieai.co.uk  
+**Email:** info@kelpieai.co.uk
+**Phone:** +447984 058973
 **Location:** Falkirk, Scotland
 
 ---
@@ -315,7 +316,7 @@ Unauthorized copying, modification, distribution, or use of this software is str
 
 For technical support or feature requests:
 - Open an issue in this repository
-- Contact Kelpie AI: hello@kelpieai.co.uk
+- Contact Kelpie AI: info@kelpieai.co.uk
 - Visit: [kelpieai.co.uk](https://kelpieai.co.uk)
 
 ---
