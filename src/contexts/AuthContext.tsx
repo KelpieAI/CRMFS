@@ -30,15 +30,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = async (userId: string) => {
     try {
-      console.log('Fetching profile for user:', userId);
-      
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
-
-      console.log('Profile fetch result:', { data, error });
 
       if (error) {
         console.error('Error fetching profile:', error);
@@ -64,46 +60,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    console.log('AuthProvider mounted - checking session...');
-    
     let isMounted = true;
 
-    // TEMPORARY: Force clear all sessions on first load
-    const forceReset = async () => {
-      const hasReset = localStorage.getItem('auth_force_reset');
-      
-      if (!hasReset) {
-        console.log('🔥 FORCE RESET: Clearing all auth sessions...');
-        
-        // Sign out from Supabase
-        await supabase.auth.signOut();
-        
-        // Clear all storage
-        localStorage.clear();
-        sessionStorage.clear();
-        
-        // Mark as reset
-        localStorage.setItem('auth_force_reset', 'true');
-        
-        console.log('✅ Force reset complete! Reloading...');
-        
-        // Reload page
-        window.location.reload();
-        return true;
-      }
-      
-      return false;
-    };
-
     const checkSession = async () => {
-      // Check if we need to force reset
-      const didReset = await forceReset();
-      if (didReset) return;
-
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        
-        console.log('Session check result:', { session: !!session, error });
         
         if (!isMounted) return;
 
@@ -138,8 +99,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, !!session);
-      
       if (!isMounted) return;
 
       setUser(session?.user ?? null);
@@ -161,29 +120,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      console.log('Signing out...');
-      
-      // Clear the force reset flag
-      localStorage.removeItem('auth_force_reset');
-      
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        console.error('Sign out error:', error);
-      }
-      
+      await supabase.auth.signOut();
       setUser(null);
       setProfile(null);
-      
-      // Clear all storage
-      localStorage.clear();
-      sessionStorage.clear();
-      
-      // Force redirect to login
       window.location.href = '/login';
     } catch (err) {
       console.error('Sign out exception:', err);
-      // Force redirect anyway
       window.location.href = '/login';
     }
   };
