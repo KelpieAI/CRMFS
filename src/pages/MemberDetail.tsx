@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import CompactLayout from '../components/CompactLayout';
 import MemberSubNav from '../components/MemberSubNav';
+import { ProfileHeaderSkeleton, FormSkeleton } from '../components/SkeletonComponents';
 import {
   ArrowLeft,
   User,
@@ -169,8 +170,9 @@ export default function MemberDetail() {
   if (isLoading) {
     return (
       <CompactLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-600"></div>
+        <div className="space-y-4">
+          <ProfileHeaderSkeleton />
+          <FormSkeleton />
         </div>
       </CompactLayout>
     );

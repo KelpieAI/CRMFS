@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import ApplicationsInProgress from '../components/ApplicationsInProgress';
+import { StatsGridSkeleton } from '../components/SkeletonComponents';
 import {
   Users,
   UserCheck,
@@ -156,8 +157,16 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+            <p className="mt-1 text-sm text-gray-600">
+              Welcome back! Here's what's happening today.
+            </p>
+          </div>
+        </div>
+        <StatsGridSkeleton />
       </div>
     );
   }

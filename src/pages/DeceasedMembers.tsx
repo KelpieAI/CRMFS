@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { TableSkeleton } from '../components/SkeletonComponents';
 import {
   FileHeart,
   Search,
@@ -114,8 +115,16 @@ export default function DeceasedMembers() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-600"></div>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Deceased Members</h1>
+            <p className="mt-1 text-sm text-gray-600">
+              إِنَّا لِلَّٰهِ وَإِنَّا إِلَيْهِ رَاجِعُونَ - Surely we belong to Allah and to Him we shall return
+            </p>
+          </div>
+        </div>
+        <TableSkeleton rows={6} />
       </div>
     );
   }

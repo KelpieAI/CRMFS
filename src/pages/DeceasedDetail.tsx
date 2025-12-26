@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { ProfileHeaderSkeleton, FormSkeleton } from '../components/SkeletonComponents';
 import {
   ArrowLeft,
   FileHeart,
@@ -149,8 +150,9 @@ export default function DeceasedDetail() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-600"></div>
+      <div className="space-y-6">
+        <ProfileHeaderSkeleton />
+        <FormSkeleton />
       </div>
     );
   }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { StatsGridSkeleton } from '../components/SkeletonComponents';
 import {
   FileText,
   Users,
@@ -41,8 +42,19 @@ export default function Reports() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Reports & Analytics</h1>
+            <p className="mt-1 text-sm text-gray-600">
+              Comprehensive insights into membership and financials
+            </p>
+          </div>
+        </div>
+        <StatsGridSkeleton />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <StatsGridSkeleton />
+        </div>
       </div>
     );
   }
