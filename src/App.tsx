@@ -32,6 +32,7 @@ function App() {
         <BrowserRouter>
           <ToastProvider>
             <Routes>
+              <CommandPalette />
               {/* All Routes - No Auth */}
               <Route path="/" element={<CompactLayout />}>
                 <Route index element={<Dashboard />} />
