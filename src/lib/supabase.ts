@@ -294,3 +294,27 @@ export interface FuneralChecklist {
   notes?: string;
   created_at: string;
 }
+
+export interface ActivityLog {
+  id: string;
+  member_id: string;
+  user_id?: string;
+  user_email?: string;
+  user_name?: string;
+  action_type: 'created' | 'updated' | 'deleted' | 'status_changed' | 
+                'payment_received' | 'payment_recorded' | 'document_uploaded' | 
+                'document_deleted' | 'marked_deceased' | 'funeral_arranged' |
+                'expense_added' | 'contact_added' | 'checklist_completed' |
+                'note_added' | 'member_edited';
+  entity_type: 'member' | 'joint_member' | 'child' | 'next_of_kin' | 
+               'payment' | 'document' | 'gp_details' | 'medical_info' |
+               'deceased_record' | 'funeral_expense' | 'funeral_payment' |
+               'funeral_contact' | 'funeral_checklist' | 'declaration';
+  entity_id?: string;
+  description: string;
+  old_values?: any;
+  new_values?: any;
+  ip_address?: string;
+  user_agent?: string;
+  created_at: string;
+}
