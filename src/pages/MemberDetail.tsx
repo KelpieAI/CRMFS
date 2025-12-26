@@ -1596,3 +1596,514 @@ function ActivityLogTab({ memberId }: any) {
     </div>
   );
 }
+
+interface ChildModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  memberId: string;
+  child?: any;
+}
+
+function ChildModal({ isOpen, onClose, memberId, child }: ChildModalProps) {
+  const queryClient = useQueryClient();
+  const [formData, setFormData] = useState({
+    first_name: child?.first_name || '',
+    last_name: child?.last_name || '',
+    dob: child?.dob || '',
+    gender: child?.gender || '',
+  });
+  const [errors, setErrors] = useState<any>({});
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (child) {
+        const { error } = await supabase
+          .from('children')
+          .update(data)
+          .eq('id', child.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('children')
+          .insert({ ...data, member_id: memberId });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+      onClose();
+    },
+  });
+
+  const validate = () => {
+    const newErrors: any = {};
+    if (!formData.first_name.trim()) newErrors.first_name = 'First name is required';
+    if (!formData.last_name.trim()) newErrors.last_name = 'Last name is required';
+    if (!formData.dob) newErrors.dob = 'Date of birth is required';
+    if (!formData.gender) newErrors.gender = 'Gender is required';
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (validate()) {
+      saveMutation.mutate(formData);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-in zoom-in-95 duration-200">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {child ? 'Edit Child' : 'Add Child'}
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              First Name *
+            </label>
+            <input
+              type="text"
+              value={formData.first_name}
+              onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                errors.first_name ? 'border-red-300' : 'border-gray-300'
+              }`}
+              autoFocus
+            />
+            {errors.first_name && (
+              <p className="text-xs text-red-600 mt-1">{errors.first_name}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Last Name *
+            </label>
+            <input
+              type="text"
+              value={formData.last_name}
+              onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                errors.last_name ? 'border-red-300' : 'border-gray-300'
+              }`}
+            />
+            {errors.last_name && (
+              <p className="text-xs text-red-600 mt-1">{errors.last_name}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date of Birth *
+            </label>
+            <input
+              type="date"
+              value={formData.dob}
+              onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                errors.dob ? 'border-red-300' : 'border-gray-300'
+              }`}
+            />
+            {errors.dob && (
+              <p className="text-xs text-red-600 mt-1">{errors.dob}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Gender *
+            </label>
+            <select
+              value={formData.gender}
+              onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                errors.gender ? 'border-red-300' : 'border-gray-300'
+              }`}
+            >
+              <option value="">Select gender</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+            {errors.gender && (
+              <p className="text-xs text-red-600 mt-1">{errors.gender}</p>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saveMutation.isPending ? (
+                <span className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </span>
+              ) : (
+                child ? 'Update Child' : 'Add Child'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Next of Kin Modal Component
+interface NextOfKinModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  memberId: string;
+  contact?: any;
+}
+
+function NextOfKinModal({ isOpen, onClose, memberId, contact }: NextOfKinModalProps) {
+  const queryClient = useQueryClient();
+  const [formData, setFormData] = useState({
+    name: contact?.name || '',
+    relationship: contact?.relationship || '',
+    phone: contact?.phone || '',
+    email: contact?.email || '',
+    address: contact?.address || '',
+  });
+  const [errors, setErrors] = useState<any>({});
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (contact) {
+        const { error } = await supabase
+          .from('next_of_kin')
+          .update(data)
+          .eq('id', contact.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('next_of_kin')
+          .insert({ ...data, member_id: memberId });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+      onClose();
+    },
+  });
+
+  const validate = () => {
+    const newErrors: any = {};
+    if (!formData.name.trim()) newErrors.name = 'Name is required';
+    if (!formData.relationship.trim()) newErrors.relationship = 'Relationship is required';
+    if (!formData.phone.trim()) newErrors.phone = 'Phone is required';
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (validate()) {
+      saveMutation.mutate(formData);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-in zoom-in-95 duration-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {contact ? 'Edit Emergency Contact' : 'Add Emergency Contact'}
+            </h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Name *
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${
+                errors.name ? 'border-red-300' : 'border-gray-300'
+              }`}
+              autoFocus
+            />
+            {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Relationship *
+            </label>
+            <select
+              value={formData.relationship}
+              onChange={(e) => setFormData({ ...formData, relationship: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${
+                errors.relationship ? 'border-red-300' : 'border-gray-300'
+              }`}
+            >
+              <option value="">Select relationship</option>
+              <option value="spouse">Spouse</option>
+              <option value="parent">Parent</option>
+              <option value="child">Child</option>
+              <option value="sibling">Sibling</option>
+              <option value="friend">Friend</option>
+              <option value="other">Other</option>
+            </select>
+            {errors.relationship && <p className="text-xs text-red-600 mt-1">{errors.relationship}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Phone *
+            </label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${
+                errors.phone ? 'border-red-300' : 'border-gray-300'
+              }`}
+            />
+            {errors.phone && <p className="text-xs text-red-600 mt-1">{errors.phone}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email
+            </label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Address
+            </label>
+            <textarea
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              rows={3}
+            />
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {saveMutation.isPending ? (
+                <span className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </span>
+              ) : (
+                contact ? 'Update Contact' : 'Add Contact'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Medical Info Modal Component
+interface MedicalInfoModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  memberId: string;
+  info?: any;
+}
+
+function MedicalInfoModal({ isOpen, onClose, memberId, info }: MedicalInfoModalProps) {
+  const queryClient = useQueryClient();
+  const [formData, setFormData] = useState({
+    type: info?.type || 'condition',
+    description: info?.description || '',
+    notes: info?.notes || '',
+  });
+  const [errors, setErrors] = useState<any>({});
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (info) {
+        const { error } = await supabase
+          .from('medical_info')
+          .update(data)
+          .eq('id', info.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('medical_info')
+          .insert({ ...data, member_id: memberId });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+      onClose();
+    },
+  });
+
+  const validate = () => {
+    const newErrors: any = {};
+    if (!formData.type) newErrors.type = 'Type is required';
+    if (!formData.description.trim()) newErrors.description = 'Description is required';
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (validate()) {
+      saveMutation.mutate(formData);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-in zoom-in-95 duration-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {info ? 'Edit Medical Information' : 'Add Medical Information'}
+            </h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Type *
+            </label>
+            <select
+              value={formData.type}
+              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${
+                errors.type ? 'border-red-300' : 'border-gray-300'
+              }`}
+              autoFocus
+            >
+              <option value="condition">Condition</option>
+              <option value="allergy">Allergy</option>
+              <option value="medication">Medication</option>
+            </select>
+            {errors.type && <p className="text-xs text-red-600 mt-1">{errors.type}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Description *
+            </label>
+            <input
+              type="text"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${
+                errors.description ? 'border-red-300' : 'border-gray-300'
+              }`}
+              placeholder="e.g., Diabetes Type 2"
+            />
+            {errors.description && <p className="text-xs text-red-600 mt-1">{errors.description}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Notes
+            </label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              rows={3}
+              placeholder="Additional details..."
+            />
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {saveMutation.isPending ? (
+                <span className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </span>
+              ) : (
+                info ? 'Update Information' : 'Add Information'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
