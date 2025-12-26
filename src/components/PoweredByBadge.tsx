@@ -4,8 +4,7 @@ export default function PoweredByBadge() {
   const [version, setVersion] = useState('0.1.5.0');
 
   useEffect(() => {
-    // Get the build number from environment variable (set during build)
-    const buildNumber = import.meta.env.VITE_BUILD_NUMBER || '0';
+    const buildNumber = import.meta.env.VITE_BUILD_NUMBER || '65';
     setVersion(`0.1.5.${buildNumber}`);
   }, []);
 
