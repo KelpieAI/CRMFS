@@ -14,15 +14,14 @@ if (!supabaseUrl.includes('fkpwibismkewrezgchbq')) {
   throw new Error('❌ CRITICAL: Wrong Supabase project! URL should contain "fkpwibismkewrezgchbq"');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-console.log('✅ Supabase connected to:', supabaseUrl.substring(0, 30) + '...');
-
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
-    autoRefreshToken; true,
+    autoRefreshToken: true,
   },
 });
+
+console.log('✅ Supabase connected to:', supabaseUrl.substring(0, 30) + '...');
 
 // Database types (based on your schema)
 export interface Member {
@@ -33,6 +32,7 @@ export interface Member {
   last_name: string;
   dob?: string;
   member_since?: string;
+  join_date?: string;
   address_line_1?: string;
   town?: string;
   city?: string;
@@ -108,7 +108,7 @@ export interface Payment {
   payment_date?: string;
   renewal_date?: string;
   join_date?: string;
-  payment_status: 'pending' | 'completed' | 'failed' | 'refunded';
+  payment_status: 'pending' | 'completed' | 'failed' | 'refunded' | 'overdue';
   reference_no?: string;
   processed_by?: string;
   notes?: string;
