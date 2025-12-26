@@ -983,6 +983,12 @@ function ChildrenTab({ children, memberId }: any) {
 
       {/* Modals would go here - placeholder for now */}
       {showAddModal && (
+        <ChildModal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          memberId={memberId}
+        />
+      )}
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <h3 className="text-lg font-semibold mb-4">Add Child</h3>
