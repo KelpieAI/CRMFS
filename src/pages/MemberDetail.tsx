@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { useNavigate } from 'react-router-dom';  // Add to existing react-router-dom import
+import { useNavigate } from 'react-router-dom';
+import { Activity } from 'lucide-react';
 import {
   ArrowLeft,
   User,
