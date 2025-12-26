@@ -33,6 +33,10 @@ export default function MemberDetail() {
   const [activeTab, setActiveTab] = useState('personal');
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState<any>(null);
+  const navigate = useNavigate();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDeceasedConfirm, setShowDeceasedConfirm] = useState(false);
+  const [showPauseConfirm, setShowPauseConfirm] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch member with all related data
