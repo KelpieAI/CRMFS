@@ -1,48 +1,39 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { useNavigate } from 'react-router-dom';
-import { Activity } from 'lucide-react';
+import CompactLayout from '../components/CompactLayout';
+import MemberSubNav from '../components/MemberSubNav';
 import {
   ArrowLeft,
   User,
   Users,
   Baby,
   Heart,
-  Stethoscope,
-  FileText,
-  Upload,
-  CheckSquare,
-  CreditCard,
-  Mail,
-  Phone,
-  MapPin,
   Calendar,
+  Phone,
+  Mail,
+  MapPin,
   Edit,
   Save,
   X,
   Trash2,
   Pause,
-  Skull,
-  History,
+  CreditCard,
   AlertTriangle,
-  Clock,
   PoundSterling,
-  AlertCircle,
-  CheckCircle,
 } from 'lucide-react';
 
 export default function MemberDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('personal');
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState<any>(null);
-  const navigate = useNavigate();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDeceasedConfirm, setShowDeceasedConfirm] = useState(false);
   const [showPauseConfirm, setShowPauseConfirm] = useState(false);
-  const queryClient = useQueryClient();
 
   // Fetch member with all related data
   const { data: memberData, isLoading } = useQuery({
@@ -86,51 +77,11 @@ export default function MemberDetail() {
 
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
-      const updates = [];
-
-      if (data.member) {
-        updates.push(
-          supabase.from('members').update(data.member).eq('id', id)
-        );
-      }
-
-      if (data.jointMember && memberData?.jointMember) {
-        updates.push(
-          supabase.from('joint_members').update(data.jointMember).eq('member_id', id)
-        );
-      }
-
-      if (data.nextOfKin && memberData?.nextOfKin?.[0]) {
-        updates.push(
-          supabase.from('next_of_kin').update(data.nextOfKin).eq('member_id', id)
-        );
-      }
-
-      if (data.gpDetails && memberData?.gpDetails) {
-        updates.push(
-          supabase.from('gp_details').update(data.gpDetails).eq('member_id', id)
-        );
-      }
-
-      if (data.children) {
-        for (const child of data.children) {
-          if (child.id) {
-            updates.push(
-              supabase.from('children').update(child).eq('id', child.id)
-            );
-          }
-        }
-      }
-
-      if (data.deletedChildren && data.deletedChildren.length > 0) {
-        for (const childId of data.deletedChildren) {
-          updates.push(
-            supabase.from('children').delete().eq('id', childId)
-          );
-        }
-      }
-
-      await Promise.all(updates);
+      const { error } = await supabase
+        .from('members')
+        .update(data)
+        .eq('id', id);
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['member-detail', id] });
@@ -139,10 +90,9 @@ export default function MemberDetail() {
     },
   });
 
-  // Delete member mutation
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      // Delete in reverse order of dependencies
+      // Delete all related records first
       await Promise.all([
         supabase.from('payments').delete().eq('member_id', id),
         supabase.from('documents').delete().eq('member_id', id),
@@ -153,8 +103,8 @@ export default function MemberDetail() {
         supabase.from('children').delete().eq('member_id', id),
         supabase.from('joint_members').delete().eq('member_id', id),
       ]);
-
-      // Finally delete the member
+      
+      // Then delete member
       const { error } = await supabase.from('members').delete().eq('id', id);
       if (error) throw error;
     },
@@ -163,7 +113,6 @@ export default function MemberDetail() {
     },
   });
 
-  // Mark as deceased mutation
   const markDeceasedMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
@@ -178,7 +127,6 @@ export default function MemberDetail() {
     },
   });
 
-  // Pause membership mutation
   const pauseMembershipMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
@@ -194,14 +142,7 @@ export default function MemberDetail() {
   });
 
   const handleEdit = () => {
-    setEditedData({
-      member: { ...memberData?.member },
-      jointMember: memberData?.jointMember ? { ...memberData.jointMember } : null,
-      nextOfKin: memberData?.nextOfKin?.[0] ? { ...memberData.nextOfKin[0] } : null,
-      gpDetails: memberData?.gpDetails ? { ...memberData.gpDetails } : null,
-      children: memberData?.children ? memberData.children.map((child: any) => ({ ...child })) : [],
-      deletedChildren: [],
-    });
+    setEditedData({ ...memberData?.member });
     setIsEditing(true);
   };
 
@@ -214,50 +155,15 @@ export default function MemberDetail() {
     setEditedData(null);
   };
 
-  const updateField = (section: string, field: string, value: any) => {
-    setEditedData((prev: any) => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value,
-      },
-    }));
+  const updateField = (field: string, value: any) => {
+    setEditedData((prev: any) => ({ ...prev, [field]: value }));
   };
 
-  const updateChild = (childIndex: number, field: string, value: any) => {
-    setEditedData((prev: any) => {
-      const updatedChildren = [...prev.children];
-      updatedChildren[childIndex] = {
-        ...updatedChildren[childIndex],
-        [field]: value,
-      };
-      return {
-        ...prev,
-        children: updatedChildren,
-      };
-    });
-  };
-
-  const removeChild = (childIndex: number) => {
-    setEditedData((prev: any) => {
-      const childToRemove = prev.children[childIndex];
-      const updatedChildren = prev.children.filter((_: any, index: number) => index !== childIndex);
-      const updatedDeletedChildren = childToRemove.id
-        ? [...prev.deletedChildren, childToRemove.id]
-        : prev.deletedChildren;
-
-      return {
-        ...prev,
-        children: updatedChildren,
-        deletedChildren: updatedDeletedChildren,
-      };
-    });
-  };
-
-  const calculateAge = (dob: string): number => {
-    if (!dob) return 0;
-    const birthDate = new Date(dob);
+  // Calculate age
+  const calculateAge = (dob: string) => {
+    if (!dob) return null;
     const today = new Date();
+    const birthDate = new Date(dob);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
@@ -266,98 +172,103 @@ export default function MemberDetail() {
     return age;
   };
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      active: 'bg-green-100 text-green-800 border-green-200',
-      pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      inactive: 'bg-gray-100 text-gray-800 border-gray-200',
-      deceased: 'bg-red-100 text-red-800 border-red-200',
-    };
-
-    return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${styles[status as keyof typeof styles] || styles.inactive}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
-  };
-
-  const tabs = [
-    { id: 'personal', label: 'Personal Info', icon: User },
-    { id: 'joint', label: 'Joint Member', icon: Users, show: memberData?.member?.app_type === 'joint' },
-    { id: 'children', label: 'Children', icon: Baby, count: memberData?.children?.length },
-    { id: 'nok', label: 'Next of Kin', icon: Heart },
-    { id: 'gp', label: 'GP Details', icon: Stethoscope },
-    { id: 'medical', label: 'Medical Info', icon: FileText },
-    { id: 'documents', label: 'Documents', icon: Upload, count: memberData?.documents?.length },
-    { id: 'declarations', label: 'Declarations', icon: CheckSquare },
-    { id: 'payments', label: 'Payments', icon: CreditCard, count: memberData?.payments?.length },
-    { id: 'activity', label: 'Activity Log', icon: Activity },
-  ];
+  // Calculate total paid
+  const totalPaid = memberData?.payments
+    ?.filter((p: any) => p.payment_status === 'completed')
+    .reduce((sum: number, p: any) => sum + Number(p.total_amount), 0) || 0;
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
-      </div>
+      <CompactLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-600"></div>
+        </div>
+      </CompactLayout>
     );
   }
 
   if (!memberData?.member) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">Member not found</p>
-      </div>
+      <CompactLayout>
+        <div className="text-center py-12">
+          <p className="text-gray-500">Member not found</p>
+        </div>
+      </CompactLayout>
     );
   }
 
-  const { member, jointMember, children, nextOfKin, gpDetails, medicalInfo, documents, declarations, payments } = memberData;
-  const mainAge = calculateAge(member.dob);
-  const jointAge = jointMember?.dob ? calculateAge(jointMember.dob) : null;
+  const { member, jointMember, children, payments } = memberData;
+  const age = calculateAge(member.dob);
 
   return (
-    <div className="space-y-6">
-      {/* Header - COMPLETE REPLACEMENT */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div className="flex items-center space-x-4">
-          <Link to="/members" className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <ArrowLeft className="h-5 w-5 text-gray-600" />
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              {member.title} {member.first_name} {member.last_name}
-            </h1>
-            <p className="text-sm text-gray-600 mt-1">Member ID: {member.id.slice(0, 8)}</p>
+    <CompactLayout
+      showSubNav={true}
+      subNav={
+        <MemberSubNav
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          counts={{
+            children: children.length,
+            documents: memberData.documents.length,
+            payments: payments.length,
+          }}
+          showJointMember={member.app_type === 'joint'}
+        />
+      }
+    >
+      <div className="space-y-4">
+        {/* Compact Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Link
+              to="/members"
+              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5 text-gray-600" />
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {member.title} {member.first_name} {member.last_name}
+                <span className="text-gray-400 mx-2">•</span>
+                <span className="text-base font-normal text-gray-500">{member.status}</span>
+                <span className="text-gray-400 mx-2">•</span>
+                <span className="text-base font-normal text-gray-500 capitalize">{member.app_type}</span>
+                {age && (
+                  <>
+                    <span className="text-gray-400 mx-2">•</span>
+                    <span className="text-base font-normal text-gray-500">{age} years old</span>
+                  </>
+                )}
+              </h1>
+              <p className="text-sm text-gray-500">#{id?.slice(0, 8)}</p>
+            </div>
           </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          {getStatusBadge(member.status)}
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
             {isEditing ? (
               <>
                 <button
                   onClick={handleCancel}
                   disabled={updateMutation.isPending}
-                  className="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
+                  className="inline-flex items-center px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                 >
-                  <X className="h-4 w-4 mr-2" />
+                  <X className="h-4 w-4 mr-1" />
                   Cancel
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={updateMutation.isPending}
-                  className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                  className="inline-flex items-center px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
                 >
                   {updateMutation.isPending ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
                       Saving...
                     </>
                   ) : (
                     <>
-                      <Save className="h-4 w-4 mr-2" />
+                      <Save className="h-4 w-4 mr-1" />
                       Save
                     </>
                   )}
@@ -367,1115 +278,314 @@ export default function MemberDetail() {
               <>
                 <button
                   onClick={handleEdit}
-                  className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                  className="inline-flex items-center px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
                 >
-                  <Edit className="h-4 w-4 mr-2" />
+                  <Edit className="h-4 w-4 mr-1" />
                   <span className="hidden sm:inline">Edit</span>
                 </button>
-
-                {/* View Payment History */}
                 <button
                   onClick={() => setActiveTab('payments')}
-                  className="inline-flex items-center px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
-                  title="View Payment History"
+                  className="inline-flex items-center px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  <History className="h-4 w-4 sm:mr-2" />
+                  <CreditCard className="h-4 w-4 mr-1" />
                   <span className="hidden sm:inline">Payments</span>
                 </button>
-
-                {/* Pause Membership - Only if active */}
                 {member.status === 'active' && (
                   <button
                     onClick={() => setShowPauseConfirm(true)}
-                    className="inline-flex items-center px-3 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors"
-                    title="Pause Membership"
+                    className="inline-flex items-center px-3 py-1.5 text-sm bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
                   >
-                    <Pause className="h-4 w-4 sm:mr-2" />
+                    <Pause className="h-4 w-4 mr-1" />
                     <span className="hidden sm:inline">Pause</span>
                   </button>
                 )}
-
-                {/* Mark as Deceased - Only if not already deceased */}
                 {member.status !== 'deceased' && (
                   <button
                     onClick={() => setShowDeceasedConfirm(true)}
-                    className="inline-flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                    title="Mark as Deceased"
+                    className="inline-flex items-center px-3 py-1.5 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                   >
-                    <Skull className="h-4 w-4 sm:mr-2" />
+                    <Heart className="h-4 w-4 mr-1" />
                     <span className="hidden sm:inline">Deceased</span>
                   </button>
                 )}
-
-                {/* Delete Member */}
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="inline-flex items-center px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
-                  title="Delete Member"
+                  className="inline-flex items-center px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                 >
-                  <Trash2 className="h-4 w-4 sm:mr-2" />
+                  <Trash2 className="h-4 w-4 mr-1" />
                   <span className="hidden sm:inline">Delete</span>
                 </button>
               </>
             )}
           </div>
         </div>
-      </div>
 
-      {/* Quick Info Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-emerald-100 rounded-lg">
-              <User className="h-5 w-5 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Membership Type</p>
-              <p className="text-sm font-semibold text-gray-900">{member.app_type === 'joint' ? 'Joint' : 'Single'}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Calendar className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Current Age</p>
-              <p className="text-sm font-semibold text-gray-900">{mainAge} years old</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-indigo-100 rounded-lg">
-              <Calendar className="h-5 w-5 text-indigo-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Member Since</p>
-              <p className="text-sm font-semibold text-gray-900">
-                {new Date(member.member_since || member.created_at).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-rose-100 rounded-lg">
-              <Phone className="h-5 w-5 text-rose-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Mobile</p>
-              <p className="text-sm font-semibold text-gray-900">{member.mobile || 'N/A'}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-amber-100 rounded-lg">
-              <CreditCard className="h-5 w-5 text-amber-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Total Paid</p>
-              <p className="text-sm font-semibold text-gray-900">
-                £{payments.filter(p => p.payment_status === 'completed').reduce((sum, p) => sum + Number(p.total_amount), 0).toFixed(2)}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-        <div className="border-b border-gray-200 overflow-x-auto">
-          <nav className="flex space-x-1 px-4">
-            {tabs.filter(tab => tab.show !== false).map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center px-4 py-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? 'border-emerald-600 text-emerald-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <Icon className="h-4 w-4 mr-2" />
-                  {tab.label}
-                  {tab.count !== undefined && tab.count > 0 && (
-                    <span className="ml-2 px-2 py-0.5 bg-gray-200 text-gray-700 rounded-full text-xs">
-                      {tab.count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        <div className="p-6">
-          {activeTab === 'personal' && (
-            <PersonalInfoTab
-              member={isEditing ? editedData?.member : member}
-              age={mainAge}
-              isEditing={isEditing}
-              updateField={(field: string, value: any) => updateField('member', field, value)}
-            />
-          )}
-          {activeTab === 'joint' && (
-            <JointMemberTab
-              jointMember={isEditing ? editedData?.jointMember : jointMember}
-              age={jointAge}
-              isEditing={isEditing}
-              updateField={(field: string, value: any) => updateField('jointMember', field, value)}
-            />
-          )}
-          {activeTab === 'children' && (
-            <ChildrenTab
-              children={isEditing ? editedData?.children : children}
-              isEditing={isEditing}
-              updateChild={updateChild}
-              removeChild={removeChild}
-              calculateAge={calculateAge}
-            />
-          )}
-          {activeTab === 'nok' && (
-            <NextOfKinTab
-              nextOfKin={isEditing && editedData?.nextOfKin ? [editedData.nextOfKin] : nextOfKin}
-              isEditing={isEditing}
-              updateField={(field: string, value: any) => updateField('nextOfKin', field, value)}
-            />
-          )}
-          {activeTab === 'gp' && (
-            <GPDetailsTab
-              gpDetails={isEditing ? editedData?.gpDetails : gpDetails}
-              isEditing={isEditing}
-              updateField={(field: string, value: any) => updateField('gpDetails', field, value)}
-            />
-          )}
-          {activeTab === 'medical' && <MedicalInfoTab medicalInfo={medicalInfo} appType={member.app_type} />}
-          {activeTab === 'documents' && <DocumentsTab documents={documents} />}
-          {activeTab === 'declarations' && <DeclarationsTab declarations={declarations} />}
-          {activeTab === 'payments' && <PaymentsTab payments={payments} />}
-          {activeTab === 'activity' && <ActivityLogTab memberId={member.id} />}
-        </div>
-      </div>
-
-      {/* DELETE CONFIRMATION MODAL */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-          <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="p-3 bg-red-100 rounded-full">
-                <AlertTriangle className="h-6 w-6 text-red-600" />
-              </div>
+        {/* Quick Info Bar */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-white rounded-lg border border-gray-200 p-3">
+            <div className="flex items-center space-x-2">
+              <Users className="h-4 w-4 text-gray-400" />
               <div>
-                <h3 className="text-xl font-bold text-gray-900">Delete Member</h3>
-                <p className="text-sm text-gray-600">This action cannot be undone</p>
+                <p className="text-xs text-gray-500">Member Type</p>
+                <p className="text-sm font-semibold text-gray-900 capitalize">{member.app_type}</p>
               </div>
-            </div>
-
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-              <p className="text-sm text-red-800">
-                Are you sure you want to permanently delete <strong>{member.first_name} {member.last_name}</strong>?
-              </p>
-              <p className="text-sm text-red-700 mt-2">
-                This will delete:
-              </p>
-              <ul className="list-disc list-inside text-sm text-red-700 mt-2 space-y-1">
-                <li>All member information</li>
-                <li>Payment records ({payments.length})</li>
-                <li>Documents ({documents.length})</li>
-                <li>Medical information</li>
-                <li>All related data</li>
-              </ul>
-            </div>
-
-            <div className="flex items-center justify-end space-x-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={deleteMutation.isPending}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => deleteMutation.mutate()}
-                disabled={deleteMutation.isPending}
-                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {deleteMutation.isPending ? (
-                  <span className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Deleting...
-                  </span>
-                ) : (
-                  'Delete Permanently'
-                )}
-              </button>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* MARK DECEASED CONFIRMATION MODAL */}
-      {showDeceasedConfirm && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-          <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="p-3 bg-gray-100 rounded-full">
-                <Skull className="h-6 w-6 text-gray-600" />
-              </div>
+          <div className="bg-white rounded-lg border border-gray-200 p-3">
+            <div className="flex items-center space-x-2">
+              <Calendar className="h-4 w-4 text-gray-400" />
               <div>
-                <h3 className="text-xl font-bold text-gray-900">Mark as Deceased</h3>
-                <p className="text-sm text-gray-600">Update member status</p>
+                <p className="text-xs text-gray-500">Age</p>
+                <p className="text-sm font-semibold text-gray-900">{age ? `${age} years` : 'N/A'}</p>
               </div>
-            </div>
-
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-              <p className="text-sm text-gray-800">
-                Mark <strong>{member.first_name} {member.last_name}</strong> as deceased?
-              </p>
-              <p className="text-sm text-gray-600 mt-2">
-                This will change the member status to "Deceased". All member information will be preserved for records.
-              </p>
-            </div>
-
-            <div className="flex items-center justify-end space-x-3">
-              <button
-                onClick={() => setShowDeceasedConfirm(false)}
-                disabled={markDeceasedMutation.isPending}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => markDeceasedMutation.mutate()}
-                disabled={markDeceasedMutation.isPending}
-                className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {markDeceasedMutation.isPending ? (
-                  <span className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Updating...
-                  </span>
-                ) : (
-                  'Mark as Deceased'
-                )}
-              </button>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* PAUSE MEMBERSHIP CONFIRMATION MODAL */}
-      {showPauseConfirm && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-          <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="p-3 bg-yellow-100 rounded-full">
-                <Pause className="h-6 w-6 text-yellow-600" />
-              </div>
+          <div className="bg-white rounded-lg border border-gray-200 p-3">
+            <div className="flex items-center space-x-2">
+              <Calendar className="h-4 w-4 text-gray-400" />
               <div>
-                <h3 className="text-xl font-bold text-gray-900">Pause Membership</h3>
-                <p className="text-sm text-gray-600">Temporarily suspend membership</p>
+                <p className="text-xs text-gray-500">Member Since</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  {member.join_date ? new Date(member.join_date).toLocaleDateString() : 'N/A'}
+                </p>
               </div>
             </div>
+          </div>
 
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-              <p className="text-sm text-yellow-800">
-                Pause membership for <strong>{member.first_name} {member.last_name}</strong>?
-              </p>
-              <p className="text-sm text-yellow-700 mt-2">
-                This will change the member status to "Inactive". You can reactivate the membership later by editing the member and changing the status back to "Active".
-              </p>
-            </div>
-
-            <div className="flex items-center justify-end space-x-3">
-              <button
-                onClick={() => setShowPauseConfirm(false)}
-                disabled={pauseMembershipMutation.isPending}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => pauseMembershipMutation.mutate()}
-                disabled={pauseMembershipMutation.isPending}
-                className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {pauseMembershipMutation.isPending ? (
-                  <span className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Pausing...
-                  </span>
-                ) : (
-                  'Pause Membership'
-                )}
-              </button>
+          <div className="bg-white rounded-lg border border-gray-200 p-3">
+            <div className="flex items-center space-x-2">
+              <PoundSterling className="h-4 w-4 text-gray-400" />
+              <div>
+                <p className="text-xs text-gray-500">Total Paid</p>
+                <p className="text-sm font-semibold text-gray-900">£{totalPaid.toFixed(2)}</p>
+              </div>
             </div>
           </div>
         </div>
-      )}
-    </div>
-  );
-}
 
-// Tab Components
+        {/* Content Area */}
+        {activeTab === 'personal' && (
+          <PersonalInfoTab
+            member={isEditing ? editedData : member}
+            isEditing={isEditing}
+            updateField={updateField}
+          />
+        )}
 
-function PersonalInfoTab({ member, age, isEditing, updateField }: any) {
-  const today = new Date().toISOString().split('T')[0];
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <EditableField
-          label="Title"
-          value={member?.title}
-          isEditing={isEditing}
-          type="select"
-          options={['Mr', 'Mrs', 'Miss', 'Ms', 'Dr']}
-          onChange={(value: any) => updateField?.('title', value)}
-        />
-        <EditableField
-          label="First Name"
-          value={member?.first_name}
-          isEditing={isEditing}
-          onChange={(value: any) => updateField?.('first_name', value)}
-        />
-        <EditableField
-          label="Last Name"
-          value={member?.last_name}
-          isEditing={isEditing}
-          onChange={(value: any) => updateField?.('last_name', value)}
-        />
-        <EditableField
-          label="Date of Birth"
-          value={member?.dob}
-          displayValue={member?.dob ? new Date(member.dob).toLocaleDateString() : 'N/A'}
-          isEditing={isEditing}
-          type="date"
-          max={today}
-          onChange={(value: any) => updateField?.('dob', value)}
-        />
-        <EditableField
-          label="Member Since"
-          value={member?.member_since}
-          displayValue={member?.member_since ? new Date(member.member_since).toLocaleDateString() : (member?.created_at ? new Date(member.created_at).toLocaleDateString() : 'N/A')}
-          isEditing={isEditing}
-          type="date"
-          max={today}
-          onChange={(value: any) => updateField?.('member_since', value)}
-        />
-        <InfoField label="Current Age" value={`${age} years old`} highlight />
-        <EditableField
-          label="Status"
-          value={member?.status}
-          isEditing={isEditing}
-          type="select"
-          options={['active', 'pending', 'inactive', 'deceased']}
-          onChange={(value: any) => updateField?.('status', value)}
-        />
-      </div>
-
-      <div className="border-t border-gray-200 pt-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <EditableField
-            label="Mobile Phone"
-            value={member?.mobile}
-            isEditing={isEditing}
-            icon={Phone}
-            onChange={(value: any) => updateField?.('mobile', value)}
-          />
-          <EditableField
-            label="Home Phone"
-            value={member?.home_phone}
-            isEditing={isEditing}
-            icon={Phone}
-            onChange={(value: any) => updateField?.('home_phone', value)}
-          />
-          <EditableField
-            label="Work Phone"
-            value={member?.work_phone}
-            isEditing={isEditing}
-            icon={Phone}
-            onChange={(value: any) => updateField?.('work_phone', value)}
-          />
-          <EditableField
-            label="Email"
-            value={member?.email}
-            isEditing={isEditing}
-            type="email"
-            icon={Mail}
-            onChange={(value: any) => updateField?.('email', value)}
-          />
-        </div>
-      </div>
-
-      <div className="border-t border-gray-200 pt-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Address</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="md:col-span-2">
-            <EditableField
-              label="Address Line 1"
-              value={member?.address_line_1}
-              isEditing={isEditing}
-              icon={MapPin}
-              onChange={(value: any) => updateField?.('address_line_1', value)}
-            />
+        {/* Other tabs will go here */}
+        {activeTab !== 'personal' && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <p className="text-gray-500">Content for {activeTab} tab coming soon...</p>
           </div>
-          <EditableField
-            label="Town"
-            value={member?.town}
-            isEditing={isEditing}
-            onChange={(value: any) => updateField?.('town', value)}
-          />
-          <EditableField
-            label="City"
-            value={member?.city}
-            isEditing={isEditing}
-            onChange={(value: any) => updateField?.('city', value)}
-          />
-          <EditableField
-            label="Postcode"
-            value={member?.postcode}
-            isEditing={isEditing}
-            onChange={(value: any) => updateField?.('postcode', value)}
-          />
-        </div>
-      </div>
-
-      <div className="border-t border-gray-200 pt-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Notes</h3>
-        {isEditing ? (
-          <textarea
-            value={member?.notes || ''}
-            onChange={(e) => updateField?.('notes', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[100px]"
-            placeholder="Add notes..."
-          />
-        ) : (
-          <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">{member?.notes || 'No notes'}</p>
         )}
       </div>
 
-      <div className="border-t border-gray-200 pt-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Record Information</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <InfoField
-            label="Member Since"
-            value={member?.member_since ? new Date(member.member_since).toLocaleDateString() : 'Not set'}
-          />
-          <InfoField label="Created On" value={new Date(member?.created_at).toLocaleString()} />
-          <InfoField label="Last Updated" value={new Date(member?.updated_at).toLocaleString()} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function JointMemberTab({ jointMember, age, isEditing, updateField }: any) {
-  const today = new Date().toISOString().split('T')[0];
-
-  if (!jointMember) {
-    return (
-      <div className="text-center py-12 text-gray-500">
-        <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-        <p>No joint member information</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <EditableField
-          label="Title"
-          value={jointMember?.title}
-          isEditing={isEditing}
-          type="select"
-          options={['Mr', 'Mrs', 'Miss', 'Ms', 'Dr']}
-          onChange={(value: any) => updateField?.('title', value)}
+      {/* Confirmation Modals */}
+      {showDeleteConfirm && (
+        <ConfirmModal
+          title="Delete Member"
+          message="Are you sure you want to delete this member? This will also delete all related data including payments, documents, and declarations. This action cannot be undone."
+          confirmText="Delete"
+          confirmColor="red"
+          onConfirm={() => deleteMutation.mutate()}
+          onCancel={() => setShowDeleteConfirm(false)}
+          isLoading={deleteMutation.isPending}
         />
-        <EditableField
-          label="First Name"
-          value={jointMember?.first_name}
-          isEditing={isEditing}
-          onChange={(value: any) => updateField?.('first_name', value)}
-        />
-        <EditableField
-          label="Last Name"
-          value={jointMember?.last_name}
-          isEditing={isEditing}
-          onChange={(value: any) => updateField?.('last_name', value)}
-        />
-        <EditableField
-          label="Date of Birth"
-          value={jointMember?.dob}
-          displayValue={jointMember?.dob ? new Date(jointMember.dob).toLocaleDateString() : 'N/A'}
-          isEditing={isEditing}
-          type="date"
-          max={today}
-          onChange={(value: any) => updateField?.('dob', value)}
-        />
-        {age && <InfoField label="Current Age" value={`${age} years old`} highlight />}
-      </div>
-
-      <div className="border-t border-gray-200 pt-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <EditableField
-            label="Mobile Phone"
-            value={jointMember?.mobile}
-            isEditing={isEditing}
-            icon={Phone}
-            onChange={(value: any) => updateField?.('mobile', value)}
-          />
-          <EditableField
-            label="Home Phone"
-            value={jointMember?.home_phone}
-            isEditing={isEditing}
-            icon={Phone}
-            onChange={(value: any) => updateField?.('home_phone', value)}
-          />
-          <EditableField
-            label="Work Phone"
-            value={jointMember?.work_phone}
-            isEditing={isEditing}
-            icon={Phone}
-            onChange={(value: any) => updateField?.('work_phone', value)}
-          />
-          <EditableField
-            label="Email"
-            value={jointMember?.email}
-            isEditing={isEditing}
-            type="email"
-            icon={Mail}
-            onChange={(value: any) => updateField?.('email', value)}
-          />
-        </div>
-      </div>
-
-      <div className="border-t border-gray-200 pt-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Address</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="md:col-span-2">
-            <EditableField
-              label="Address Line 1"
-              value={jointMember?.address_line_1}
-              isEditing={isEditing}
-              icon={MapPin}
-              onChange={(value: any) => updateField?.('address_line_1', value)}
-            />
-          </div>
-          <EditableField
-            label="Town"
-            value={jointMember?.town}
-            isEditing={isEditing}
-            onChange={(value: any) => updateField?.('town', value)}
-          />
-          <EditableField
-            label="City"
-            value={jointMember?.city}
-            isEditing={isEditing}
-            onChange={(value: any) => updateField?.('city', value)}
-          />
-          <EditableField
-            label="Postcode"
-            value={jointMember?.postcode}
-            isEditing={isEditing}
-            onChange={(value: any) => updateField?.('postcode', value)}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ChildrenTab({ children, isEditing, updateChild, removeChild, calculateAge }: any) {
-  const today = new Date().toISOString().split('T')[0];
-
-  if (!children || children.length === 0) {
-    return (
-      <div className="text-center py-12 text-gray-500">
-        <Baby className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-        <p>No children registered</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      {children.map((child: any, index: number) => {
-        const childAge = child.dob ? calculateAge(child.dob) : 0;
-
-        return (
-          <div key={child.id || index} className="border border-gray-200 rounded-lg p-4 bg-gray-50 relative">
-            {isEditing && (
-              <button
-                onClick={() => removeChild?.(index)}
-                className="absolute top-3 right-3 p-1 text-red-600 hover:bg-red-50 rounded"
-                title="Remove child"
-              >
-                <Trash2 className="h-5 w-5" />
-              </button>
-            )}
-            <h3 className="font-semibold text-gray-900 mb-3">Child {index + 1}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <EditableField
-                label="First Name"
-                value={child.first_name}
-                isEditing={isEditing}
-                onChange={(value: any) => updateChild?.(index, 'first_name', value)}
-              />
-              <EditableField
-                label="Last Name"
-                value={child.last_name}
-                isEditing={isEditing}
-                onChange={(value: any) => updateChild?.(index, 'last_name', value)}
-              />
-              <EditableField
-                label="Date of Birth"
-                value={child.dob}
-                displayValue={child.dob ? new Date(child.dob).toLocaleDateString() : 'N/A'}
-                isEditing={isEditing}
-                type="date"
-                max={today}
-                onChange={(value: any) => updateChild?.(index, 'dob', value)}
-              />
-              <InfoField label="Current Age" value={child.dob ? `${childAge} years old` : 'N/A'} highlight />
-              <EditableField
-                label="Relation"
-                value={child.relation}
-                isEditing={isEditing}
-                type="select"
-                options={['son', 'daughter', 'stepson', 'stepdaughter']}
-                onChange={(value: any) => updateChild?.(index, 'relation', value)}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function NextOfKinTab({ nextOfKin, isEditing, updateField }: any) {
-  if (nextOfKin.length === 0) {
-    return (
-      <div className="text-center py-12 text-gray-500">
-        <Heart className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-        <p>No next of kin information</p>
-      </div>
-    );
-  }
-
-  const nok = nextOfKin[0];
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <EditableField
-          label="Title"
-          value={nok?.title}
-          isEditing={isEditing}
-          type="select"
-          options={['Mr', 'Mrs', 'Miss', 'Ms', 'Dr']}
-          onChange={(value: any) => updateField?.('title', value)}
-        />
-        <EditableField
-          label="First Name"
-          value={nok?.first_name}
-          isEditing={isEditing}
-          onChange={(value: any) => updateField?.('first_name', value)}
-        />
-        <EditableField
-          label="Last Name"
-          value={nok?.last_name}
-          isEditing={isEditing}
-          onChange={(value: any) => updateField?.('last_name', value)}
-        />
-        <EditableField
-          label="Relationship"
-          value={nok?.relationship}
-          isEditing={isEditing}
-          onChange={(value: any) => updateField?.('relationship', value)}
-        />
-      </div>
-
-      <div className="border-t border-gray-200 pt-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <EditableField
-            label="Mobile Phone"
-            value={nok?.mobile}
-            isEditing={isEditing}
-            icon={Phone}
-            onChange={(value: any) => updateField?.('mobile', value)}
-          />
-          <EditableField
-            label="Home Phone"
-            value={nok?.phone}
-            isEditing={isEditing}
-            icon={Phone}
-            onChange={(value: any) => updateField?.('phone', value)}
-          />
-          <EditableField
-            label="Email"
-            value={nok?.email}
-            isEditing={isEditing}
-            type="email"
-            icon={Mail}
-            onChange={(value: any) => updateField?.('email', value)}
-          />
-        </div>
-      </div>
-
-      <div className="border-t border-gray-200 pt-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Address</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="md:col-span-2">
-            <EditableField
-              label="Address Line 1"
-              value={nok?.address_line_1}
-              isEditing={isEditing}
-              icon={MapPin}
-              onChange={(value: any) => updateField?.('address_line_1', value)}
-            />
-          </div>
-          <EditableField
-            label="Town"
-            value={nok?.town}
-            isEditing={isEditing}
-            onChange={(value: any) => updateField?.('town', value)}
-          />
-          <EditableField
-            label="City"
-            value={nok?.city}
-            isEditing={isEditing}
-            onChange={(value: any) => updateField?.('city', value)}
-          />
-          <EditableField
-            label="Postcode"
-            value={nok?.postcode}
-            isEditing={isEditing}
-            onChange={(value: any) => updateField?.('postcode', value)}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function GPDetailsTab({ gpDetails, isEditing, updateField }: any) {
-  if (!gpDetails) {
-    return (
-      <div className="text-center py-12 text-gray-500">
-        <Stethoscope className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-        <p>No GP details registered</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="md:col-span-2">
-          <EditableField
-            label="GP Name / Surgery"
-            value={gpDetails?.gp_name_surgery}
-            isEditing={isEditing}
-            onChange={(value: any) => updateField?.('gp_name_surgery', value)}
-          />
-        </div>
-      </div>
-
-      <div className="border-t border-gray-200 pt-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <EditableField
-            label="Phone"
-            value={gpDetails?.phone}
-            isEditing={isEditing}
-            icon={Phone}
-            onChange={(value: any) => updateField?.('phone', value)}
-          />
-          <EditableField
-            label="Email"
-            value={gpDetails?.email}
-            isEditing={isEditing}
-            type="email"
-            icon={Mail}
-            onChange={(value: any) => updateField?.('email', value)}
-          />
-        </div>
-      </div>
-
-      <div className="border-t border-gray-200 pt-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Address</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="md:col-span-2">
-            <EditableField
-              label="Address Line 1"
-              value={gpDetails?.address_line_1}
-              isEditing={isEditing}
-              icon={MapPin}
-              onChange={(value: any) => updateField?.('address_line_1', value)}
-            />
-          </div>
-          <EditableField
-            label="Town"
-            value={gpDetails?.town}
-            isEditing={isEditing}
-            onChange={(value: any) => updateField?.('town', value)}
-          />
-          <EditableField
-            label="City"
-            value={gpDetails?.city}
-            isEditing={isEditing}
-            onChange={(value: any) => updateField?.('city', value)}
-          />
-          <EditableField
-            label="Postcode"
-            value={gpDetails?.postcode}
-            isEditing={isEditing}
-            onChange={(value: any) => updateField?.('postcode', value)}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MedicalInfoTab({ medicalInfo, appType }: any) {
-  const mainMedical = medicalInfo.find((m: any) => m.member_type === 'main');
-  const jointMedical = medicalInfo.find((m: any) => m.member_type === 'joint');
-
-  if (medicalInfo.length === 0) {
-    return (
-      <div className="text-center py-12 text-gray-500">
-        <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-        <p>No medical information registered</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {mainMedical && (
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Main Member</h3>
-          <div className="space-y-4">
-            <InfoField label="Disclaimer" value={mainMedical.disclaimer} />
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Medical Conditions</label>
-              <p className="text-gray-900 bg-gray-50 p-4 rounded-lg">{mainMedical.conditions || 'None listed'}</p>
-            </div>
-          </div>
-        </div>
       )}
 
-      {appType === 'joint' && jointMedical && (
-        <div className="border-t border-gray-200 pt-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Joint Member</h3>
-          <div className="space-y-4">
-            <InfoField label="Disclaimer" value={jointMedical.disclaimer} />
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Medical Conditions</label>
-              <p className="text-gray-900 bg-gray-50 p-4 rounded-lg">{jointMedical.conditions || 'None listed'}</p>
-            </div>
-          </div>
-        </div>
+      {showDeceasedConfirm && (
+        <ConfirmModal
+          title="Mark as Deceased"
+          message="This will change the member's status to deceased. You can then create a funeral record for them."
+          confirmText="Mark Deceased"
+          confirmColor="gray"
+          onConfirm={() => markDeceasedMutation.mutate()}
+          onCancel={() => setShowDeceasedConfirm(false)}
+          isLoading={markDeceasedMutation.isPending}
+        />
       )}
-    </div>
+
+      {showPauseConfirm && (
+        <ConfirmModal
+          title="Pause Membership"
+          message="This will change the member's status to inactive. You can reactivate them later by editing their status."
+          confirmText="Pause"
+          confirmColor="yellow"
+          onConfirm={() => pauseMembershipMutation.mutate()}
+          onCancel={() => setShowPauseConfirm(false)}
+          isLoading={pauseMembershipMutation.isPending}
+        />
+      )}
+    </CompactLayout>
   );
 }
 
-function DocumentsTab({ documents }: any) {
-  return (
-    <div className="text-center py-12">
-      <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-      <p className="text-gray-500">Document management coming soon</p>
-      <p className="text-sm text-gray-400 mt-2">
-        {documents.length} document(s) registered in the system
-      </p>
-    </div>
-  );
-}
-
-function DeclarationsTab({ declarations }: any) {
-  if (!declarations) {
-    return (
-      <div className="text-center py-12 text-gray-500">
-        <CheckSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-        <p>No declarations registered</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-        <h3 className="font-semibold text-gray-900 mb-3">Agreement Signatures</h3>
-        <div className="space-y-2">
-          <DeclarationItem label="Main Member Agreement" checked={declarations.agreement_sig_1} />
-          <DeclarationItem label="Joint Member Agreement" checked={declarations.agreement_sig_2} />
-        </div>
-      </div>
-
-      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-        <h3 className="font-semibold text-gray-900 mb-3">Funding Signatures</h3>
-        <div className="space-y-2">
-          <DeclarationItem label="Main Member Funding" checked={declarations.funding_sig_1} />
-          <DeclarationItem label="Joint Member Funding" checked={declarations.funding_sig_2} />
-        </div>
-      </div>
-
-      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-        <h3 className="font-semibold text-gray-900 mb-3">Declaration Signatures</h3>
-        <div className="space-y-2">
-          <DeclarationItem label="Main Member Declaration" checked={declarations.declaration_sig_1} />
-          <DeclarationItem label="Joint Member Declaration" checked={declarations.declaration_sig_2} />
-        </div>
-      </div>
-
-      <div className="border-t border-gray-200 pt-6">
-        <InfoField label="Signed At" value={new Date(declarations.signed_at).toLocaleString()} />
-      </div>
-    </div>
-  );
-}
-
-function PaymentsTab({ payments }: any) {
-  if (payments.length === 0) {
-    return (
-      <div className="text-center py-12 text-gray-500">
-        <CreditCard className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-        <p>No payment records</p>
-      </div>
-    );
-  }
-
-  const getPaymentStatusBadge = (status: string) => {
-    const styles = {
-      completed: 'bg-green-100 text-green-800',
-      pending: 'bg-yellow-100 text-yellow-800',
-      failed: 'bg-red-100 text-red-800',
-      refunded: 'bg-gray-100 text-gray-800',
-    };
-
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${styles[status as keyof typeof styles] || styles.pending}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
-  };
-
+// Personal Info Tab Component
+function PersonalInfoTab({ member, isEditing, updateField }: any) {
   return (
     <div className="space-y-4">
-      {payments.map((payment: any) => (
-        <div key={payment.id} className="border border-gray-200 rounded-lg p-6 bg-white shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-semibold text-gray-900">Payment #{payment.id.slice(0, 8)}</h3>
-              <p className="text-sm text-gray-500">
-                {payment.payment_date ? new Date(payment.payment_date).toLocaleDateString() : new Date(payment.created_at).toLocaleDateString()}
-              </p>
-            </div>
-            {getPaymentStatusBadge(payment.payment_status)}
-          </div>
+      {/* Two Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Personal Details Card */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+            <User className="h-4 w-4 mr-2 text-gray-400" />
+            Personal Details
+          </h3>
+          <dl className="space-y-2">
+            <InfoRow
+              label="Title"
+              value={member?.title}
+              isEditing={isEditing}
+              type="select"
+              options={['Mr', 'Mrs', 'Miss', 'Ms', 'Dr']}
+              onChange={(val) => updateField?.('title', val)}
+            />
+            <InfoRow
+              label="First Name"
+              value={member?.first_name}
+              isEditing={isEditing}
+              onChange={(val) => updateField?.('first_name', val)}
+            />
+            <InfoRow
+              label="Last Name"
+              value={member?.last_name}
+              isEditing={isEditing}
+              onChange={(val) => updateField?.('last_name', val)}
+            />
+            <InfoRow
+              label="Date of Birth"
+              value={member?.dob}
+              displayValue={member?.dob ? new Date(member.dob).toLocaleDateString() : 'N/A'}
+              isEditing={isEditing}
+              type="date"
+              onChange={(val) => updateField?.('dob', val)}
+            />
+            <InfoRow
+              label="Status"
+              value={member?.status}
+              isEditing={isEditing}
+              type="select"
+              options={['pending', 'active', 'inactive', 'deceased']}
+              onChange={(val) => updateField?.('status', val)}
+            />
+          </dl>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <InfoField label="Payment Type" value={payment.payment_type} />
-            <InfoField label="Payment Method" value={payment.payment_method} />
-            {payment.reference_no && <InfoField label="Reference No" value={payment.reference_no} />}
-            {payment.processed_by && <InfoField label="Processed By" value={payment.processed_by} />}
-          </div>
+        {/* Contact Information Card */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+            <Phone className="h-4 w-4 mr-2 text-gray-400" />
+            Contact Information
+          </h3>
+          <dl className="space-y-2">
+            <InfoRow
+              label="Mobile"
+              value={member?.mobile}
+              isEditing={isEditing}
+              onChange={(val) => updateField?.('mobile', val)}
+            />
+            <InfoRow
+              label="Home Phone"
+              value={member?.home_phone}
+              isEditing={isEditing}
+              onChange={(val) => updateField?.('home_phone', val)}
+            />
+            <InfoRow
+              label="Work Phone"
+              value={member?.work_phone}
+              isEditing={isEditing}
+              onChange={(val) => updateField?.('work_phone', val)}
+            />
+            <InfoRow
+              label="Email"
+              value={member?.email}
+              isEditing={isEditing}
+              type="email"
+              onChange={(val) => updateField?.('email', val)}
+            />
+          </dl>
+        </div>
+      </div>
 
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h4 className="font-medium text-gray-900 mb-3">Fee Breakdown</h4>
-            <div className="space-y-2 text-sm">
-              {payment.main_joining_fee > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Main Member - Joining Fee</span>
-                  <span className="font-medium">£{Number(payment.main_joining_fee).toFixed(2)}</span>
-                </div>
-              )}
-              {payment.main_membership_fee > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Main Member - Membership Fee</span>
-                  <span className="font-medium">£{Number(payment.main_membership_fee).toFixed(2)}</span>
-                </div>
-              )}
-              {payment.joint_joining_fee > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Joint Member - Joining Fee</span>
-                  <span className="font-medium">£{Number(payment.joint_joining_fee).toFixed(2)}</span>
-                </div>
-              )}
-              {payment.joint_membership_fee > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Joint Member - Membership Fee</span>
-                  <span className="font-medium">£{Number(payment.joint_membership_fee).toFixed(2)}</span>
-                </div>
-              )}
-              {payment.late_fee > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Late Fee</span>
-                  <span className="font-medium">£{Number(payment.late_fee).toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex justify-between pt-2 border-t border-gray-300">
-                <span className="font-semibold text-gray-900">Total Amount</span>
-                <span className="font-bold text-emerald-600">£{Number(payment.total_amount).toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
+      {/* Address Card - Full Width */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+          <MapPin className="h-4 w-4 mr-2 text-gray-400" />
+          Address
+        </h3>
+        <dl className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <InfoRow
+            label="Address Line 1"
+            value={member?.address_line_1}
+            isEditing={isEditing}
+            onChange={(val) => updateField?.('address_line_1', val)}
+          />
+          <InfoRow
+            label="Town"
+            value={member?.town}
+            isEditing={isEditing}
+            onChange={(val) => updateField?.('town', val)}
+          />
+          <InfoRow
+            label="City"
+            value={member?.city}
+            isEditing={isEditing}
+            onChange={(val) => updateField?.('city', val)}
+          />
+          <InfoRow
+            label="Postcode"
+            value={member?.postcode}
+            isEditing={isEditing}
+            onChange={(val) => updateField?.('postcode', val)}
+          />
+        </dl>
+      </div>
 
-          {payment.notes && (
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
-              <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">{payment.notes}</p>
-            </div>
+      {/* Notes Card */}
+      {(member?.notes || isEditing) && (
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Notes</h3>
+          {isEditing ? (
+            <textarea
+              value={member?.notes || ''}
+              onChange={(e) => updateField?.('notes', e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              rows={4}
+              placeholder="Add any additional notes..."
+            />
+          ) : (
+            <p className="text-sm text-gray-700 whitespace-pre-wrap">{member?.notes || 'No notes'}</p>
           )}
         </div>
-      ))}
+      )}
     </div>
   );
 }
 
 // Helper Components
-
-function EditableField({ label, value, displayValue, isEditing, type = 'text', icon: Icon, options, max, onChange }: any) {
+function InfoRow({ label, value, displayValue, isEditing, type = 'text', options, onChange }: any) {
   if (!isEditing) {
     return (
-      <div>
-        <label className="block text-sm font-medium text-gray-500 mb-1">{label}</label>
-        <div className="flex items-center">
-          {Icon && <Icon className="h-4 w-4 text-gray-400 mr-2" />}
-          <p className={`text-gray-900 ${!value || value === 'N/A' ? 'text-gray-400' : ''}`}>
-            {displayValue || value || 'N/A'}
-          </p>
-        </div>
+      <div className="flex justify-between items-start py-1">
+        <dt className="text-xs text-gray-500 font-medium">{label}</dt>
+        <dd className="text-sm text-gray-900 text-right">{displayValue || value || 'N/A'}</dd>
       </div>
     );
   }
 
   if (type === 'select') {
     return (
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <div className="flex justify-between items-center py-1">
+        <dt className="text-xs text-gray-500 font-medium">{label}</dt>
         <select
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+          className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
         >
-          <option value="">Select {label}</option>
+          <option value="">Select</option>
           {options?.map((opt: string) => (
             <option key={opt} value={opt}>
               {opt.charAt(0).toUpperCase() + opt.slice(1)}
@@ -1487,284 +597,47 @@ function EditableField({ label, value, displayValue, isEditing, type = 'text', i
   }
 
   return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-      <div className="flex items-center">
-        {Icon && <Icon className="h-4 w-4 text-gray-400 mr-2" />}
-        <input
-          type={type}
-          value={value || ''}
-          max={max}
-          onChange={(e) => onChange(e.target.value)}
-          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-          placeholder={`Enter ${label.toLowerCase()}`}
-        />
-      </div>
+    <div className="flex justify-between items-center py-1">
+      <dt className="text-xs text-gray-500 font-medium">{label}</dt>
+      <input
+        type={type}
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 w-48"
+      />
     </div>
   );
 }
 
-function InfoField({ label, value, icon: Icon, highlight }: any) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-500 mb-1">{label}</label>
-      <div className="flex items-center">
-        {Icon && <Icon className="h-4 w-4 text-gray-400 mr-2" />}
-        <p className={`text-gray-900 ${highlight ? 'font-semibold text-emerald-600' : ''} ${!value || value === 'N/A' ? 'text-gray-400' : ''}`}>
-          {value || 'N/A'}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function DeclarationItem({ label, checked }: any) {
-  return (
-    <div className="flex items-center justify-between py-2">
-      <span className="text-sm text-gray-700">{label}</span>
-      {checked ? (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-          <CheckSquare className="h-3 w-3 mr-1" />
-          Signed
-        </span>
-      ) : (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
-          Not Signed
-        </span>
-      )}
-    </div>
-  );
-}
-
-interface ActivityLogTabProps {
-  memberId: string;
-}
-
-function ActivityLogTab({ memberId }: ActivityLogTabProps) {
-  const { data: activityLog, isLoading } = useQuery({
-    queryKey: ['activity-log', memberId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('activity_log')
-        .select('*')
-        .eq('member_id', memberId)
-        .order('created_at', { ascending: false })
-        .limit(100);
-      
-      return data || [];
-    },
-  });
-
-  const getActionIcon = (actionType: string) => {
-    const icons = {
-      created: CheckCircle,
-      updated: Edit,
-      member_edited: Edit,
-      status_changed: AlertCircle,
-      payment_received: PoundSterling,
-      payment_recorded: PoundSterling,
-      document_uploaded: FileText,
-      marked_deceased: AlertCircle,
-      funeral_arranged: Activity,
-      expense_added: PoundSterling,
-      contact_added: User,
-      note_added: FileText,
-    };
-    
-    return icons[actionType as keyof typeof icons] || Activity;
+function ConfirmModal({ title, message, confirmText, confirmColor, onConfirm, onCancel, isLoading }: any) {
+  const colorClasses = {
+    red: 'bg-red-600 hover:bg-red-700',
+    yellow: 'bg-yellow-600 hover:bg-yellow-700',
+    gray: 'bg-gray-600 hover:bg-gray-700',
   };
-
-  const getActionColor = (actionType: string) => {
-    const colors = {
-      created: 'bg-green-100 text-green-800 border-green-200',
-      updated: 'bg-blue-100 text-blue-800 border-blue-200',
-      member_edited: 'bg-blue-100 text-blue-800 border-blue-200',
-      status_changed: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      payment_received: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-      payment_recorded: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-      document_uploaded: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-      marked_deceased: 'bg-red-100 text-red-800 border-red-200',
-      funeral_arranged: 'bg-purple-100 text-purple-800 border-purple-200',
-      expense_added: 'bg-orange-100 text-orange-800 border-orange-200',
-      contact_added: 'bg-cyan-100 text-cyan-800 border-cyan-200',
-      note_added: 'bg-gray-100 text-gray-800 border-gray-200',
-    };
-    
-    return colors[actionType as keyof typeof colors] || 'bg-gray-100 text-gray-800 border-gray-200';
-  };
-
-  const formatActionType = (actionType: string) => {
-    return actionType
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
-  const formatRelativeTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-    
-    return date.toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
-      </div>
-    );
-  }
-
-  if (!activityLog || activityLog.length === 0) {
-    return (
-      <div className="text-center py-12 bg-gray-50 rounded-lg">
-        <Activity className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-        <p className="text-gray-500 font-medium">No activity recorded yet</p>
-        <p className="text-sm text-gray-400 mt-1">
-          All changes to this member will appear here
-        </p>
-      </div>
-    );
-  }
 
   return (
-    <div className="space-y-4">
-      {/* Activity Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-          <p className="text-sm text-blue-600 font-medium">Total Events</p>
-          <p className="text-2xl font-bold text-blue-900">{activityLog.length}</p>
-        </div>
-        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-          <p className="text-sm text-green-600 font-medium">Payments</p>
-          <p className="text-2xl font-bold text-green-900">
-            {activityLog.filter(a => a.action_type.includes('payment')).length}
-          </p>
-        </div>
-        <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-          <p className="text-sm text-purple-600 font-medium">Updates</p>
-          <p className="text-2xl font-bold text-purple-900">
-            {activityLog.filter(a => a.action_type === 'updated' || a.action_type === 'member_edited').length}
-          </p>
-        </div>
-        <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-          <p className="text-sm text-orange-600 font-medium">Last Activity</p>
-          <p className="text-sm font-bold text-orange-900">
-            {formatRelativeTime(activityLog[0].created_at)}
-          </p>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
+        <p className="text-sm text-gray-600 mb-6">{message}</p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onCancel}
+            disabled={isLoading}
+            className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isLoading}
+            className={`px-4 py-2 text-sm text-white rounded-lg transition-colors ${colorClasses[confirmColor as keyof typeof colorClasses]}`}
+          >
+            {isLoading ? 'Processing...' : confirmText}
+          </button>
         </div>
       </div>
-
-      {/* Activity Timeline */}
-      <div className="relative">
-        {/* Timeline line */}
-        <div className="absolute left-[27px] top-0 bottom-0 w-0.5 bg-gray-200"></div>
-
-        {/* Activity items */}
-        <div className="space-y-6">
-          {activityLog.map((activity, index) => {
-            const Icon = getActionIcon(activity.action_type);
-            const isToday = new Date(activity.created_at).toDateString() === new Date().toDateString();
-            
-            return (
-              <div key={activity.id} className="relative pl-16">
-                {/* Timeline dot */}
-                <div className={`absolute left-0 w-14 h-14 rounded-full flex items-center justify-center border-4 border-white shadow-md ${getActionColor(activity.action_type)}`}>
-                  <Icon className="h-6 w-6" />
-                </div>
-
-                {/* Activity card */}
-                <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getActionColor(activity.action_type)}`}>
-                          {formatActionType(activity.action_type)}
-                        </span>
-                        {isToday && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            Today
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-gray-900 font-medium">{activity.description}</p>
-                    </div>
-                  </div>
-
-                  {/* Metadata */}
-                  <div className="flex items-center gap-4 text-sm text-gray-500 mt-3">
-                    <div className="flex items-center">
-                      <Clock className="h-4 w-4 mr-1" />
-                      {formatRelativeTime(activity.created_at)}
-                    </div>
-                    {activity.user_email && (
-                      <div className="flex items-center">
-                        <User className="h-4 w-4 mr-1" />
-                        {activity.user_email}
-                      </div>
-                    )}
-                    <div className="flex items-center">
-                      <FileText className="h-4 w-4 mr-1" />
-                      {activity.entity_type.replace('_', ' ')}
-                    </div>
-                  </div>
-
-                  {/* Show changes (if available) */}
-                  {(activity.old_values || activity.new_values) && (
-                    <details className="mt-3">
-                      <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-900 font-medium">
-                        View details
-                      </summary>
-                      <div className="mt-2 p-3 bg-gray-50 rounded border border-gray-200">
-                        {activity.old_values && (
-                          <div className="mb-2">
-                            <p className="text-xs font-semibold text-gray-700 mb-1">Previous:</p>
-                            <pre className="text-xs text-gray-600 overflow-x-auto">
-                              {JSON.stringify(activity.old_values, null, 2)}
-                            </pre>
-                          </div>
-                        )}
-                        {activity.new_values && (
-                          <div>
-                            <p className="text-xs font-semibold text-gray-700 mb-1">Updated:</p>
-                            <pre className="text-xs text-gray-600 overflow-x-auto">
-                              {JSON.stringify(activity.new_values, null, 2)}
-                            </pre>
-                          </div>
-                        )}
-                      </div>
-                    </details>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Load more placeholder */}
-      {activityLog.length >= 100 && (
-        <div className="text-center py-4">
-          <p className="text-sm text-gray-500">
-            Showing last 100 events. Older activity has been archived.
-          </p>
-        </div>
-      )}
     </div>
   );
 }
