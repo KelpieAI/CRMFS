@@ -344,6 +344,18 @@ export default function MemberDetail() {
           <JointMemberTab jointMember={memberData?.jointMember} />
         )}
 
+        {activeTab === 'children' && (
+          <ChildrenTab children={memberData?.children || []} memberId={id!} />
+        )}
+
+        {activeTab === 'nok' && (
+          <NextOfKinTab nextOfKin={memberData?.nextOfKin || []} memberId={id!} />
+        )}
+
+        {activeTab === 'medical' && (
+          <MedicalInfoTab medicalInfo={memberData?.medicalInfo || []} memberId={id!} />
+        )}
+
         {activeTab === 'gp' && (
           <GPDetailsTab gpDetails={memberData?.gpDetails} />
         )}
@@ -352,8 +364,12 @@ export default function MemberDetail() {
           <DeclarationsTab declarations={memberData?.declarations} />
         )}
 
-        {/* Other tabs placeholder */}
-        {!['personal', 'joint', 'gp', 'declarations'].includes(activeTab) && (
+        {activeTab === 'documents' && (
+          <DocumentsTab documents={memberData?.documents || []} memberId={id!} />
+        )}
+
+        {/* Payments and Activity tabs will use existing components */}
+        {!['personal', 'joint', 'children', 'nok', 'medical', 'gp', 'declarations', 'documents', 'payments', 'activity'].includes(activeTab) && (
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <p className="text-gray-500">Content for {activeTab} tab coming soon...</p>
           </div>
@@ -827,6 +843,10 @@ function DeclarationsTab({ declarations }: any) {
     </div>
   );
 }
+// ============================================
+// BATCH 2 TAB COMPONENTS
+// Add these to the end of MemberDetail.tsx
+// ============================================
 
 // Children Tab Component
 function ChildrenTab({ children, memberId }: any) {
