@@ -13,6 +13,7 @@ import DeceasedMembers from './pages/DeceasedMembers';
 import DeceasedDetail from './pages/DeceasedDetail';
 import RegistrationSuccess from './pages/RegistrationSuccess';
 import NotFound from './pages/NotFound';
+import CommandPalette from './components/CommandPalette';
 
 const queryClient = new QueryClient({
   defaultOptions: {
