@@ -1,0 +1,12 @@
+# Create the hook file
+cat > .git/hooks/pre-commit << 'EOF'
+#!/bin/sh
+COMMIT_COUNT=$(git rev-list --count HEAD 2>/dev/null || echo "1")
+grep -v "VITE_BUILD_NUMBER" .env > .env.tmp 2>/dev/null && mv .env.tmp .env
+echo "VITE_BUILD_NUMBER=$COMMIT_COUNT" >> .env
+git add .env
+echo "✅ Build number: v0.1.5.$COMMIT_COUNT"
+EOF
+
+# Make it executable
+chmod +x .git/hooks/pre-commit
