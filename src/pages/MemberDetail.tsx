@@ -373,6 +373,14 @@ export default function MemberDetail() {
           <DocumentsTab documents={memberData?.documents || []} memberId={id!} />
         )}
 
+        {activeTab === 'payments' && (
+          <PaymentsTab payments={memberData?.payments || []} memberId={id!} />
+        )}
+
+        {activeTab === 'activity' && (
+          <ActivityLogTab memberId={id!} />
+        )}
+
         {/* Payments and Activity tabs will use existing components */}
         {!['personal', 'joint', 'children', 'nok', 'medical', 'gp', 'declarations', 'documents', 'payments', 'activity'].includes(activeTab) && (
           <div className="bg-white rounded-lg border border-gray-200 p-6">
