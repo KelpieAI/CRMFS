@@ -88,17 +88,18 @@ export default function CollapsibleSidebar() {
         onMouseLeave={() => window.innerWidth >= 768 && setIsExpanded(false)}
       >
         {/* Logo Section */}
-        <div className="h-16 flex items-center justify-center border-b border-gray-800">
-          {isExpanded ? (
+        <div className="h-16 flex items-center justify-center border-b border-gray-800 overflow-hidden">
+          <div className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 absolute'}`}>
             <div className="px-4 py-2">
-              <h1 className="text-lg font-bold text-emerald-400">Kelpie AI</h1>
-              <p className="text-xs text-gray-400">CRMFS</p>
+              <h1 className="text-lg font-bold text-emerald-400 whitespace-nowrap">Kelpie AI</h1>
+              <p className="text-xs text-gray-400 whitespace-nowrap">CRMFS</p>
             </div>
-          ) : (
+          </div>
+          <div className={`transition-opacity duration-200 ${!isExpanded ? 'opacity-100' : 'opacity-0 absolute'}`}>
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center font-bold text-white">
               K
             </div>
-          )}
+          </div>
         </div>
 
         {/* Navigation */}
@@ -112,7 +113,7 @@ export default function CollapsibleSidebar() {
                 key={item.name}
                 to={item.to}
                 className={`
-                  flex items-center px-3 py-3 rounded-lg transition-all duration-200
+                  flex items-center px-3 py-3 rounded-lg transition-all duration-200 overflow-hidden
                   ${isActive 
                     ? 'bg-emerald-600 text-white' 
                     : 'text-gray-300 hover:bg-gray-800 hover:text-white'
@@ -120,12 +121,15 @@ export default function CollapsibleSidebar() {
                   ${!isExpanded && 'justify-center'}
                 `}
               >
-                <Icon className={`h-5 w-5 ${isExpanded && 'mr-3'} flex-shrink-0`} />
-                {isExpanded && (
-                  <span className="font-medium whitespace-nowrap overflow-hidden text-ellipsis">
-                    {item.name}
-                  </span>
-                )}
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                <span 
+                  className={`
+                    font-medium whitespace-nowrap transition-all duration-200
+                    ${isExpanded ? 'ml-3 opacity-100 w-auto' : 'ml-0 opacity-0 w-0'}
+                  `}
+                >
+                  {item.name}
+                </span>
               </Link>
             );
           })}
@@ -136,17 +140,20 @@ export default function CollapsibleSidebar() {
           <button
             onClick={handleSignOut}
             className={`
-              w-full flex items-center px-3 py-3 rounded-lg transition-all duration-200
+              w-full flex items-center px-3 py-3 rounded-lg transition-all duration-200 overflow-hidden
               text-gray-300 hover:bg-gray-800 hover:text-white
               ${!isExpanded && 'justify-center'}
             `}
           >
-            <LogOut className={`h-5 w-5 ${isExpanded && 'mr-3'} flex-shrink-0`} />
-            {isExpanded && (
-              <span className="font-medium whitespace-nowrap overflow-hidden text-ellipsis">
-                Sign Out
-              </span>
-            )}
+            <LogOut className="h-5 w-5 flex-shrink-0" />
+            <span 
+              className={`
+                font-medium whitespace-nowrap transition-all duration-200
+                ${isExpanded ? 'ml-3 opacity-100 w-auto' : 'ml-0 opacity-0 w-0'}
+              `}
+            >
+              Sign Out
+            </span>
           </button>
         </div>
       </div>
