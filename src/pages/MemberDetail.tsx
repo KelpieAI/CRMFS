@@ -303,7 +303,7 @@ export default function MemberDetail() {
       </div>
 
       {/* Quick Info Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-emerald-100 rounded-lg">
@@ -330,8 +330,22 @@ export default function MemberDetail() {
 
         <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Phone className="h-5 w-5 text-purple-600" />
+            <div className="p-2 bg-indigo-100 rounded-lg">
+              <Calendar className="h-5 w-5 text-indigo-600" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Member Since</p>
+              <p className="text-sm font-semibold text-gray-900">
+                {new Date(member.member_since || member.created_at).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-rose-100 rounded-lg">
+              <Phone className="h-5 w-5 text-rose-600" />
             </div>
             <div>
               <p className="text-xs text-gray-500">Mobile</p>
@@ -342,8 +356,8 @@ export default function MemberDetail() {
 
         <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <CreditCard className="h-5 w-5 text-yellow-600" />
+            <div className="p-2 bg-amber-100 rounded-lg">
+              <CreditCard className="h-5 w-5 text-amber-600" />
             </div>
             <div>
               <p className="text-xs text-gray-500">Total Paid</p>
@@ -470,6 +484,15 @@ function PersonalInfoTab({ member, age, isEditing, updateField }: any) {
           max={today}
           onChange={(value: any) => updateField?.('dob', value)}
         />
+        <EditableField
+          label="Member Since"
+          value={member?.member_since}
+          displayValue={member?.member_since ? new Date(member.member_since).toLocaleDateString() : (member?.created_at ? new Date(member.created_at).toLocaleDateString() : 'N/A')}
+          isEditing={isEditing}
+          type="date"
+          max={today}
+          onChange={(value: any) => updateField?.('member_since', value)}
+        />
         <InfoField label="Current Age" value={`${age} years old`} highlight />
         <EditableField
           label="Status"
@@ -564,7 +587,12 @@ function PersonalInfoTab({ member, age, isEditing, updateField }: any) {
       </div>
 
       <div className="border-t border-gray-200 pt-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Record Information</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <InfoField
+            label="Member Since"
+            value={member?.member_since ? new Date(member.member_since).toLocaleDateString() : 'Not set'}
+          />
           <InfoField label="Created On" value={new Date(member?.created_at).toLocaleString()} />
           <InfoField label="Last Updated" value={new Date(member?.updated_at).toLocaleString()} />
         </div>

@@ -200,7 +200,7 @@ export default function MemberList() {
                       {getStatusBadge(member.status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(member.created_at).toLocaleDateString()}
+                      {new Date(member.member_since || member.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <Link

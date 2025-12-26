@@ -22,6 +22,7 @@ export interface Member {
   first_name: string;
   last_name: string;
   dob?: string;
+  member_since?: string;
   address_line_1?: string;
   town?: string;
   city?: string;

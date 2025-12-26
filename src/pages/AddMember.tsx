@@ -36,6 +36,7 @@ interface FormData {
   first_name: string;
   last_name: string;
   dob: string;
+  member_since: string;
   address_line_1: string;
   town: string;
   city: string;
@@ -113,6 +114,7 @@ export default function AddMember() {
     first_name: '',
     last_name: '',
     dob: '',
+    member_since: '',
     address_line_1: '',
     town: '',
     city: '',
@@ -220,12 +222,18 @@ export default function AddMember() {
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      const { data: member, error: memberError } = await supabase.from('members').insert({
+      const memberInsert: any = {
         app_type: formData.app_type, title: formData.title, first_name: formData.first_name, last_name: formData.last_name,
         dob: formData.dob, address_line_1: formData.address_line_1, town: formData.town, city: formData.city,
         postcode: formData.postcode, mobile: formData.mobile, home_phone: formData.home_phone, work_phone: formData.work_phone,
         email: formData.email, status: 'pending',
-      }).select().single();
+      };
+
+      if (formData.member_since) {
+        memberInsert.member_since = formData.member_since;
+      }
+
+      const { data: member, error: memberError } = await supabase.from('members').insert(memberInsert).select().single();
 
       if (memberError) throw memberError;
       const memberId = member.id;
@@ -269,7 +277,8 @@ export default function AddMember() {
         member_id: memberId, payment_type: 'registration', payment_method: formData.payment_method,
         main_joining_fee: formData.main_joining_fee, main_membership_fee: formData.main_membership_fee, main_misc: 0,
         joint_joining_fee: formData.joint_joining_fee, joint_membership_fee: formData.joint_membership_fee, joint_misc: 0,
-        late_fee: 0, total_amount: formData.total_amount, payment_status: 'pending', join_date: new Date().toISOString(),
+        late_fee: 0, total_amount: formData.total_amount, payment_status: 'pending',
+        join_date: formData.member_since || new Date().toISOString().split('T')[0],
       });
 
       return memberId;
@@ -792,6 +801,14 @@ function StepMainMember({ formData, updateFormData, validationErrors }: any) {
             onChange={(value) => updateFormData('dob', value)}
           />
           {validationErrors.dob && <p className="text-red-500 text-xs mt-1">{validationErrors.dob}</p>}
+        </div>
+        <div>
+          <DateInput
+            label="Member Since (Optional)"
+            value={formData.member_since}
+            onChange={(value) => updateFormData('member_since', value)}
+            maxDate={new Date().toISOString().split('T')[0]}
+          />
         </div>
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1 <span className="text-red-500">*</span></label>
