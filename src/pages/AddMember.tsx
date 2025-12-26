@@ -508,11 +508,11 @@ export default function AddMember() {
     if (currentStep === 1 && formData.app_type === 'single') {
       const nextStep = 3;
       setCurrentStep(nextStep);
-      setHighestStepReached((prev) => Math.max(prev, nextStep));
+      setHighestStepReached((prev: number) => Math.max(prev, nextStep));
     } else {
       const nextStep = Math.min(currentStep + 1, steps.length - 1);
       setCurrentStep(nextStep);
-      setHighestStepReached((prev) => Math.max(prev, nextStep));
+      setHighestStepReached((prev: number) => Math.max(prev, nextStep));
     }
   };
 
@@ -523,7 +523,7 @@ export default function AddMember() {
     if (currentStep === 3 && formData.app_type === 'single') {
       setCurrentStep(1);
     } else {
-      setCurrentStep((prev) => Math.max(prev - 1, 0));
+      setCurrentStep((prev: number) => Math.max(prev - 1, 0));
     }
   };
 

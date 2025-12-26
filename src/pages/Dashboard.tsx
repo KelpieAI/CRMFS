@@ -6,7 +6,7 @@ import {
   Users,
   UserCheck,
   Clock,
-  DollarSign,
+  PoundSterling,
   AlertCircle,
   Plus,
 } from 'lucide-react';
@@ -101,7 +101,7 @@ export default function Dashboard() {
     {
       name: 'Total Revenue',
       value: `£${(stats?.totalRevenue || 0).toLocaleString()}`,
-      icon: DollarSign,
+      icon: PoundSterling,
       color: 'from-blue-500 to-blue-600',
       bgColor: 'bg-blue-50',
       iconColor: 'text-blue-600',

@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import {
   FileText,
   Users,
-  DollarSign,
+  PoundSterling,
   TrendingUp,
   Download,
   PieChart,
@@ -236,7 +236,7 @@ export default function Reports() {
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0 rounded-lg p-3 bg-green-100">
-                <DollarSign className="h-6 w-6 text-green-600" />
+                <PoundSterling className="h-6 w-6 text-green-600" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
@@ -446,7 +446,7 @@ export default function Reports() {
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
-              <DollarSign className="h-5 w-5 text-emerald-600 mr-2" />
+              <PoundSterling className="h-5 w-5 text-emerald-600 mr-2" />
               <h2 className="text-lg font-semibold text-gray-900">Payment Methods</h2>
             </div>
             <button
@@ -484,7 +484,7 @@ export default function Reports() {
 
             {Object.keys(paymentMethods).length === 0 && (
               <div className="text-center py-8 text-gray-500">
-                <DollarSign className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <PoundSterling className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                 <p>No payment data available</p>
               </div>
             )}

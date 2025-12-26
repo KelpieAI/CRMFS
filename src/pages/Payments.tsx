@@ -8,7 +8,7 @@ import {
   Search,
   Filter,
   Calendar,
-  DollarSign,
+  PoundSterling,
   CheckCircle,
   Clock,
   XCircle,
@@ -143,7 +143,7 @@ export default function Payments() {
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0 rounded-lg p-3 bg-green-100">
-                <DollarSign className="h-6 w-6 text-green-600" />
+                <PoundSterling className="h-6 w-6 text-green-600" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
