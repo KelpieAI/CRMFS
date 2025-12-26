@@ -23,13 +23,10 @@ A modern web-based CRM and membership management system for Central Region Musli
 - ✅ Responsive design
 
 ### Coming Soon
-- 🔄 Multi-step member registration wizard
-- 🔄 Member detail view with tabs
 - 🔄 Payment management
 - 🔄 Document uploads (max 1GB, GDPR compliant)
 - 🔄 Automated email & SMS reminders
 - 🔄 PayPal integration
-- 🔄 Reporting dashboard
 
 ## 🛠️ Setup Instructions
 
