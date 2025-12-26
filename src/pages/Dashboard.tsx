@@ -9,11 +9,12 @@ import {
   PoundSterling,
   AlertCircle,
   Plus,
+  RefreshCw,
 } from 'lucide-react';
 
 export default function Dashboard() {
   // Fetch dashboard stats
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading, refetch: refetchStats } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
       const [membersRes, paymentsRes] = await Promise.all([
@@ -42,7 +43,7 @@ export default function Dashboard() {
   });
 
   // Fetch recent members
-  const { data: recentMembers } = useQuery({
+  const { data: recentMembers, refetch: refetchMembers } = useQuery({
     queryKey: ['recent-members'],
     queryFn: async () => {
       const { data } = await supabase
@@ -55,7 +56,7 @@ export default function Dashboard() {
   });
 
   // Fetch upcoming renewals (members whose anniversary is within next 30 days)
-  const { data: upcomingRenewals } = useQuery({
+  const { data: upcomingRenewals, refetch: refetchRenewals } = useQuery({
     queryKey: ['upcoming-renewals'],
     queryFn: async () => {
       const today = new Date();
@@ -167,13 +168,26 @@ export default function Dashboard() {
             Welcome back! Here's what's happening today.
           </p>
         </div>
-        <Link
-          to="/members/new"
-          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md hover:shadow-lg"
-        >
-          <Plus className="h-5 w-5 mr-2" />
-          New Member
-        </Link>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              refetchStats();
+              refetchMembers();
+              refetchRenewals();
+            }}
+            className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all shadow-sm hover:shadow"
+          >
+            <RefreshCw className="h-5 w-5 mr-2" />
+            Refresh
+          </button>
+          <Link
+            to="/members/new"
+            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md hover:shadow-lg"
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            New Member
+          </Link>
+        </div>
       </div>
 
       {/* APPLICATIONS IN PROGRESS WIDGET */}

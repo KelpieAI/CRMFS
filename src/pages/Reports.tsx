@@ -10,12 +10,13 @@ import {
   BarChart3,
   Activity,
   AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 
 export default function Reports() {
 
   // Fetch all data for reports
-  const { data: reportData, isLoading } = useQuery({
+  const { data: reportData, isLoading, refetch } = useQuery({
     queryKey: ['reports'],
     queryFn: async () => {
       const [
@@ -196,6 +197,13 @@ export default function Reports() {
           </p>
         </div>
         <div className="flex items-center space-x-3">
+          <button
+            onClick={() => refetch()}
+            className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all shadow-sm"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </button>
           <button
             onClick={exportFinancialSummary}
             className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-md"

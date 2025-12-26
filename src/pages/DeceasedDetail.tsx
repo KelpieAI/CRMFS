@@ -17,7 +17,6 @@ import {
   Edit,
   Save,
   X,
-  Trash2,
   Clock,
   AlertCircle,
   CheckCircle,
@@ -710,7 +709,7 @@ function FuneralProcessTab({ record, isEditing, updateField }: any) {
   );
 }
 
-function ExpensesTab({ expenses, recordId }: any) {
+function ExpensesTab({ expenses }: any) {
   const totalExpenses = expenses.reduce((sum: number, e: any) => sum + Number(e.amount), 0);
 
   return (
@@ -765,7 +764,7 @@ function ExpensesTab({ expenses, recordId }: any) {
   );
 }
 
-function PaymentsTab({ payments, recordId, totalExpenses }: any) {
+function PaymentsTab({ payments, totalExpenses }: any) {
   const totalPaid = payments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
   const balance = totalExpenses - totalPaid;
 
@@ -838,7 +837,7 @@ function PaymentsTab({ payments, recordId, totalExpenses }: any) {
   );
 }
 
-function ContactsTab({ contacts, recordId }: any) {
+function ContactsTab({ contacts }: any) {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -896,7 +895,7 @@ function ContactsTab({ contacts, recordId }: any) {
   );
 }
 
-function ChecklistTab({ checklist, recordId }: any) {
+function ChecklistTab({ checklist }: any) {
   const completedCount = checklist.filter((item: any) => item.completed).length;
   const totalCount = checklist.length;
 

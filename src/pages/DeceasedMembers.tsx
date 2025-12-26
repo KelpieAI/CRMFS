@@ -12,6 +12,7 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
+  RefreshCw,
 } from 'lucide-react';
 
 export default function DeceasedMembers() {
@@ -20,7 +21,7 @@ export default function DeceasedMembers() {
   const [dateFilter, setDateFilter] = useState<string>('all');
 
   // Fetch deceased members with their records
-  const { data: deceasedData, isLoading } = useQuery({
+  const { data: deceasedData, isLoading, refetch } = useQuery({
     queryKey: ['deceased-members'],
     queryFn: async () => {
       const { data: members } = await supabase
@@ -268,6 +269,14 @@ export default function DeceasedMembers() {
               </select>
             </div>
           </div>
+
+          <button
+            onClick={() => refetch()}
+            className="inline-flex items-center justify-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all"
+          >
+            <RefreshCw className="h-5 w-5 mr-2" />
+            Refresh
+          </button>
         </div>
       </div>
 
