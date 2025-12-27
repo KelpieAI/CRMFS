@@ -395,7 +395,7 @@ export default function DeceasedMembers() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <Link
-                          to={`/deceased/${record.id}`}
+                          to={`/deceased/${member?.id || record.member_id}`}
                           className="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                         >
                           <Eye className="h-4 w-4 mr-1" />
