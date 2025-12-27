@@ -1,167 +1,175 @@
-import { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  Users,
-  CreditCard,
-  Heart,
-  FileText,
-  LogOut,
-  Menu,
-  X,
-} from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import React, { useEffect, useMemo, useState } from "react";
 
-export default function CollapsibleSidebar() {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const location = useLocation();
-  const navigate = useNavigate();
+type SidebarMode = "expanded" | "collapsed" | "hover";
 
-  const navigation = [
-    { name: 'Dashboard', to: '/', icon: LayoutDashboard },
-    { name: 'Members', to: '/members', icon: Users },
-    { name: 'Payments', to: '/payments', icon: CreditCard },
-    { name: 'Deceased', to: '/deceased', icon: Heart },
-    { name: 'Reports', to: '/reports', icon: FileText },
-  ];
+type NavItem = {
+  key: string;
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  active?: boolean;
+};
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
-  };
+const LS_KEY = "crmfs.sidebarMode";
 
-  // Handle hover expansion on desktop
+function DashIcon() {
+  // “dash” icon as requested (simple)
+  return (
+    <span className="inline-block w-5 text-center font-black leading-none">—</span>
+  );
+}
+
+export function AppSidebar({
+  brandTitle = "Kelpie AI",
+  brandSub = "CRMFS",
+  items,
+  onSignOut,
+}: {
+  brandTitle?: string;
+  brandSub?: string;
+  items: NavItem[];
+  onSignOut: () => void;
+}) {
+  const [mode, setMode] = useState<SidebarMode>("expanded");
+  const [isHovering, setIsHovering] = useState(false);
+
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      // Check if mouse is within 5% of left edge (hover zone)
-      const hoverZoneWidth = window.innerWidth * 0.05;
-      if (e.clientX <= hoverZoneWidth) {
-        setIsExpanded(true);
-      } else if (e.clientX > 250) {
-        // Close if mouse is beyond sidebar width
-        setIsExpanded(false);
-      }
-    };
-
-    // Only add listener on desktop
-    if (window.innerWidth >= 768) {
-      window.addEventListener('mousemove', handleMouseMove);
+    const saved = window.localStorage.getItem(LS_KEY) as SidebarMode | null;
+    if (saved === "expanded" || saved === "collapsed" || saved === "hover") {
+      setMode(saved);
     }
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-    };
   }, []);
 
-  // Close mobile menu when route changes
   useEffect(() => {
-    setIsMobileOpen(false);
-  }, [location.pathname]);
+    window.localStorage.setItem(LS_KEY, mode);
+  }, [mode]);
+
+  const actuallyExpanded = useMemo(() => {
+    if (mode === "expanded") return true;
+    if (mode === "collapsed") return false;
+    // hover mode
+    return isHovering;
+  }, [mode, isHovering]);
 
   return (
-    <>
-      {/* Mobile Hamburger Button */}
-      <button
-        onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="md:hidden fixed top-4 left-4 z-50 p-2 bg-gray-800 text-white rounded-lg shadow-lg hover:bg-gray-700 transition-colors"
-      >
-        {isMobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-      </button>
-
-      {/* Mobile Overlay */}
-      {isMobileOpen && (
-        <div
-          onClick={() => setIsMobileOpen(false)}
-          className="md:hidden fixed inset-0 bg-black/50 z-40"
-        />
-      )}
-
-      {/* Sidebar */}
-      <div
-        className={`
-          fixed top-0 left-0 h-full bg-gray-900 text-white z-40 transition-all duration-300 ease-in-out
-          ${isExpanded ? 'w-64' : 'w-16'}
-          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-        `}
-        onMouseEnter={() => window.innerWidth >= 768 && setIsExpanded(true)}
-        onMouseLeave={() => window.innerWidth >= 768 && setIsExpanded(false)}
-      >
-        {/* Logo Section */}
-        <div className="h-16 flex items-center justify-center border-b border-gray-800 overflow-hidden">
-          <div className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 absolute'}`}>
-            <div className="px-4 py-2">
-              <h1 className="text-lg font-bold text-emerald-400 whitespace-nowrap">Kelpie AI</h1>
-              <p className="text-xs text-gray-400 whitespace-nowrap">CRMFS</p>
-            </div>
+    <aside
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+      className={[
+        "h-screen sticky top-0 flex flex-col border-r",
+        "bg-slate-950/95 border-white/10 text-white",
+        "transition-[width] duration-200 ease-out",
+        actuallyExpanded ? "w-64" : "w-20",
+      ].join(" ")}
+    >
+      {/* Brand */}
+      <div className="p-4">
+        <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
+          <div className="h-11 w-11 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 flex items-center justify-center font-extrabold text-emerald-300">
+            K
           </div>
-          <div className={`transition-opacity duration-200 ${!isExpanded ? 'opacity-100' : 'opacity-0 absolute'}`}>
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center font-bold text-white">
-              K
+          {actuallyExpanded && (
+            <div className="min-w-0">
+              <div className="font-extrabold leading-tight truncate">{brandTitle}</div>
+              <div className="text-xs text-white/60 truncate">{brandSub}</div>
             </div>
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 px-2 py-4 space-y-1">
-          {navigation.map((item) => {
-            const Icon = item.icon;
-            const isActive = item.to === '/'
-              ? location.pathname === '/'
-              : location.pathname.startsWith(item.to);
-
-            return (
-              <Link
-                key={item.name}
-                to={item.to}
-                className={`
-                  relative flex items-center rounded-lg transition-all duration-200 overflow-hidden
-                  ${isActive 
-                    ? 'bg-emerald-600 text-white' 
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                  }
-                  pl-3 pr-3 py-3
-                `}
-              >
-                <Icon className="h-5 w-5 flex-shrink-0 relative z-10" />
-                <span 
-                  className={`
-                    font-medium whitespace-nowrap transition-all duration-200 ml-3
-                    ${isExpanded ? 'opacity-100' : 'opacity-0'}
-                  `}
-                >
-                  {item.name}
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Sign Out Button */}
-        <div className="border-t border-gray-800 p-2">
-          <button
-            onClick={handleSignOut}
-            className={`
-              relative w-full flex items-center rounded-lg transition-all duration-200 overflow-hidden
-              text-gray-300 hover:bg-gray-800 hover:text-white
-              pl-3 pr-3 py-3
-            `}
-          >
-            <LogOut className="h-5 w-5 flex-shrink-0 relative z-10" />
-            <span 
-              className={`
-                font-medium whitespace-nowrap transition-all duration-200 ml-3
-                ${isExpanded ? 'opacity-100' : 'opacity-0'}
-              `}
-            >
-              Sign Out
-            </span>
-          </button>
+          )}
         </div>
       </div>
 
-      {/* Spacer for collapsed sidebar on desktop */}
-      <div className="hidden md:block w-16" />
-    </>
+      {/* Nav */}
+      <nav className="px-3 flex-1">
+        <div className="space-y-2">
+          {items.map((it) => (
+            <button
+              key={it.key}
+              onClick={it.onClick}
+              className={[
+                "w-full flex items-center gap-3 rounded-xl border px-3 py-3",
+                "transition-colors",
+                it.active
+                  ? "bg-emerald-400/15 border-emerald-400/30 text-white"
+                  : "bg-transparent border-transparent text-white/70 hover:bg-white/5 hover:border-white/10 hover:text-white",
+                actuallyExpanded ? "justify-start" : "justify-center",
+              ].join(" ")}
+              title={!actuallyExpanded ? it.label : undefined}
+            >
+              <span className="text-lg">{it.icon}</span>
+              {actuallyExpanded && <span className="font-semibold">{it.label}</span>}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      {/* Bottom controls */}
+      <div className="p-3 space-y-2 border-t border-white/10">
+        <div className="rounded-xl border border-white/10 bg-white/5 p-2">
+          <div className={actuallyExpanded ? "px-2 pb-2 text-xs text-white/60" : "sr-only"}>
+            Sidebar mode
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              onClick={() => setMode("expanded")}
+              className={[
+                "rounded-lg border px-2 py-2 text-sm",
+                "transition-colors",
+                mode === "expanded"
+                  ? "bg-emerald-400/20 border-emerald-400/30 text-white"
+                  : "bg-transparent border-white/10 text-white/70 hover:bg-white/5 hover:text-white",
+              ].join(" ")}
+              title="Expanded"
+            >
+              <DashIcon />
+            </button>
+
+            <button
+              onClick={() => setMode("collapsed")}
+              className={[
+                "rounded-lg border px-2 py-2 text-sm",
+                "transition-colors",
+                mode === "collapsed"
+                  ? "bg-emerald-400/20 border-emerald-400/30 text-white"
+                  : "bg-transparent border-white/10 text-white/70 hover:bg-white/5 hover:text-white",
+              ].join(" ")}
+              title="Collapsed"
+            >
+              <DashIcon />
+            </button>
+
+            <button
+              onClick={() => setMode("hover")}
+              className={[
+                "rounded-lg border px-2 py-2 text-sm",
+                "transition-colors",
+                mode === "hover"
+                  ? "bg-emerald-400/20 border-emerald-400/30 text-white"
+                  : "bg-transparent border-white/10 text-white/70 hover:bg-white/5 hover:text-white",
+              ].join(" ")}
+              title="Expand on hover"
+            >
+              <DashIcon />
+            </button>
+          </div>
+
+          {actuallyExpanded && (
+            <div className="px-2 pt-2 text-xs text-white/50">
+              Hover mode expands while your cursor is over the sidebar.
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={onSignOut}
+          className={[
+            "w-full rounded-xl border border-red-500/25",
+            "bg-red-500/10 hover:bg-red-500/15 text-red-100",
+            "px-3 py-3 font-semibold transition-colors",
+          ].join(" ")}
+        >
+          {actuallyExpanded ? "Sign out" : "⎋"}
+        </button>
+      </div>
+    </aside>
   );
 }
