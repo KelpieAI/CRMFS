@@ -47,9 +47,9 @@ function App() {
                 <Route path="members/:id" element={<MemberDetail />} />
                 <Route path="payments" element={<Payments />} />
                 <Route path="reports" element={<Reports />} />
-                <Route path="/deceased" element={<DeceasedMembers />} />
-                <Route path="/deceased/:id" element={<DeceasedDetail />} />
-                <Route path="/deceased/record/:memberId?" element={<RecordDeath />} />
+                <Route path="deceased" element={<DeceasedMembers />} />
+                <Route path="deceased/:id" element={<DeceasedDetail />} />
+                <Route path="deceased/record/:memberId?" element={<RecordDeath />} />
                 <Route path="registration-success" element={<RegistrationSuccess />} />
               </Route>
 
