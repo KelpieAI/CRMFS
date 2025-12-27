@@ -53,7 +53,7 @@ export function useMemberStatusUpdate() {
     },
 
     // If mutation fails, rollback
-    onError: (err, variables, context) => {
+    onError: (_err, variables, context) => {
       if (context?.previousMembers) {
         queryClient.setQueryData(['members'], context.previousMembers);
       }
@@ -63,7 +63,7 @@ export function useMemberStatusUpdate() {
     },
 
     // After success, refetch to sync with server
-    onSettled: (data, error, variables) => {
+    onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: ['members'] });
       queryClient.invalidateQueries({ queryKey: ['member-detail', variables.memberId] });
     },
@@ -100,7 +100,7 @@ export function useOptimisticDelete() {
       return { previousMembers };
     },
 
-    onError: (err, variables, context) => {
+    onError: (_err, _variables, context) => {
       if (context?.previousMembers) {
         queryClient.setQueryData(['members'], context.previousMembers);
       }
@@ -144,7 +144,7 @@ export function usePaymentStatusUpdate() {
       return { previousPayments };
     },
 
-    onError: (err, variables, context) => {
+    onError: (_err, _variables, context) => {
       if (context?.previousPayments) {
         queryClient.setQueryData(['payments'], context.previousPayments);
       }

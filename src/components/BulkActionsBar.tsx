@@ -3,17 +3,16 @@
 // Select multiple members and perform batch operations
 // ============================================
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { CheckSquare, Square, Trash2, Mail, Download, Archive, PlayCircle, PauseCircle } from 'lucide-react';
+import { CheckSquare, Square, Trash2, Mail, Download, PlayCircle, PauseCircle } from 'lucide-react';
 
 interface BulkActionsBarProps {
   selectedIds: Set<string>;
   allIds: string[];
   onClearSelection: () => void;
   onSelectAll: () => void;
-  memberType?: 'active' | 'all';
 }
 
 export function BulkActionsBar({
@@ -21,7 +20,6 @@ export function BulkActionsBar({
   allIds,
   onClearSelection,
   onSelectAll,
-  memberType = 'all',
 }: BulkActionsBarProps) {
   const queryClient = useQueryClient();
   const [showConfirm, setShowConfirm] = useState<string | null>(null);
@@ -34,7 +32,7 @@ export function BulkActionsBar({
     mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
       const { error } = await supabase
         .from('members')
-        .update({ member_status: status })
+        .update({ status: status })
         .in('id', ids);
 
       if (error) throw error;
@@ -77,7 +75,7 @@ export function BulkActionsBar({
       `${m.first_name} ${m.last_name}`,
       m.email,
       m.mobile,
-      m.member_status,
+      m.status,
       new Date(m.created_at).toLocaleDateString(),
     ]);
 
@@ -136,7 +134,7 @@ export function BulkActionsBar({
             <button
               onClick={() => bulkUpdateStatus.mutate({
                 ids: Array.from(selectedIds),
-                status: 'paused',
+                status: 'inactive',
               })}
               disabled={bulkUpdateStatus.isPending}
               className="flex items-center space-x-2 px-3 py-1.5 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
@@ -228,110 +226,3 @@ export function BulkActionsBar({
   );
 }
 
-// ============================================
-// USAGE: Modify MemberList.tsx
-// ============================================
-
-export default function MemberList() {
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const { data: members } = useQuery({ queryKey: ['members'], queryFn: fetchMembers });
-
-  const allIds = useMemo(() => members?.map((m: any) => m.id) || [], [members]);
-
-  const toggleSelection = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  const selectAll = () => {
-    setSelectedIds(new Set(allIds));
-  };
-
-  const clearSelection = () => {
-    setSelectedIds(new Set());
-  };
-
-  return (
-    <div>
-      {/* Table with checkboxes */}
-      <table>
-        <thead>
-          <tr>
-            <th>
-              <input
-                type="checkbox"
-                checked={selectedIds.size === allIds.length && allIds.length > 0}
-                onChange={() => {
-                  if (selectedIds.size === allIds.length) {
-                    clearSelection();
-                  } else {
-                    selectAll();
-                  }
-                }}
-                className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-              />
-            </th>
-            {/* Other headers */}
-          </tr>
-        </thead>
-        <tbody>
-          {members?.map((member: any) => (
-            <tr key={member.id}>
-              <td>
-                <input
-                  type="checkbox"
-                  checked={selectedIds.has(member.id)}
-                  onChange={() => toggleSelection(member.id)}
-                  className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-                />
-              </td>
-              {/* Other cells */}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* Bulk Actions Bar */}
-      <BulkActionsBar
-        selectedIds={selectedIds}
-        allIds={allIds}
-        onClearSelection={clearSelection}
-        onSelectAll={selectAll}
-      />
-    </div>
-  );
-}
-
-// ============================================
-// KEYBOARD SHORTCUT: Select All with Cmd+A
-// ============================================
-
-// Add to MemberList useEffect:
-useEffect(() => {
-  const handleKeyDown = (e: KeyboardEvent) => {
-    // Cmd+A or Ctrl+A to select all
-    if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
-      e.preventDefault();
-      if (selectedIds.size === allIds.length) {
-        clearSelection();
-      } else {
-        selectAll();
-      }
-    }
-
-    // Delete key to show bulk delete
-    if (e.key === 'Delete' && selectedIds.size > 0) {
-      setShowBulkDelete(true);
-    }
-  };
-
-  window.addEventListener('keydown', handleKeyDown);
-  return () => window.removeEventListener('keydown', handleKeyDown);
-}, [selectedIds, allIds]);

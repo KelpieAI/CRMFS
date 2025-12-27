@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { supabase, Member } from '../lib/supabase';
 import { TableSkeleton } from '../components/SkeletonComponents';
+import { BulkActionsBar } from '../components/BulkActionsBar';
 import { Search, Filter, Plus, Eye, Mail, Phone, Users, RefreshCw, Check } from 'lucide-react';
 
 export default function MemberList() {
@@ -10,6 +11,7 @@ export default function MemberList() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const { data: members, isLoading, refetch } = useQuery({
     queryKey: ['members'],
@@ -38,6 +40,44 @@ export default function MemberList() {
 
     return matchesSearch && matchesStatus;
   });
+
+  const allIds = useMemo(() => filteredMembers?.map((m) => m.id) || [], [filteredMembers]);
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedIds(new Set(allIds));
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+        e.preventDefault();
+        if (selectedIds.size === allIds.length) {
+          clearSelection();
+        } else {
+          selectAll();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedIds, allIds]);
 
   const getStatusBadge = (status: string) => {
     const styles = {
@@ -162,6 +202,20 @@ export default function MemberList() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gradient-to-r from-emerald-600 to-emerald-700">
               <tr>
+                <th className="px-6 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.size === allIds.length && allIds.length > 0}
+                    onChange={() => {
+                      if (selectedIds.size === allIds.length) {
+                        clearSelection();
+                      } else {
+                        selectAll();
+                      }
+                    }}
+                    className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                   Member
                 </th>
@@ -189,6 +243,14 @@ export default function MemberList() {
                     key={member.id}
                     className="hover:bg-emerald-50 transition-colors"
                   >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(member.id)}
+                        onChange={() => toggleSelection(member.id)}
+                        className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">
@@ -242,7 +304,7 @@ export default function MemberList() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <Link
-                        to={`/members/${member.id}`}
+                        to={`/member/${member.id}`}
                         className="inline-flex items-center px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
                       >
                         <Eye className="h-4 w-4 mr-1" />
@@ -253,7 +315,7 @@ export default function MemberList() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
+                  <td colSpan={7} className="px-6 py-12 text-center">
                     <div className="text-gray-500">
                       <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                       <p className="text-lg font-medium">No members found</p>
@@ -281,6 +343,13 @@ export default function MemberList() {
           </div>
         )}
       </div>
+
+      <BulkActionsBar
+        selectedIds={selectedIds}
+        allIds={allIds}
+        onClearSelection={clearSelection}
+        onSelectAll={selectAll}
+      />
     </div>
   );
 }
