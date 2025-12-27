@@ -11,6 +11,7 @@ import Payments from './pages/Payments';
 import Reports from './pages/Reports';
 import DeceasedMembers from './pages/DeceasedMembers';
 import DeceasedDetail from './pages/DeceasedDetail';
+import RecordDeath from './pages/RecordDeath';
 import RegistrationSuccess from './pages/RegistrationSuccess';
 import NotFound from './pages/NotFound';
 import CommandPalette from './components/CommandPalette';
