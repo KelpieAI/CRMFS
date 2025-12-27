@@ -8,12 +8,6 @@ import { supabase } from '../lib/supabase';
 import {
   ArrowLeft,
   Search,
-  User,
-  Calendar,
-  MapPin,
-  FileText,
-  Users,
-  Phone,
   CheckCircle,
   AlertCircle,
   ChevronRight,
@@ -52,12 +46,14 @@ export default function RecordDeath() {
   const { data: members, isLoading } = useQuery({
     queryKey: ['active-members'],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('members')
-        .select('id, first_name, last_name, email, mobile, date_of_birth, member_status')
-        .neq('status', 'deceased')
+        .select('id, first_name, last_name, email, mobile, member_status')
         .eq('member_status', 'active')
         .order('last_name');
+
+      console.log('Members query result:', { data, error, count: data?.length });
+
       return data || [];
     },
   });

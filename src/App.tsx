@@ -22,7 +22,7 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       retry: 1,
       staleTime: 5 * 60 * 1000, // 5 minutes
-      cacheTime: 30 * 60 * 1000, // 30 minutes - AGGRESSIVE!
+      gcTime: 30 * 60 * 1000, // 30 minutes - AGGRESSIVE!
       refetchOnMount: false, // Don't refetch if data exists
       refetchOnReconnect: false, // Don't refetch on reconnect
     },

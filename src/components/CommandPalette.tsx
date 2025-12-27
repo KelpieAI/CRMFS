@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, User, CreditCard, FileText, Users, X } from 'lucide-react';
+import { Search, User, CreditCard, FileText, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface SearchResult {

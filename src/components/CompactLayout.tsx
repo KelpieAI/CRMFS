@@ -2,7 +2,6 @@ import { ReactNode } from 'react';
 import { Outlet } from 'react-router-dom';
 import CollapsibleSidebar from './CollapsibleSidebar';
 import PoweredByBadge from './PoweredByBadge';
-import CommandPalette from './components/CommandPalette';
 
 interface CompactLayoutProps {
   children?: ReactNode;
