@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from './contexts/ToastContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import CompactLayout from './components/CompactLayout';
+import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import MemberList from './pages/MemberList';
 import MemberDetail from './pages/MemberDetail';
@@ -39,6 +40,9 @@ function App() {
             <CommandPalette />
             
             <Routes>
+              {/* Login Route */}
+              <Route path="/login" element={<Login />} />
+
               {/* All Routes - No Auth */}
               <Route path="/" element={<CompactLayout />}>
                 <Route index element={<Dashboard />} />
