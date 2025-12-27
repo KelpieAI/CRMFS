@@ -19,7 +19,7 @@ export default function CollapsibleSidebar() {
   const navigate = useNavigate();
 
   const navigation = [
-    { name: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
+    { name: 'Dashboard', to: '/', icon: LayoutDashboard },
     { name: 'Members', to: '/members', icon: Users },
     { name: 'Payments', to: '/payments', icon: CreditCard },
     { name: 'Deceased', to: '/deceased', icon: Heart },
@@ -106,7 +106,9 @@ export default function CollapsibleSidebar() {
         <nav className="flex-1 px-2 py-4 space-y-1">
           {navigation.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname.startsWith(item.to);
+            const isActive = item.to === '/'
+              ? location.pathname === '/'
+              : location.pathname.startsWith(item.to);
 
             return (
               <Link

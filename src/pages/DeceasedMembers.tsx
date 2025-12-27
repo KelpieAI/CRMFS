@@ -493,7 +493,7 @@ export default function DeceasedMembers() {
 
                   <div className="mt-4 pt-3 border-t border-gray-100">
                     <Link
-                      to={`/deceased/${record.id}`}
+                      to={`/deceased/${record.members?.id || record.member_id}`}
                       className="block w-full text-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
                     >
                       View Details
