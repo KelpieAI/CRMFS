@@ -101,6 +101,9 @@ export default function RecordDeath() {
       queryClient.invalidateQueries({ queryKey: ['deceased-members'] });
       queryClient.invalidateQueries({ queryKey: ['members'] });
       queryClient.invalidateQueries({ queryKey: ['member-detail', formData.member_id] });
+
+      console.log('Created deceased record:', data); // Debug
+      
       navigate(`/deceased`);
     },
   });
