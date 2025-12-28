@@ -19,6 +19,8 @@ import {
   Loader2,
   Plus,
   Trash2,
+  CheckCircle,
+  Clock,
 } from 'lucide-react';
 
 const stepIcons = [Users, User, Users, Baby, Heart, Stethoscope, FileText, Upload, CheckSquare, CreditCard];
@@ -122,6 +124,11 @@ export default function AddMember() {
   const [applicationReference, setApplicationReference] = useState<string | null>(savedApplication?.application_reference || null);
   const [mainHasMedicalCondition, setMainHasMedicalCondition] = useState(false);
   const [jointHasMedicalCondition, setJointHasMedicalCondition] = useState(false);
+  const [membershipType, setMembershipType] = useState('new');
+  const [adjustmentAmount, setAdjustmentAmount] = useState('');
+  const [adjustmentReason, setAdjustmentReason] = useState('');
+  const [paymentReceived, setPaymentReceived] = useState(false);
+  const [mainDob, setMainDob] = useState(savedApplication?.form_data?.dob || '');
   
   const [formData, setFormData] = useState<FormData>(savedApplication?.form_data || {
     app_type: 'single',
@@ -207,6 +214,21 @@ export default function AddMember() {
     return age;
   };
 
+  const calculateJoiningFee = (dob: string, isLegacy: boolean): number => {
+    if (isLegacy) return 0;
+    if (!dob) return 0;
+
+    const age = calculateAge(dob);
+
+    if (age >= 18 && age <= 25) return 75;
+    if (age >= 26 && age <= 35) return 100;
+    if (age >= 36 && age <= 45) return 200;
+    if (age >= 46 && age <= 55) return 300;
+    if (age >= 56) return 500;
+
+    return 0;
+  };
+
   const calculateFees = (dob: string) => {
     const age = calculateAge(dob);
     if (!feeStructure || age === 0) return { joining: 0, membership: 100 };
@@ -233,6 +255,10 @@ export default function AddMember() {
       (formData.app_type === 'joint' ? formData.joint_joining_fee + formData.joint_membership_fee : 0);
     setFormData((prev) => ({ ...prev, total_amount: total }));
   }, [formData.main_joining_fee, formData.main_membership_fee, formData.joint_joining_fee, formData.joint_membership_fee, formData.app_type]);
+
+  const joiningFee = calculateJoiningFee(mainDob, membershipType === 'legacy');
+  const annualFee = 100;
+  const totalDue = joiningFee + annualFee + (adjustmentAmount ? parseFloat(adjustmentAmount) : 0);
 
   const submitMutation = useMutation({
     mutationFn: async () => {
@@ -555,6 +581,9 @@ export default function AddMember() {
 
   const updateFormData = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    if (field === 'dob') {
+      setMainDob(value);
+    }
   };
 
   const addChild = () => {
@@ -668,7 +697,7 @@ export default function AddMember() {
         {currentStep === 6 && <StepMedicalInfo formData={formData} updateFormData={updateFormData} mainHasMedicalCondition={mainHasMedicalCondition} setMainHasMedicalCondition={setMainHasMedicalCondition} jointHasMedicalCondition={jointHasMedicalCondition} setJointHasMedicalCondition={setJointHasMedicalCondition} />}
         {currentStep === 7 && <StepDocuments formData={formData} updateFormData={updateFormData} />}
         {currentStep === 8 && <StepDeclarations formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
-        {currentStep === 9 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
+        {currentStep === 9 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} annualFee={annualFee} totalDue={totalDue} />}
       </div>
 
       <div className="flex justify-between items-center bg-white rounded-xl shadow-md border border-gray-200 p-6">
@@ -1463,52 +1492,200 @@ function StepDeclarations({ formData, updateFormData, validationErrors }: any) {
   );
 }
 
-function StepPayment({ formData, updateFormData, validationErrors }: any) {
-  const mainName = formData.first_name && formData.last_name 
-    ? `${formData.first_name} ${formData.last_name}` 
-    : 'Main Member';
-  const jointName = formData.joint_first_name && formData.joint_last_name 
-    ? `${formData.joint_first_name} ${formData.joint_last_name}` 
-    : 'Joint Member';
-
+function StepPayment({ formData, updateFormData, validationErrors, membershipType, setMembershipType, adjustmentAmount, setAdjustmentAmount, adjustmentReason, setAdjustmentReason, paymentReceived, setPaymentReceived, mainDob, calculateAge, joiningFee, annualFee, totalDue }: any) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Summary</h2>
-        <p className="text-sm text-gray-600">Review fees and select payment method</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Details</h2>
+        <p className="text-sm text-gray-600">Configure membership type and payment details</p>
       </div>
 
-      <div className="bg-gradient-to-br from-emerald-50 to-yellow-50 border-2 border-emerald-200 rounded-xl p-6">
-        <h3 className="font-semibold text-emerald-900 mb-4">Fee Breakdown</h3>
-        <div className="space-y-3">
-          <div className="flex justify-between items-center pb-2 border-b border-emerald-200">
-            <span className="text-gray-700">{mainName} - Joining Fee</span>
-            <span className="font-semibold text-gray-900">£{formData.main_joining_fee.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between items-center pb-2 border-b border-emerald-200">
-            <span className="text-gray-700">{mainName} - Membership Fee</span>
-            <span className="font-semibold text-gray-900">£{formData.main_membership_fee.toFixed(2)}</span>
-          </div>
-          {formData.app_type === 'joint' && (
-            <>
-              <div className="flex justify-between items-center pb-2 border-b border-emerald-200">
-                <span className="text-gray-700">{jointName} - Joining Fee</span>
-                <span className="font-semibold text-gray-900">£{formData.joint_joining_fee.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center pb-2 border-b border-emerald-200">
-                <span className="text-gray-700">{jointName} - Membership Fee</span>
-                <span className="font-semibold text-gray-900">£{formData.joint_membership_fee.toFixed(2)}</span>
-              </div>
-            </>
+      {/* Payment Details Section */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-6">
+          Payment Details
+        </h3>
+
+        {/* Membership Type */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Membership Type *
+          </label>
+          <select
+            value={membershipType}
+            onChange={(e) => setMembershipType(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
+          >
+            <option value="new">New Membership</option>
+            <option value="legacy">Legacy Membership (Child turned 18)</option>
+          </select>
+          {membershipType === 'legacy' && (
+            <p className="text-xs text-yellow-600 mt-2 font-medium">
+              ✓ Legacy members receive FREE joining fee (children who turned 18 within 90 days)
+            </p>
           )}
-          <div className="flex justify-between items-center pt-3 border-t-2 border-emerald-400">
-            <span className="text-lg font-bold text-emerald-900">Total Amount</span>
-            <span className="text-2xl font-bold text-emerald-900">£{formData.total_amount.toFixed(2)}</span>
+        </div>
+
+        {/* Age-Based Fee Information */}
+        {mainDob && membershipType === 'new' && (
+          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="text-sm font-semibold text-blue-900 mb-2">
+              Age-Based Joining Fee
+            </h4>
+            <p className="text-sm text-blue-800 mb-3">
+              Applicant age: <span className="font-semibold">{calculateAge(mainDob)} years</span>
+            </p>
+            <div className="text-xs text-blue-700 space-y-1">
+              <p>• Ages 18-25: £75</p>
+              <p>• Ages 26-35: £100</p>
+              <p>• Ages 36-45: £200</p>
+              <p>• Ages 46-55: £300</p>
+              <p>• Ages 56-65+: £500</p>
+            </div>
+          </div>
+        )}
+
+        {/* Fee Breakdown */}
+        <div className="bg-gray-50 rounded-lg p-4 mb-6">
+          <h4 className="text-sm font-semibold text-gray-900 mb-3">Fee Breakdown</h4>
+
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Joining Fee:</span>
+              <span className="font-medium">
+                {membershipType === 'legacy' ? (
+                  <span className="text-yellow-600">£0.00 (Waived - Legacy)</span>
+                ) : mainDob ? (
+                  <span>£{joiningFee.toFixed(2)}</span>
+                ) : (
+                  <span className="text-gray-400">Enter DOB to calculate</span>
+                )}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Annual Membership:</span>
+              <span className="font-medium">£{annualFee.toFixed(2)}</span>
+            </div>
+
+            {adjustmentAmount && parseFloat(adjustmentAmount) > 0 && (
+              <div className="flex justify-between text-yellow-600">
+                <span>Adjustment ({adjustmentReason || 'Custom'}):</span>
+                <span className="font-medium">£{parseFloat(adjustmentAmount).toFixed(2)}</span>
+              </div>
+            )}
+
+            <div className="border-t border-gray-300 pt-2 mt-2">
+              <div className="flex justify-between font-semibold text-gray-900">
+                <span>Total Due:</span>
+                <span className="text-lg">
+                  £{totalDue.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Adjustments Section */}
+        <div className="mb-6">
+          <h4 className="text-sm font-semibold text-gray-900 mb-3">
+            Adjustments (Optional)
+          </h4>
+          <p className="text-xs text-gray-500 mb-3">
+            Add additional amount if member wants to pay for following year or make advance payment
+          </p>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Amount (£)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={adjustmentAmount}
+                onChange={(e) => setAdjustmentAmount(e.target.value)}
+                placeholder="0.00"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reason
+              </label>
+              <input
+                type="text"
+                value={adjustmentReason}
+                onChange={(e) => setAdjustmentReason(e.target.value)}
+                placeholder="e.g., Next year payment"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Payment Received Toggle */}
+        <div className="border-t border-gray-200 pt-6">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900">
+                Payment Status
+              </h4>
+              <p className="text-xs text-gray-500 mt-1">
+                Mark as received to activate membership immediately
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPaymentReceived(!paymentReceived)}
+              className={`
+                relative inline-flex h-10 w-20 items-center rounded-full transition-colors
+                ${paymentReceived ? 'bg-emerald-600' : 'bg-gray-300'}
+              `}
+            >
+              <span
+                className={`
+                  inline-block h-8 w-8 transform rounded-full bg-white transition-transform
+                  ${paymentReceived ? 'translate-x-11' : 'translate-x-1'}
+                `}
+              />
+            </button>
+          </div>
+
+          <div className={`
+            rounded-lg p-4 text-sm
+            ${paymentReceived
+              ? 'bg-emerald-50 border border-emerald-200'
+              : 'bg-yellow-50 border border-yellow-200'
+            }
+          `}>
+            {paymentReceived ? (
+              <div className="flex items-center text-emerald-800">
+                <CheckCircle className="h-5 w-5 mr-2" />
+                <div>
+                  <p className="font-medium">Payment Received</p>
+                  <p className="text-xs text-emerald-600">
+                    Member will be set to ACTIVE status
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center text-yellow-800">
+                <Clock className="h-5 w-5 mr-2" />
+                <div>
+                  <p className="font-medium">Payment Pending</p>
+                  <p className="text-xs text-yellow-600">
+                    Member will be set to PENDING status until payment received
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div>
+      {/* Payment Method Selection */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
         <label className="block text-sm font-medium text-gray-700 mb-3">Payment Method <span className="text-red-500">*</span></label>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button type="button" onClick={() => updateFormData('payment_method', 'cash')}
@@ -1534,12 +1711,6 @@ function StepPayment({ formData, updateFormData, validationErrors }: any) {
           </button>
         </div>
         {validationErrors.payment_method && <p className="text-red-500 text-xs mt-2">{validationErrors.payment_method}</p>}
-      </div>
-
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-700">
-          <strong>Note:</strong> PayPal integration coming soon. For now, payment will be marked as pending and can be processed manually.
-        </p>
       </div>
     </div>
   );
