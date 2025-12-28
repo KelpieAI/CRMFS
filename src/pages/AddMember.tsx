@@ -125,6 +125,7 @@ export default function AddMember() {
   const [mainHasMedicalCondition, setMainHasMedicalCondition] = useState(false);
   const [jointHasMedicalCondition, setJointHasMedicalCondition] = useState(false);
   const [membershipType, setMembershipType] = useState('new');
+  const [signupDate, setSignupDate] = useState(new Date().toISOString().split('T')[0]);
   const [adjustmentAmount, setAdjustmentAmount] = useState('');
   const [adjustmentReason, setAdjustmentReason] = useState('');
   const [paymentReceived, setPaymentReceived] = useState(false);
@@ -229,6 +230,37 @@ export default function AddMember() {
     return 0;
   };
 
+  const calculateProRataFee = (signupDate: string): number => {
+    if (!signupDate) return 100;
+
+    const signup = new Date(signupDate);
+    const yearEnd = new Date(signup.getFullYear(), 11, 31);
+
+    if (signup.getMonth() === 0 && signup.getDate() === 1) {
+      return 100;
+    }
+
+    const daysRemaining = Math.ceil((yearEnd.getTime() - signup.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const daysInYear = 365;
+
+    const proRataFee = (100 / daysInYear) * daysRemaining;
+
+    return Math.round(proRataFee * 100) / 100;
+  };
+
+  const getCoverageEndDate = (signupDate: string, adjustmentValue: number): string => {
+    if (!signupDate) return '';
+
+    const signup = new Date(signupDate);
+    const firstRenewal = new Date(signup.getFullYear(), 11, 31);
+
+    if (adjustmentValue >= 100) {
+      return new Date(signup.getFullYear() + 1, 11, 31).toLocaleDateString('en-GB');
+    }
+
+    return firstRenewal.toLocaleDateString('en-GB');
+  };
+
   const calculateFees = (dob: string) => {
     const age = calculateAge(dob);
     if (!feeStructure || age === 0) return { joining: 0, membership: 100 };
@@ -257,8 +289,10 @@ export default function AddMember() {
   }, [formData.main_joining_fee, formData.main_membership_fee, formData.joint_joining_fee, formData.joint_membership_fee, formData.app_type]);
 
   const joiningFee = calculateJoiningFee(mainDob, membershipType === 'legacy');
-  const annualFee = 100;
-  const totalDue = joiningFee + annualFee + (adjustmentAmount ? parseFloat(adjustmentAmount) : 0);
+  const proRataAnnualFee = calculateProRataFee(signupDate);
+  const adjustmentValue = adjustmentAmount ? parseFloat(adjustmentAmount) : 0;
+  const totalDue = joiningFee + proRataAnnualFee + adjustmentValue;
+  const coverageEndDate = getCoverageEndDate(signupDate, adjustmentValue);
 
   const submitMutation = useMutation({
     mutationFn: async () => {
@@ -697,7 +731,7 @@ export default function AddMember() {
         {currentStep === 6 && <StepMedicalInfo formData={formData} updateFormData={updateFormData} mainHasMedicalCondition={mainHasMedicalCondition} setMainHasMedicalCondition={setMainHasMedicalCondition} jointHasMedicalCondition={jointHasMedicalCondition} setJointHasMedicalCondition={setJointHasMedicalCondition} />}
         {currentStep === 7 && <StepDocuments formData={formData} updateFormData={updateFormData} />}
         {currentStep === 8 && <StepDeclarations formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
-        {currentStep === 9 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} annualFee={annualFee} totalDue={totalDue} />}
+        {currentStep === 9 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} signupDate={signupDate} setSignupDate={setSignupDate} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} proRataAnnualFee={proRataAnnualFee} adjustmentValue={adjustmentValue} totalDue={totalDue} coverageEndDate={coverageEndDate} />}
       </div>
 
       <div className="flex justify-between items-center bg-white rounded-xl shadow-md border border-gray-200 p-6">
@@ -1492,7 +1526,7 @@ function StepDeclarations({ formData, updateFormData, validationErrors }: any) {
   );
 }
 
-function StepPayment({ formData, updateFormData, validationErrors, membershipType, setMembershipType, adjustmentAmount, setAdjustmentAmount, adjustmentReason, setAdjustmentReason, paymentReceived, setPaymentReceived, mainDob, calculateAge, joiningFee, annualFee, totalDue }: any) {
+function StepPayment({ formData, updateFormData, validationErrors, membershipType, setMembershipType, signupDate, setSignupDate, adjustmentAmount, setAdjustmentAmount, adjustmentReason, setAdjustmentReason, paymentReceived, setPaymentReceived, mainDob, calculateAge, joiningFee, proRataAnnualFee, adjustmentValue, totalDue, coverageEndDate }: any) {
   return (
     <div className="space-y-6">
       <div>
@@ -1526,6 +1560,23 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
           )}
         </div>
 
+        {/* Signup Date */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Signup Date *
+          </label>
+          <input
+            type="date"
+            value={signupDate}
+            onChange={(e) => setSignupDate(e.target.value)}
+            max={new Date().toISOString().split('T')[0]}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Annual fees are pro-rated from signup date to December 31st
+          </p>
+        </div>
+
         {/* Age-Based Fee Information */}
         {mainDob && membershipType === 'new' && (
           <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -1550,8 +1601,9 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
           <h4 className="text-sm font-semibold text-gray-900 mb-3">Fee Breakdown</h4>
 
           <div className="space-y-2 text-sm">
+            {/* Joining Fee */}
             <div className="flex justify-between">
-              <span className="text-gray-600">Joining Fee:</span>
+              <span className="text-gray-600">Joining Fee (one-time):</span>
               <span className="font-medium">
                 {membershipType === 'legacy' ? (
                   <span className="text-yellow-600">£0.00 (Waived - Legacy)</span>
@@ -1562,28 +1614,66 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
                 )}
               </span>
             </div>
+
+            {/* Pro-rata Annual Fee */}
             <div className="flex justify-between">
-              <span className="text-gray-600">Annual Membership:</span>
-              <span className="font-medium">£{annualFee.toFixed(2)}</span>
+              <div className="flex-1">
+                <span className="text-gray-600">Annual Membership:</span>
+                <p className="text-xs text-gray-500">
+                  Pro-rated: {new Date(signupDate).toLocaleDateString('en-GB')} - 31/12/{new Date(signupDate).getFullYear()}
+                </p>
+              </div>
+              <span className="font-medium">£{proRataAnnualFee.toFixed(2)}</span>
             </div>
 
-            {adjustmentAmount && parseFloat(adjustmentAmount) > 0 && (
+            {/* Adjustment */}
+            {adjustmentValue > 0 && (
               <div className="flex justify-between text-yellow-600">
-                <span>Adjustment ({adjustmentReason || 'Custom'}):</span>
-                <span className="font-medium">£{parseFloat(adjustmentAmount).toFixed(2)}</span>
+                <div className="flex-1">
+                  <span>Adjustment:</span>
+                  {adjustmentReason && (
+                    <p className="text-xs">{adjustmentReason}</p>
+                  )}
+                </div>
+                <span className="font-medium">£{adjustmentValue.toFixed(2)}</span>
               </div>
             )}
 
             <div className="border-t border-gray-300 pt-2 mt-2">
               <div className="flex justify-between font-semibold text-gray-900">
                 <span>Total Due:</span>
-                <span className="text-lg">
-                  £{totalDue.toFixed(2)}
-                </span>
+                <span className="text-lg">£{totalDue.toFixed(2)}</span>
               </div>
+            </div>
+
+            {/* Coverage Period */}
+            <div className="border-t border-gray-200 pt-2 mt-2">
+              <p className="text-xs text-gray-600">
+                Coverage: {new Date(signupDate).toLocaleDateString('en-GB')} - {coverageEndDate}
+              </p>
+              {adjustmentValue >= 100 && (
+                <p className="text-xs text-yellow-600 font-medium mt-1">
+                  ✓ Prepaid through 2026!
+                </p>
+              )}
             </div>
           </div>
         </div>
+
+        {/* Pro-rata Information Box */}
+        {signupDate && (
+          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="text-sm font-semibold text-blue-900 mb-2">
+              Pro-rata Payment Information
+            </h4>
+            <div className="text-xs text-blue-700 space-y-1">
+              <p>• All memberships renew on <strong>January 1st</strong> each year</p>
+              <p>• Annual fee is pro-rated from signup date to December 31st</p>
+              <p>• Use adjustments to prepay for following year (saves time in January!)</p>
+              <p>• Example: Add £100 adjustment = coverage through Dec 31, 2026</p>
+            </div>
+          </div>
+        )}
 
         {/* Adjustments Section */}
         <div className="mb-6">
@@ -1591,7 +1681,7 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
             Adjustments (Optional)
           </h4>
           <p className="text-xs text-gray-500 mb-3">
-            Add additional amount if member wants to pay for following year or make advance payment
+            Add additional amount to prepay for following year or make advance payment
           </p>
 
           <div className="grid grid-cols-2 gap-4">
@@ -1608,6 +1698,9 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
                 placeholder="0.00"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Tip: Add £100 to prepay for 2026
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1617,7 +1710,7 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
                 type="text"
                 value={adjustmentReason}
                 onChange={(e) => setAdjustmentReason(e.target.value)}
-                placeholder="e.g., Next year payment"
+                placeholder="e.g., Prepay 2026"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
               />
             </div>
