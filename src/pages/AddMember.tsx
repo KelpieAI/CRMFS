@@ -120,6 +120,8 @@ export default function AddMember() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [applicationReference, setApplicationReference] = useState<string | null>(savedApplication?.application_reference || null);
+  const [mainHasMedicalCondition, setMainHasMedicalCondition] = useState(false);
+  const [jointHasMedicalCondition, setJointHasMedicalCondition] = useState(false);
   
   const [formData, setFormData] = useState<FormData>(savedApplication?.form_data || {
     app_type: 'single',
@@ -663,7 +665,7 @@ export default function AddMember() {
         {currentStep === 3 && <StepChildren formData={formData} addChild={addChild} removeChild={removeChild} updateChild={updateChild} childValidationErrors={childValidationErrors} />}
         {currentStep === 4 && <StepNextOfKin formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
         {currentStep === 5 && <StepGPDetails formData={formData} updateFormData={updateFormData} />}
-        {currentStep === 6 && <StepMedicalInfo formData={formData} updateFormData={updateFormData} />}
+        {currentStep === 6 && <StepMedicalInfo formData={formData} updateFormData={updateFormData} mainHasMedicalCondition={mainHasMedicalCondition} setMainHasMedicalCondition={setMainHasMedicalCondition} jointHasMedicalCondition={jointHasMedicalCondition} setJointHasMedicalCondition={setJointHasMedicalCondition} />}
         {currentStep === 7 && <StepDocuments formData={formData} updateFormData={updateFormData} />}
         {currentStep === 8 && <StepDeclarations formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
         {currentStep === 9 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
@@ -1178,53 +1180,140 @@ function StepGPDetails({ formData, updateFormData }: any) {
   );
 }
 
-function StepMedicalInfo({ formData, updateFormData }: any) {
+function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, setMainHasMedicalCondition, jointHasMedicalCondition, setJointHasMedicalCondition }: any) {
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Medical Information</h2>
-        <p className="text-sm text-gray-600">Optional medical conditions or disclaimers</p>
+        <p className="text-sm text-gray-600">Please provide any relevant medical information</p>
       </div>
+
       <div className="space-y-6">
-        <div>
-          <h3 className="font-medium text-gray-900 mb-3">
-            {formData.first_name && formData.last_name 
-              ? `${formData.first_name} ${formData.last_name}` 
+        {/* Main Member Medical Information */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            {formData.first_name && formData.last_name
+              ? `${formData.first_name} ${formData.last_name}`
               : 'Main Member'}
           </h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Disclaimer</label>
-              <input type="text" value={formData.main_disclaimer} onChange={(e) => updateFormData('main_disclaimer', e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Any disclaimers" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Medical Conditions</label>
-              <textarea value={formData.main_conditions} onChange={(e) => updateFormData('main_conditions', e.target.value)} rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="List any relevant medical conditions" />
+
+          {/* Medical Condition Question */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Do you have any medical condition or undergoing any medical treatment for any short/long term illness? *
+            </label>
+            <div className="flex space-x-6">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="main_has_medical_condition"
+                  value="yes"
+                  checked={mainHasMedicalCondition === true}
+                  onChange={() => setMainHasMedicalCondition(true)}
+                  className="w-4 h-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Yes</span>
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="main_has_medical_condition"
+                  value="no"
+                  checked={mainHasMedicalCondition === false}
+                  onChange={() => {
+                    setMainHasMedicalCondition(false);
+                    updateFormData('main_conditions', '');
+                  }}
+                  className="w-4 h-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">No</span>
+              </label>
             </div>
           </div>
+
+          {/* Conditional Medical Conditions Text Box */}
+          {mainHasMedicalCondition && (
+            <div className="mt-4 animate-in slide-in-from-top duration-200">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Please provide details of your medical condition(s) *
+              </label>
+              <textarea
+                value={formData.main_conditions}
+                onChange={(e) => updateFormData('main_conditions', e.target.value)}
+                required={mainHasMedicalCondition}
+                rows={4}
+                placeholder="Please describe your medical condition(s), treatment, and any medications..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Include any medications, ongoing treatments, or conditions that may be relevant.
+              </p>
+            </div>
+          )}
         </div>
 
+        {/* Joint Member Medical Information */}
         {formData.app_type === 'joint' && (
-          <div>
-            <h3 className="font-medium text-gray-900 mb-3">
-              {formData.joint_first_name && formData.joint_last_name 
-                ? `${formData.joint_first_name} ${formData.joint_last_name}` 
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {formData.joint_first_name && formData.joint_last_name
+                ? `${formData.joint_first_name} ${formData.joint_last_name}`
                 : 'Joint Member'}
             </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Disclaimer</label>
-                <input type="text" value={formData.joint_disclaimer} onChange={(e) => updateFormData('joint_disclaimer', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Any disclaimers" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Medical Conditions</label>
-                <textarea value={formData.joint_conditions} onChange={(e) => updateFormData('joint_conditions', e.target.value)} rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="List any relevant medical conditions" />
+
+            {/* Medical Condition Question */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Does the joint member have any medical condition or undergoing any medical treatment for any short/long term illness? *
+              </label>
+              <div className="flex space-x-6">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    name="joint_has_medical_condition"
+                    value="yes"
+                    checked={jointHasMedicalCondition === true}
+                    onChange={() => setJointHasMedicalCondition(true)}
+                    className="w-4 h-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Yes</span>
+                </label>
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    name="joint_has_medical_condition"
+                    value="no"
+                    checked={jointHasMedicalCondition === false}
+                    onChange={() => {
+                      setJointHasMedicalCondition(false);
+                      updateFormData('joint_conditions', '');
+                    }}
+                    className="w-4 h-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">No</span>
+                </label>
               </div>
             </div>
+
+            {/* Conditional Medical Conditions Text Box */}
+            {jointHasMedicalCondition && (
+              <div className="mt-4 animate-in slide-in-from-top duration-200">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Please provide details of joint member's medical condition(s) *
+                </label>
+                <textarea
+                  value={formData.joint_conditions}
+                  onChange={(e) => updateFormData('joint_conditions', e.target.value)}
+                  required={jointHasMedicalCondition}
+                  rows={4}
+                  placeholder="Please describe medical condition(s), treatment, and any medications..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Include any medications, ongoing treatments, or conditions that may be relevant.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
