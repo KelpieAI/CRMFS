@@ -501,7 +501,7 @@ export default function MemberDetail() {
                 id="delete-confirm-btn"
                 onClick={async () => {
                   // Check password - CHANGE THIS PASSWORD TO YOUR SECURE PASSWORD
-                  if (deletePassword !== 'admin123') {
+                  if (deletePassword !== 'Test123!') {
                     setDeleteError('Incorrect password');
                     return;
                   }
