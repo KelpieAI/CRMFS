@@ -306,11 +306,28 @@ export default function AddMember() {
 
   const submitMutation = useMutation({
     mutationFn: async () => {
+      // Calculate the correct fees for submission
+      const submitMainJoiningFee = calculateJoiningFee(mainDob, membershipType === 'legacy');
+      const submitJointJoiningFee = formData.app_type === 'joint' && formData.joint_dob
+        ? calculateJoiningFee(formData.joint_dob, membershipType === 'legacy')
+        : 0;
+      const submitMainProRataFee = calculateProRataFee(signupDate);
+      const submitJointProRataFee = formData.app_type === 'joint' && formData.joint_dob
+        ? calculateProRataFee(signupDate)
+        : 0;
+      const submitAdjustmentValue = adjustmentAmount ? parseFloat(adjustmentAmount) : 0;
+      const submitTotalDue = submitMainJoiningFee + submitJointJoiningFee + submitMainProRataFee + submitJointProRataFee + submitAdjustmentValue;
+
+      // Status based on payment toggle
+      const memberStatus = paymentReceived ? 'active' : 'pending';
+      const paymentStatus = paymentReceived ? 'completed' : 'pending';
+
       const memberInsert: any = {
         app_type: formData.app_type, title: formData.title, first_name: formData.first_name, last_name: formData.last_name,
         dob: formData.dob, address_line_1: formData.address_line_1, town: formData.town, city: formData.city,
         postcode: formData.postcode, mobile: formData.mobile, home_phone: formData.home_phone, work_phone: formData.work_phone,
-        email: formData.email, status: 'pending',
+        email: formData.email, status: memberStatus,
+        member_since: signupDate,
       };
 
       const { data: member, error: memberError } = await supabase.from('members').insert(memberInsert).select().single();
@@ -354,11 +371,20 @@ export default function AddMember() {
       });
 
       await supabase.from('payments').insert({
-        member_id: memberId, payment_type: 'registration', payment_method: formData.payment_method,
-        main_joining_fee: formData.main_joining_fee, main_membership_fee: formData.main_membership_fee, main_misc: 0,
-        joint_joining_fee: formData.joint_joining_fee, joint_membership_fee: formData.joint_membership_fee, joint_misc: 0,
-        late_fee: 0, total_amount: formData.total_amount, payment_status: 'pending',
-        join_date: new Date().toISOString().split('T')[0],
+        member_id: memberId, 
+        payment_type: 'registration', 
+        payment_method: formData.payment_method,
+        main_joining_fee: submitMainJoiningFee, 
+        main_membership_fee: submitMainProRataFee, 
+        main_misc: submitAdjustmentValue,
+        joint_joining_fee: submitJointJoiningFee, 
+        joint_membership_fee: submitJointProRataFee, 
+        joint_misc: 0,
+        late_fee: 0, 
+        total_amount: submitTotalDue, 
+        payment_status: paymentStatus,
+        join_date: signupDate,
+        notes: adjustmentReason ? `Adjustment: ${adjustmentReason}` : null,
       });
 
       return memberId;
