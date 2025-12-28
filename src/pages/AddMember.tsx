@@ -1540,10 +1540,10 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
           Payment Details
         </h3>
 
-        {/* Membership Type */}
+        {/* Payment Type */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Membership Type *
+            Payment Type *
           </label>
           <select
             value={membershipType}
@@ -1600,30 +1600,60 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
         <div className="bg-gray-50 rounded-lg p-4 mb-6">
           <h4 className="text-sm font-semibold text-gray-900 mb-3">Fee Breakdown</h4>
 
-          <div className="space-y-2 text-sm">
-            {/* Joining Fee */}
-            <div className="flex justify-between">
-              <span className="text-gray-600">Joining Fee (one-time):</span>
-              <span className="font-medium">
-                {membershipType === 'legacy' ? (
-                  <span className="text-yellow-600">£0.00 (Waived - Legacy)</span>
-                ) : mainDob ? (
-                  <span>£{joiningFee.toFixed(2)}</span>
-                ) : (
-                  <span className="text-gray-400">Enter DOB to calculate</span>
-                )}
-              </span>
+          <div className="space-y-3 text-sm">
+            {/* Main Member - Joining Fee */}
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-gray-600">Joining Fee (one-time):</span>
+                <span className="font-medium">
+                  {membershipType === 'legacy' ? (
+                    <span className="text-yellow-600">£0.00 (Waived - Legacy)</span>
+                  ) : mainDob ? (
+                    <span>£{joiningFee.toFixed(2)}</span>
+                  ) : (
+                    <span className="text-gray-400">Enter DOB to calculate</span>
+                  )}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 ml-2">
+                • {formData.first_name} {formData.last_name} {mainDob && `(Age ${calculateAge(mainDob)})`}
+              </p>
+              {formData.app_type === 'joint' && formData.joint_first_name && (
+                <p className="text-xs text-gray-500 ml-2">
+                  • {formData.joint_first_name} {formData.joint_last_name} {formData.joint_dob && `(Age ${calculateAge(formData.joint_dob)})`}
+                </p>
+              )}
+              {formData.children && formData.children.map((child: any, index: number) => (
+                <p key={index} className="text-xs text-gray-500 ml-2">
+                  • {child.first_name} {child.last_name} {child.dob && `(Age ${calculateAge(child.dob)})`} - £0.00
+                </p>
+              ))}
             </div>
 
             {/* Pro-rata Annual Fee */}
-            <div className="flex justify-between">
-              <div className="flex-1">
-                <span className="text-gray-600">Annual Membership:</span>
-                <p className="text-xs text-gray-500">
-                  Pro-rated: {new Date(signupDate).toLocaleDateString('en-GB')} - 31/12/{new Date(signupDate).getFullYear()}
-                </p>
+            <div>
+              <div className="flex justify-between mb-1">
+                <div className="flex-1">
+                  <span className="text-gray-600">Annual Membership:</span>
+                  <p className="text-xs text-gray-500">
+                    Pro-rated: {new Date(signupDate).toLocaleDateString('en-GB')} - 31/12/{new Date(signupDate).getFullYear()}
+                  </p>
+                </div>
+                <span className="font-medium">£{proRataAnnualFee.toFixed(2)}</span>
               </div>
-              <span className="font-medium">£{proRataAnnualFee.toFixed(2)}</span>
+              <p className="text-xs text-gray-500 ml-2">
+                • {formData.first_name} {formData.last_name}
+              </p>
+              {formData.app_type === 'joint' && formData.joint_first_name && (
+                <p className="text-xs text-gray-500 ml-2">
+                  • {formData.joint_first_name} {formData.joint_last_name}
+                </p>
+              )}
+              {formData.children && formData.children.map((child: any, index: number) => (
+                <p key={index} className="text-xs text-gray-500 ml-2">
+                  • {child.first_name} {child.last_name} - £0.00
+                </p>
+              ))}
             </div>
 
             {/* Adjustment */}
@@ -1651,11 +1681,6 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
               <p className="text-xs text-gray-600">
                 Coverage: {new Date(signupDate).toLocaleDateString('en-GB')} - {coverageEndDate}
               </p>
-              {adjustmentValue >= 100 && (
-                <p className="text-xs text-yellow-600 font-medium mt-1">
-                  ✓ Prepaid through 2026!
-                </p>
-              )}
             </div>
           </div>
         </div>
