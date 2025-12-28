@@ -843,8 +843,10 @@ function StepMainMember({ formData, updateFormData, validationErrors }: any) {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone <span className="text-red-500">*</span></label>
-          <input type="tel" required value={formData.mobile} onChange={(e) => updateFormData('mobile', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.mobile ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter mobile number" />
+          <input type="tel" required pattern="[0-9]{11}" value={formData.mobile} onChange={(e) => updateFormData('mobile', e.target.value)}
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.mobile ? 'border-red-500' : 'border-gray-300'}`}
+            placeholder="Mobile number (11 digits)"
+            title="Mobile number must be exactly 11 digits" />
           {validationErrors.mobile && <p className="text-red-500 text-xs mt-1">{validationErrors.mobile}</p>}
         </div>
         <div>
@@ -932,8 +934,10 @@ function StepJointMember({ formData, updateFormData, validationErrors }: any) {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone</label>
-          <input type="tel" value={formData.joint_mobile} onChange={(e) => updateFormData('joint_mobile', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter mobile number" />
+          <input type="tel" pattern="[0-9]{11}" value={formData.joint_mobile} onChange={(e) => updateFormData('joint_mobile', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            placeholder="Mobile number (11 digits)"
+            title="Mobile number must be exactly 11 digits" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Home Phone</label>
@@ -1072,8 +1076,15 @@ function StepNextOfKin({ formData, updateFormData, validationErrors }: any) {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Relationship <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.nok_relationship} onChange={(e) => updateFormData('nok_relationship', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_relationship ? 'border-red-500' : 'border-gray-300'}`} placeholder="e.g., Son, Daughter, Brother" />
+          <select required value={formData.nok_relationship} onChange={(e) => updateFormData('nok_relationship', e.target.value)}
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-mosque-green-600 focus:border-transparent ${validationErrors.nok_relationship ? 'border-red-500' : 'border-gray-300'}`}>
+            <option value="">Select relationship...</option>
+            <option value="Spouse">Spouse</option>
+            <option value="Child">Child</option>
+            <option value="Parent">Parent</option>
+            <option value="Sibling">Sibling</option>
+            <option value="Other">Other</option>
+          </select>
           {validationErrors.nok_relationship && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_relationship}</p>}
         </div>
         <div className="md:col-span-2">
@@ -1098,8 +1109,10 @@ function StepNextOfKin({ formData, updateFormData, validationErrors }: any) {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone <span className="text-red-500">*</span></label>
-          <input type="tel" required value={formData.nok_mobile} onChange={(e) => updateFormData('nok_mobile', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_mobile ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter mobile number" />
+          <input type="tel" required pattern="[0-9]{11}" value={formData.nok_mobile} onChange={(e) => updateFormData('nok_mobile', e.target.value)}
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_mobile ? 'border-red-500' : 'border-gray-300'}`}
+            placeholder="Mobile number (11 digits)"
+            title="Mobile number must be exactly 11 digits" />
           {validationErrors.nok_mobile && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_mobile}</p>}
         </div>
         <div>
