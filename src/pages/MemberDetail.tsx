@@ -28,6 +28,7 @@ import {
   CheckCircle,
   FileText,
   Upload,
+  AlertCircle,
 } from 'lucide-react';
 
 export default function MemberDetail() {
@@ -39,6 +40,8 @@ export default function MemberDetail() {
   const [editedData, setEditedData] = useState<any>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showPauseConfirm, setShowPauseConfirm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
 
   // Fetch member with all related data
   const { data: memberData, isLoading } = useQuery({
@@ -418,15 +421,105 @@ export default function MemberDetail() {
 
       {/* Confirmation Modals */}
       {showDeleteConfirm && (
-        <ConfirmModal
-          title="Delete Member"
-          message="Are you sure you want to delete this member? This will also delete all related data including payments, documents, and declarations. This action cannot be undone."
-          confirmText="Delete"
-          confirmColor="red"
-          onConfirm={() => deleteMutation.mutate()}
-          onCancel={() => setShowDeleteConfirm(false)}
-          isLoading={deleteMutation.isPending}
-        />
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-red-600">
+                Delete Member
+              </h3>
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeletePassword('');
+                  setDeleteError('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <div className="flex items-start">
+                  <AlertCircle className="h-5 w-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-red-800">
+                      Warning: This action cannot be undone!
+                    </p>
+                    <p className="text-xs text-red-700 mt-1">
+                      All member data, payment history, and records will be permanently deleted.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-sm text-gray-600 mb-4">
+                You are about to delete: <strong>{memberData?.member?.first_name} {memberData?.member?.last_name}</strong>
+              </p>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Enter password to confirm deletion:
+                </label>
+                <input
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => {
+                    setDeletePassword(e.target.value);
+                    setDeleteError('');
+                  }}
+                  placeholder="Enter password"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && deletePassword) {
+                      e.preventDefault();
+                      document.getElementById('delete-confirm-btn')?.click();
+                    }
+                  }}
+                />
+                {deleteError && (
+                  <p className="text-sm text-red-600 mt-2">{deleteError}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeletePassword('');
+                  setDeleteError('');
+                }}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                disabled={deleteMutation.isPending}
+              >
+                Cancel
+              </button>
+              <button
+                id="delete-confirm-btn"
+                onClick={async () => {
+                  // Check password - CHANGE THIS PASSWORD TO YOUR SECURE PASSWORD
+                  if (deletePassword !== 'admin123') {
+                    setDeleteError('Incorrect password');
+                    return;
+                  }
+
+                  // Delete member
+                  deleteMutation.mutate();
+                  setShowDeleteConfirm(false);
+                  setDeletePassword('');
+                  setDeleteError('');
+                }}
+                disabled={!deletePassword || deleteMutation.isPending}
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleteMutation.isPending ? 'Deleting...' : 'Delete Permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showPauseConfirm && (
