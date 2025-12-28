@@ -64,7 +64,7 @@ export default function CollapsibleSidebar() {
       {/* Mobile Hamburger Button */}
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="md:hidden fixed top-4 left-4 z-50 p-2 bg-gray-800 text-white rounded-lg shadow-lg hover:bg-gray-700 transition-colors"
+        className="md:hidden fixed top-4 left-4 z-50 p-2 bg-mosque-green-600 text-white rounded-lg shadow-lg hover:bg-mosque-green-700 transition-colors"
       >
         {isMobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
       </button>
@@ -80,7 +80,7 @@ export default function CollapsibleSidebar() {
       {/* Sidebar */}
       <div
         className={`
-          fixed top-0 left-0 h-full bg-gray-900 text-white z-40 transition-all duration-300 ease-in-out
+          fixed top-0 left-0 h-full bg-mosque-green-600 text-white z-40 transition-all duration-300 ease-in-out
           ${isExpanded ? 'w-64' : 'w-16'}
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
@@ -88,15 +88,15 @@ export default function CollapsibleSidebar() {
         onMouseLeave={() => window.innerWidth >= 768 && setIsExpanded(false)}
       >
         {/* Logo Section */}
-        <div className="h-16 flex items-center justify-center border-b border-gray-800 overflow-hidden">
+        <div className="h-16 flex items-center justify-center border-b border-mosque-green-700 overflow-hidden">
           <div className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 absolute'}`}>
             <div className="px-4 py-2">
-              <h1 className="text-lg font-bold text-emerald-400 whitespace-nowrap">Kelpie AI</h1>
+              <h1 className="text-lg font-bold text-mosque-gold-500 whitespace-nowrap">Kelpie AI</h1>
               <p className="text-xs text-gray-400 whitespace-nowrap">CRMFS</p>
             </div>
           </div>
           <div className={`transition-opacity duration-200 ${!isExpanded ? 'opacity-100' : 'opacity-0 absolute'}`}>
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center font-bold text-white">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-mosque-gold-500 to-mosque-gold-700 flex items-center justify-center font-bold text-white">
               K
             </div>
           </div>
@@ -116,9 +116,9 @@ export default function CollapsibleSidebar() {
                 to={item.to}
                 className={`
                   relative flex items-center rounded-lg transition-all duration-200 overflow-hidden
-                  ${isActive 
-                    ? 'bg-emerald-600 text-white' 
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                  ${isActive
+                    ? 'bg-mosque-gold-600 text-white'
+                    : 'text-gray-300 hover:bg-mosque-green-700 hover:text-white'
                   }
                   pl-3 pr-3 py-3
                 `}
@@ -138,12 +138,12 @@ export default function CollapsibleSidebar() {
         </nav>
 
         {/* Sign Out Button */}
-        <div className="border-t border-gray-800 p-2">
+        <div className="border-t border-mosque-green-700 p-2">
           <button
             onClick={handleSignOut}
             className={`
               relative w-full flex items-center rounded-lg transition-all duration-200 overflow-hidden
-              text-gray-300 hover:bg-gray-800 hover:text-white
+              text-gray-300 hover:bg-mosque-green-700 hover:text-white
               pl-3 pr-3 py-3
             `}
           >

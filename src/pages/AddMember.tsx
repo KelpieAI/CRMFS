@@ -36,7 +36,6 @@ interface FormData {
   first_name: string;
   last_name: string;
   dob: string;
-  member_since: string;
   address_line_1: string;
   town: string;
   city: string;
@@ -95,6 +94,19 @@ interface FormData {
   payment_method: string;
 }
 
+// Helper function to calculate age from date of birth
+function calculateAge(dob: string): number {
+  if (!dob) return 0;
+  const birthDate = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+}
+
 export default function AddMember() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -115,7 +127,6 @@ export default function AddMember() {
     first_name: '',
     last_name: '',
     dob: '',
-    member_since: '',
     address_line_1: '',
     town: '',
     city: '',
@@ -230,10 +241,6 @@ export default function AddMember() {
         email: formData.email, status: 'pending',
       };
 
-      if (formData.member_since) {
-        memberInsert.member_since = formData.member_since;
-      }
-
       const { data: member, error: memberError } = await supabase.from('members').insert(memberInsert).select().single();
 
       if (memberError) throw memberError;
@@ -279,7 +286,7 @@ export default function AddMember() {
         main_joining_fee: formData.main_joining_fee, main_membership_fee: formData.main_membership_fee, main_misc: 0,
         joint_joining_fee: formData.joint_joining_fee, joint_membership_fee: formData.joint_membership_fee, joint_misc: 0,
         late_fee: 0, total_amount: formData.total_amount, payment_status: 'pending',
-        join_date: formData.member_since || new Date().toISOString().split('T')[0],
+        join_date: new Date().toISOString().split('T')[0],
       });
 
       return memberId;
@@ -803,20 +810,12 @@ function StepMainMember({ formData, updateFormData, validationErrors }: any) {
         </div>
         <div>
           <DateInput
-            label="Date of Birth"
+            label={`Date of Birth${formData.dob ? ` (${calculateAge(formData.dob)} years old)` : ''}`}
             required
             value={formData.dob}
             onChange={(value) => updateFormData('dob', value)}
           />
           {validationErrors.dob && <p className="text-red-500 text-xs mt-1">{validationErrors.dob}</p>}
-        </div>
-        <div>
-          <DateInput
-            label="Member Since (Optional)"
-            value={formData.member_since}
-            onChange={(value) => updateFormData('member_since', value)}
-            maxDate={new Date().toISOString().split('T')[0]}
-          />
         </div>
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1 <span className="text-red-500">*</span></label>
@@ -904,7 +903,7 @@ function StepJointMember({ formData, updateFormData, validationErrors }: any) {
         </div>
         <div>
           <DateInput
-            label="Date of Birth"
+            label={`Date of Birth${formData.joint_dob ? ` (${calculateAge(formData.joint_dob)} years old)` : ''}`}
             required
             value={formData.joint_dob}
             onChange={(value) => updateFormData('joint_dob', value)}
@@ -1078,23 +1077,23 @@ function StepNextOfKin({ formData, updateFormData, validationErrors }: any) {
           {validationErrors.nok_relationship && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_relationship}</p>}
         </div>
         <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1</label>
-          <input type="text" value={formData.nok_address_line_1} onChange={(e) => updateFormData('nok_address_line_1', e.target.value)}
+          <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1 <span className="text-red-500">*</span></label>
+          <input type="text" required value={formData.nok_address_line_1} onChange={(e) => updateFormData('nok_address_line_1', e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter street address" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Town</label>
-          <input type="text" value={formData.nok_town} onChange={(e) => updateFormData('nok_town', e.target.value)}
+          <label className="block text-sm font-medium text-gray-700 mb-2">Town <span className="text-red-500">*</span></label>
+          <input type="text" required value={formData.nok_town} onChange={(e) => updateFormData('nok_town', e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter town" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
-          <input type="text" value={formData.nok_city} onChange={(e) => updateFormData('nok_city', e.target.value)}
+          <label className="block text-sm font-medium text-gray-700 mb-2">City <span className="text-red-500">*</span></label>
+          <input type="text" required value={formData.nok_city} onChange={(e) => updateFormData('nok_city', e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter city" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Postcode</label>
-          <input type="text" value={formData.nok_postcode} onChange={(e) => updateFormData('nok_postcode', e.target.value)}
+          <label className="block text-sm font-medium text-gray-700 mb-2">Postcode <span className="text-red-500">*</span></label>
+          <input type="text" required value={formData.nok_postcode} onChange={(e) => updateFormData('nok_postcode', e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter postcode" />
         </div>
         <div>
@@ -1109,8 +1108,8 @@ function StepNextOfKin({ formData, updateFormData, validationErrors }: any) {
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-emerald-500 focus:border-emerald-500" placeholder="Enter home phone" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-          <input type="email" value={formData.nok_email} onChange={(e) => updateFormData('nok_email', e.target.value)}
+          <label className="block text-sm font-medium text-gray-700 mb-2">Email <span className="text-red-500">*</span></label>
+          <input type="email" required value={formData.nok_email} onChange={(e) => updateFormData('nok_email', e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter email address" />
         </div>
       </div>
@@ -1127,13 +1126,13 @@ function StepGPDetails({ formData, updateFormData }: any) {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-2">GP Name / Surgery</label>
-          <input type="text" value={formData.gp_name_surgery} onChange={(e) => updateFormData('gp_name_surgery', e.target.value)}
+          <label className="block text-sm font-medium text-gray-700 mb-2">GP Name / Surgery <span className="text-red-500">*</span></label>
+          <input type="text" required value={formData.gp_name_surgery} onChange={(e) => updateFormData('gp_name_surgery', e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter GP name or surgery name" />
         </div>
         <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1</label>
-          <input type="text" value={formData.gp_address_line_1} onChange={(e) => updateFormData('gp_address_line_1', e.target.value)}
+          <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1 <span className="text-red-500">*</span></label>
+          <input type="text" required value={formData.gp_address_line_1} onChange={(e) => updateFormData('gp_address_line_1', e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter street address" />
         </div>
         <div>
@@ -1152,8 +1151,8 @@ function StepGPDetails({ formData, updateFormData }: any) {
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter postcode" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
-          <input type="tel" value={formData.gp_phone} onChange={(e) => updateFormData('gp_phone', e.target.value)}
+          <label className="block text-sm font-medium text-gray-700 mb-2">Phone <span className="text-red-500">*</span></label>
+          <input type="tel" required value={formData.gp_phone} onChange={(e) => updateFormData('gp_phone', e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter phone number" />
         </div>
         <div>

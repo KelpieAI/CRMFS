@@ -18,48 +18,60 @@ export default {
       
       // CHANGE YOUR COLORS HERE
       colors: {
-        // Primary color (currently emerald/green) - used for buttons, headers, accents
+        // Islamic Green - Primary
+        'mosque-green': {
+          50: '#e6f2e8',
+          100: '#c0dfc5',
+          200: '#96ca9e',
+          300: '#6cb577',
+          400: '#4da459',
+          500: '#2e943c',  // Mid green
+          600: '#06420c',  // Dad's requested green - MAIN COLOR
+          700: '#053a0a',
+          800: '#043208',
+          900: '#032506',
+        },
+
+        // Mosque Gold - Secondary
+        'mosque-gold': {
+          50: '#fef9e7',
+          100: '#fcefc2',
+          200: '#f9e599',
+          300: '#f7da70',
+          400: '#f5d151',
+          500: '#f3c832',
+          600: '#D4AF37',  // Dad's requested gold - MAIN COLOR
+          700: '#b8952d',
+          800: '#9c7c23',
+          900: '#80631a',
+        },
+
+        // Keep existing primary/secondary for backwards compatibility
         primary: {
-          50: '#f0fdf4',
-          100: '#dcfce7',
-          200: '#bbf7d0',
-          300: '#86efac',
-          400: '#4ade80',
-          500: '#10b981',  // Main primary color
-          600: '#059669',  // Hover states
-          700: '#047857',
-          800: '#065f46',
-          900: '#064e3b',
+          50: '#e6f2e8',
+          100: '#c0dfc5',
+          200: '#96ca9e',
+          300: '#6cb577',
+          400: '#4da459',
+          500: '#2e943c',
+          600: '#06420c',  // Islamic green
+          700: '#053a0a',
+          800: '#043208',
+          900: '#032506',
         },
-        
-        // Secondary color (currently gold/yellow) - used for accents, badges
+
         secondary: {
-          50: '#fefce8',
-          100: '#fef9c3',
-          200: '#fef08a',
-          300: '#fde047',
-          400: '#facc15',
-          500: '#eab308',  // Main secondary color
-          600: '#ca8a04',  // Hover states
-          700: '#a16207',
-          800: '#854d0e',
-          900: '#713f12',
+          50: '#fef9e7',
+          100: '#fcefc2',
+          200: '#f9e599',
+          300: '#f7da70',
+          400: '#f5d151',
+          500: '#f3c832',
+          600: '#D4AF37',  // Mosque gold
+          700: '#b8952d',
+          800: '#9c7c23',
+          900: '#80631a',
         },
-        
-        // You can also use preset Tailwind colors:
-        // Just replace 'primary' throughout the app with any of these:
-        // - emerald (current green)
-        // - blue
-        // - indigo
-        // - purple
-        // - pink
-        // - red
-        // - orange
-        // - amber
-        // - lime
-        // - teal
-        // - cyan
-        // - sky
       },
     },
   },
