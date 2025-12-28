@@ -288,8 +288,18 @@ export default function AddMember() {
     setFormData((prev) => ({ ...prev, total_amount: total }));
   }, [formData.main_joining_fee, formData.main_membership_fee, formData.joint_joining_fee, formData.joint_membership_fee, formData.app_type]);
 
-  const joiningFee = calculateJoiningFee(mainDob, membershipType === 'legacy');
-  const proRataAnnualFee = calculateProRataFee(signupDate);
+  const mainJoiningFee = calculateJoiningFee(mainDob, membershipType === 'legacy');
+  const jointJoiningFee = formData.app_type === 'joint' && formData.joint_dob
+    ? calculateJoiningFee(formData.joint_dob, membershipType === 'legacy')
+    : 0;
+  const joiningFee = mainJoiningFee + jointJoiningFee;
+
+  const mainProRataFee = calculateProRataFee(signupDate);
+  const jointProRataFee = formData.app_type === 'joint' && formData.joint_dob
+    ? calculateProRataFee(signupDate)
+    : 0;
+  const proRataAnnualFee = mainProRataFee + jointProRataFee;
+
   const adjustmentValue = adjustmentAmount ? parseFloat(adjustmentAmount) : 0;
   const totalDue = joiningFee + proRataAnnualFee + adjustmentValue;
   const coverageEndDate = getCoverageEndDate(signupDate, adjustmentValue);
@@ -731,7 +741,7 @@ export default function AddMember() {
         {currentStep === 6 && <StepMedicalInfo formData={formData} updateFormData={updateFormData} mainHasMedicalCondition={mainHasMedicalCondition} setMainHasMedicalCondition={setMainHasMedicalCondition} jointHasMedicalCondition={jointHasMedicalCondition} setJointHasMedicalCondition={setJointHasMedicalCondition} />}
         {currentStep === 7 && <StepDocuments formData={formData} updateFormData={updateFormData} />}
         {currentStep === 8 && <StepDeclarations formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
-        {currentStep === 9 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} signupDate={signupDate} setSignupDate={setSignupDate} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} proRataAnnualFee={proRataAnnualFee} adjustmentValue={adjustmentValue} totalDue={totalDue} coverageEndDate={coverageEndDate} />}
+        {currentStep === 9 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} signupDate={signupDate} setSignupDate={setSignupDate} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} mainJoiningFee={mainJoiningFee} jointJoiningFee={jointJoiningFee} proRataAnnualFee={proRataAnnualFee} mainProRataFee={mainProRataFee} jointProRataFee={jointProRataFee} adjustmentValue={adjustmentValue} totalDue={totalDue} coverageEndDate={coverageEndDate} />}
       </div>
 
       <div className="flex justify-between items-center bg-white rounded-xl shadow-md border border-gray-200 p-6">
@@ -1526,7 +1536,7 @@ function StepDeclarations({ formData, updateFormData, validationErrors }: any) {
   );
 }
 
-function StepPayment({ formData, updateFormData, validationErrors, membershipType, setMembershipType, signupDate, setSignupDate, adjustmentAmount, setAdjustmentAmount, adjustmentReason, setAdjustmentReason, paymentReceived, setPaymentReceived, mainDob, calculateAge, joiningFee, proRataAnnualFee, adjustmentValue, totalDue, coverageEndDate }: any) {
+function StepPayment({ formData, updateFormData, validationErrors, membershipType, setMembershipType, signupDate, setSignupDate, adjustmentAmount, setAdjustmentAmount, adjustmentReason, setAdjustmentReason, paymentReceived, setPaymentReceived, mainDob, calculateAge, joiningFee, mainJoiningFee, jointJoiningFee, proRataAnnualFee, mainProRataFee, jointProRataFee, adjustmentValue, totalDue, coverageEndDate }: any) {
   return (
     <div className="space-y-6">
       <div>
@@ -1616,11 +1626,11 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
                 </span>
               </div>
               <p className="text-xs text-gray-500 ml-2">
-                • {formData.first_name} {formData.last_name} {mainDob && `(Age ${calculateAge(mainDob)})`}
+                • {formData.first_name} {formData.last_name} {mainDob && `(Age ${calculateAge(mainDob)})`} - £{mainJoiningFee.toFixed(2)}
               </p>
               {formData.app_type === 'joint' && formData.joint_first_name && (
                 <p className="text-xs text-gray-500 ml-2">
-                  • {formData.joint_first_name} {formData.joint_last_name} {formData.joint_dob && `(Age ${calculateAge(formData.joint_dob)})`}
+                  • {formData.joint_first_name} {formData.joint_last_name} {formData.joint_dob && `(Age ${calculateAge(formData.joint_dob)})`} - £{jointJoiningFee.toFixed(2)}
                 </p>
               )}
               {formData.children && formData.children.map((child: any, index: number) => (
@@ -1642,11 +1652,11 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
                 <span className="font-medium">£{proRataAnnualFee.toFixed(2)}</span>
               </div>
               <p className="text-xs text-gray-500 ml-2">
-                • {formData.first_name} {formData.last_name}
+                • {formData.first_name} {formData.last_name} - £{mainProRataFee.toFixed(2)}
               </p>
               {formData.app_type === 'joint' && formData.joint_first_name && (
                 <p className="text-xs text-gray-500 ml-2">
-                  • {formData.joint_first_name} {formData.joint_last_name}
+                  • {formData.joint_first_name} {formData.joint_last_name} - £{jointProRataFee.toFixed(2)}
                 </p>
               )}
               {formData.children && formData.children.map((child: any, index: number) => (
