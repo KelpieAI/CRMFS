@@ -3,8 +3,8 @@
 > A comprehensive member and payment management system built for Falkirk Central Mosque's death committee (Central Region Muslim Funeral Service).
 
 **Built by:** [Kelpie AI](https://kelpieai.co.uk)  
-**Version:** 0.3.1.0  
-**Status:** Active Development  
+**Version:** 0.5.0.0  
+**Status:** Production Ready  
 **Tech Stack:** React + TypeScript + Supabase + Tailwind CSS
 
 ---
@@ -20,6 +20,8 @@ This CRM serves the death committee's operational needs by:
 - Automating payment calculations with pro-rata and age-based fees
 - Providing real-time insights into membership and finances
 - Centralising all member information in one secure location
+- Managing document uploads and storage securely
+- Handling membership pauses and reactivations
 - Reducing administrative overhead and manual paperwork
 - Ensuring compliance with legal declarations and documentation
 
@@ -31,6 +33,7 @@ This CRM serves the death committee's operational needs by:
 - Secure login system with Supabase authentication
 - Protected routes and session management
 - Row-level security (RLS) enabled on all database tables
+- Supabase Storage integration for secure file uploads
 - Environment validation and connection monitoring
 - Password-protected member deletion
 - Complete audit trails for compliance
@@ -44,7 +47,7 @@ This CRM serves the death committee's operational needs by:
   - GP information (mandatory)
   - Medical declarations with conditional Yes/No questions
   - Legal declarations with electronic signatures
-  - Document upload placeholders
+  - **Document uploads (Photo ID, Proof of Address, Children certificates)**
   - Pro-rata payment calculation with age-based fees
   - Review and submit
 - **Save Progress Feature** - Resume incomplete registrations
@@ -57,14 +60,15 @@ This CRM serves the death committee's operational needs by:
   - Next of Kin tab (mandatory emergency contacts with CRUD)
   - GP Details tab (mandatory medical practitioner info)
   - Medical Info tab (conditional based on health questions)
-  - Documents tab (file management placeholder)
+  - **Documents tab (view, preview, download all uploaded files)**
   - Declarations tab (legal compliance with signatures)
   - Payments tab (transaction history with summary cards)
   - Activity Log tab (complete audit trail with timeline)
 - **Member Actions:**
   - Edit mode with inline field editing
   - View payment history with status badges
-  - Pause membership (temporary suspension)
+  - **Pause membership (temporary suspension with warning system)**
+  - **Unpause membership (reactivation with age-based fees)**
   - Mark as deceased (preserves records)
   - Delete member (password-protected with confirmation)
 - **Enhanced Validations:**
@@ -72,6 +76,28 @@ This CRM serves the death committee's operational needs by:
   - Email format validation
   - Age display next to date of birth
   - Mandatory GP and Next of Kin fields
+  - Document upload validation (file size, type)
+
+### 📄 Document Management System
+- **Document Upload During Registration:**
+  - Photo ID (passport/driving licence) for main and joint members
+  - Proof of Address (utility bill/council tax) for main and joint members
+  - Birth certificates for all children
+  - File validation (JPG, PNG, PDF only, max 5MB)
+  - Upload progress indicators
+  - Delete functionality with confirmation
+- **Document Viewing in Member Detail:**
+  - Preview documents in new tab (eye icon)
+  - Download documents locally (download icon)
+  - Status indicators (uploaded/missing)
+  - Organized by member type (main/joint/children)
+  - Empty state guidance for missing documents
+- **Secure Storage:**
+  - All files stored in Supabase Storage bucket
+  - Encrypted at rest and in transit
+  - Public URLs for authenticated access
+  - Organized file structure with timestamps
+  - Easy search by member in database
 
 ### 💰 Payment Management
 - **Pro-Rata Annual Fees** - Calculated from signup date to December 31st
@@ -94,12 +120,40 @@ This CRM serves the death committee's operational needs by:
   - Late Payment Widget with highlights
   - Search and filter by member, status, or date range
   - Complete payment history per member
+- **Reactivation Payments:**
+  - Age-based joining fee + annual membership
+  - Late fees waived on reactivation
+  - One-time courtesy for paused members
+
+### ⏸️ Membership Pause/Unpause System
+- **Automatic Pause Logic:**
+  - Late warning system (£10/month for 3 months)
+  - Auto-pause after 3 ignored warnings
+  - Paused status displayed throughout app
+- **Paused Member Management:**
+  - Red "Paused" status badges
+  - Warning banner on member detail page
+  - "Unpause Membership" button with payment flow
+  - Clear reason for pause displayed
+- **Reactivation Process:**
+  - Age-based joining fee calculation (£75-£500)
+  - Annual membership fee (£100)
+  - Late fees waived (£0)
+  - Payment confirmation required
+  - Status updates to Active immediately
+  - Late warnings reset to 0
+  - Payment recorded with "reactivation" type
+- **Filtering & Search:**
+  - Filter members by paused status
+  - View all paused members at once
+  - Quick access to unpause functionality
 
 ### 📊 Dashboard & Analytics
 - Real-time statistics:
   - Total members
   - Active members
   - Pending applications
+  - Paused members
   - Total revenue
 - **Applications In Progress** - Shows saved registrations
 - **Upcoming Renewals** (30-day advance warning):
@@ -151,10 +205,11 @@ This CRM serves the death committee's operational needs by:
   - Member creation and updates
   - Status changes
   - Payment recording
+  - Document uploads
+  - Membership pause/unpause
   - Deceased marking
   - Funeral arrangements
   - Expense additions
-  - Document uploads
   - Contact additions
 
 ### 🎨 User Experience
@@ -179,6 +234,7 @@ This CRM serves the death committee's operational needs by:
   - Date pickers for date fields
   - Dropdowns for constrained values
   - Conditional field display (medical info)
+  - File upload with drag-and-drop
 - **Performance Features:**
   - Loading skeletons with shimmer animations
   - Aggressive caching (5 min stale, 30 min cache)
@@ -207,7 +263,7 @@ This CRM serves the death committee's operational needs by:
 Built on Supabase PostgreSQL with the following tables:
 
 ### Core Tables
-- **members** - Primary member records with age-based fees
+- **members** - Primary member records with age-based fees, document URLs, pause status
 - **joint_members** - Joint membership details
 - **children** - Dependent information
 - **next_of_kin** - Mandatory emergency contacts
@@ -215,7 +271,7 @@ Built on Supabase PostgreSQL with the following tables:
 - **medical_info** - Conditional health declarations
 
 ### Financial Tables
-- **payments** - Transaction records with pro-rata calculations
+- **payments** - Transaction records with pro-rata calculations and reactivation payments
 - **fee_structure** - Age-based pricing tiers
 
 ### Deceased Management Tables
@@ -226,10 +282,13 @@ Built on Supabase PostgreSQL with the following tables:
 - **funeral_payments** - Contributions
 
 ### Administrative Tables
-- **documents** - File attachments
+- **documents** - File attachments metadata
 - **declarations** - Legal acceptance records with signatures
 - **activity_log** - Automatic audit trail with triggers
 - **admin_users** - System administrators
+
+**Storage:**
+- **member-documents** - Supabase Storage bucket for uploaded files
 
 All tables include Row Level Security (RLS) policies for data protection.
 
@@ -251,6 +310,7 @@ All tables include Row Level Security (RLS) policies for data protection.
   - PostgreSQL database
   - Authentication
   - Row Level Security
+  - Storage (file uploads)
   - Real-time subscriptions
   - Database triggers for activity logging
   - RESTful API
@@ -273,11 +333,33 @@ All tables include Row Level Security (RLS) policies for data protection.
 6. Add mandatory GP details
 7. Complete conditional medical declarations
 8. Sign legal declarations electronically
-9. Upload supporting documents
+9. **Upload supporting documents (Photo ID, Proof of Address, Children certificates)**
 10. Review pro-rata fees and submit
 11. Mark payment as received (sets Active/Pending status)
 
 **Progress can be saved at any step and resumed later.**
+
+### Document Management
+1. Upload documents during registration
+2. Files saved to Supabase Storage bucket
+3. URLs stored in members table
+4. View documents in Member Detail → Documents tab
+5. Preview documents in new tab (eye icon)
+6. Download documents locally (download icon)
+7. Search documents by member in Supabase Table Editor
+
+### Membership Pause & Reactivation
+1. Member misses 3 renewal payments
+2. System or admin sets status to "Paused"
+3. Red status badge appears throughout app
+4. Committee member opens member detail
+5. Clicks "Unpause Membership" button
+6. System calculates: Joining fee (age-based) + £100 annual
+7. Late fees waived (£0)
+8. Confirm payment received
+9. Member status → Active
+10. Late warnings → Reset to 0
+11. Payment recorded with reactivation type
 
 ### Payment Processing
 1. System auto-calculates age-based joining fee
@@ -315,21 +397,19 @@ All tables include Row Level Security (RLS) policies for data protection.
 
 ## 🎯 Planned Features
 
-### Phase 2 (Q1 2025)
-- [ ] User authentication with role-based access control
-- [ ] Document upload and storage integration (Supabase Storage)
-- [ ] PDF receipt generation
-- [ ] Email notifications for renewals
+### Phase 3 (Q2 2025)
+- [ ] Children turn 18 automation (90-day tracking, auto-removal, notifications)
+- [ ] Late fee warning system (3-tier automated warnings)
+- [ ] Automated pause after 3 warnings (currently manual)
+- [ ] Email notifications for renewals and warnings
 - [ ] SMS reminders (via Twilio integration)
 - [ ] Advanced reporting and analytics
 - [ ] Export to CSV/Excel
 - [ ] Bulk operations (mass email, status updates)
-- [ ] Automated payment reminders
+- [ ] PDF receipt generation
 
-### Phase 3 (Q2 2025)
-- [ ] Children turn 18 automation (90-day tracking, auto-removal, notifications)
-- [ ] Late fee warning system (3-tier automated warnings)
-- [ ] Auto-pause after 3 warnings
+### Phase 4 (Q3 2025)
+- [ ] User authentication with role-based access control
 - [ ] Multi-language support (Arabic, Urdu)
 - [ ] Mobile app (React Native)
 - [ ] WhatsApp integration for notifications
@@ -346,6 +426,8 @@ All tables include Row Level Security (RLS) policies for data protection.
 - [ ] API for third-party integrations
 - [ ] Email open tracking
 - [ ] Membership card generation
+- [ ] Document expiry tracking (passport expiration)
+- [ ] Bulk document download (ZIP archives)
 
 ---
 
@@ -391,9 +473,10 @@ All tables include Row Level Security (RLS) policies for data protection.
 1. Create a Supabase project  
 2. Run the provided SQL schema (see `/supabase` directory)  
 3. Enable Row Level Security on all tables
-4. Set up authentication provider  
-5. Run activity log trigger creation script
-6. Update environment variables  
+4. Create Storage bucket: `member-documents`
+5. Set up authentication provider  
+6. Run activity log trigger creation script
+7. Update environment variables  
 
 ---
 
@@ -417,15 +500,17 @@ See `STYLING_GUIDE.md` for detailed instructions.
 
 ## 📊 Project Metrics
 
-- **Total Components:** 40+
+- **Total Components:** 45+
 - **Database Tables:** 18
-- **Lines of Code:** ~25,000
-- **Pages:** 15
-- **API Endpoints:** 80+ (via Supabase)
+- **Storage Buckets:** 1 (member-documents)
+- **Lines of Code:** ~28,000
+- **Pages:** 16
+- **API Endpoints:** 90+ (via Supabase)
 - **Member Detail Tabs:** 10
 - **Deceased Detail Tabs:** 7
 - **Registration Steps:** 10
-- **Premium Features:** 5 (Skeletons, Cmd+K, Caching, Optimistic, Bulk)
+- **Document Types:** 5 (Photo ID, Proof of Address x2, Children x multiple)
+- **Premium Features:** 7 (Skeletons, Cmd+K, Caching, Optimistic, Bulk, Documents, Pause)
 
 ---
 
@@ -471,8 +556,10 @@ For technical support or feature requests:
 This system handles sensitive personal data. Security measures include:
 - Encrypted data at rest and in transit
 - Row Level Security (RLS) enabled on all database tables
+- Secure file storage with Supabase Storage
 - Secure authentication with Supabase Auth
 - Password-protected destructive operations
+- Document access control
 - Environment variable protection
 - Automatic activity logging for audit compliance
 - Regular security audits
@@ -484,18 +571,62 @@ This system handles sensitive personal data. Security measures include:
 
 ## 📈 Version History
 
-### v0.3.1.0 (Current - 29 December 2024)
+### v0.5.0.0 (Current - 30 December 2025)
+- **Document Management System:**
+  - Document upload during registration (Photo ID, Proof of Address, Children certificates)
+  - File validation (type, size, format)
+  - Supabase Storage integration
+  - Upload progress indicators with smooth UX
+  - Delete functionality with confirmation
+  - Document viewing in Member Detail → Documents tab
+  - Preview documents in new tab (eye icon)
+  - Download documents locally (download icon)
+  - Status indicators (uploaded/missing)
+  - Organized display by member type
+  - Empty state guidance
+- **Membership Pause/Unpause System:**
+  - Paused status tracking with reason
+  - Late warnings counter (0-3)
+  - Red "Paused" status badges throughout app
+  - Warning banner on member detail page
+  - "Unpause Membership" button with payment modal
+  - Age-based reactivation fee calculation (£75-£600)
+  - Late fees waived on reactivation (£0)
+  - Payment recording with "reactivation" type
+  - Status update to Active on unpause
+  - Late warnings reset to 0
+  - Filter members by paused status
+- **Database Enhancements:**
+  - Added 5 document URL columns
+  - Added 3 pause tracking columns
+  - Created indexes for performance
+  - Updated payment types enum
+  - Storage bucket policies configured
+
+### v0.4.0.0 (29 December 2025)
+- **Phase 1 Critical Features:**
+  - Password-protected member deletion
+  - Medical info conditional Yes/No questions
+  - Pro-rata payment calculations (signup → Dec 31)
+  - Age-based joining fees (£75-£500)
+  - Registration success screens (payment-based)
+  - Legal declarations with electronic signatures
+  - Medical consent declaration
+  - Posthumous medical authorization
+  - GP details integration
+  - Final T&Cs acceptance
+
+### v0.3.1.0 (29 December 2025)
 - **Security Hardening:**
   - Enabled Row Level Security (RLS) on all 18 database tables
   - Public access policies for internal mosque use
-  - Password-protected member deletion
   - Fixed function search path vulnerabilities
 - **Critical Bug Fixes:**
   - Fixed routing issues (deceased routes leading to 404)
   - Resolved table name mismatch in deceased system
   - Added debug logging for troubleshooting
 
-### v0.3.0.0 (28 December 2024)
+### v0.3.0.0 (28 December 2025)
 - **Legal Compliance:**
   - Medical disclosure declaration with electronic signatures
   - Posthumous medical authorization with electronic signatures
@@ -507,7 +638,7 @@ This system handles sensitive personal data. Security measures include:
   - Prominent "Register Another Member" button
   - Professional status indicators
 
-### v0.2.5.0 (28 December 2024)
+### v0.2.5.0 (28 December 2025)
 - **Payment System Overhaul:**
   - Pro-rata annual fee calculation (signup date → Dec 31)
   - Age-based joining fees (£75-£500 based on 5 age brackets)
@@ -520,83 +651,69 @@ This system handles sensitive personal data. Security measures include:
   - Conditional Yes/No question for medical conditions
   - Text box appears only if conditions exist
   - Applied to both main and joint members
-  - Removes "optional" labelling
 
-### v0.2.0.0 (27 December 2024)
+### v0.2.3 (27 December 2025)
 - **Islamic Branding Update:**
   - Sidebar redesigned with Islamic Green (#06420c)
   - Mosque Gold (#D4AF37) accents throughout
   - Active nav items highlighted in gold
-  - Mobile hamburger button updated
 - **Enhanced Validations:**
   - Mobile number validation (must be 11 digits)
-  - Email format validation (@ and . required)
+  - Email format validation
   - GP details now mandatory
-  - Next of Kin fields now mandatory (address, town, city, postcode, email)
-  - Relation field converted to dropdown (Spouse, Child, Parent, Sibling, Other)
+  - Next of Kin fields now mandatory
+  - Relation field converted to dropdown
 - **UI Improvements:**
   - Age auto-calculation next to date of birth
   - Removed "Member since" field from registration
-  - Removed deceased button from member detail page (use Record Death flow)
   - Improved form field organization
 
-### v0.1.7.0 (27 December 2024)
+### v0.2.2 (27 December 2025)
 - **Premium Polish Features:**
-  - Loading skeletons with shimmer animations (Notion/Linear style)
-  - Command Palette (Cmd+K / Ctrl+K) for quick navigation
-  - Aggressive caching (5min stale, 30min cache time)
-  - Optimistic UI updates with automatic rollback
+  - Loading skeletons with shimmer animations
+  - Command Palette (Cmd+K / Ctrl+K)
+  - Aggressive caching (5min stale, 30min cache)
+  - Optimistic UI updates with rollback
   - Bulk actions with floating action bar
 - **Death Record Wizard:**
-  - 4-step guided flow (Select Member, Death Details, Burial Info, Review)
+  - 4-step guided flow
   - Islamic verse display
-  - Progress indicator with checkmarks
+  - Progress indicator
   - Form validation at each step
-  - Creates deceased record and updates member status
 
-### v0.1.6.3 (26 December 2024)
+### v0.2.1 (26 December 2025)
 - **Major UI/UX Overhaul:**
-  - Implemented Supabase-style collapsible navigation (64px collapsed, 256px expanded)
-  - Smooth hover-to-expand animations with fixed icon positions
-  - Mobile hamburger menu with overlay
-  - Proper content padding (32px top, responsive)
+  - Supabase-style collapsible navigation
+  - Mobile hamburger menu
+  - Proper content padding
 - **Member Detail Page Redesign:**
-  - Complete rebuild with modern sub-navigation sidebar (224px compact)
-  - 10 fully functional tabs with premium UX
-  - Compact header (single line, no redundant info)
-  - Quick info bar with 4 stat cards
-  - Two-column layouts for efficient space usage
-  - Professional card-based design with consistent spacing
+  - Modern sub-navigation sidebar
+  - 10 fully functional tabs
+  - Two-column layouts
+  - Professional card-based design
 - **Premium CRUD Modals:**
-  - Children management (add/edit/delete with validation)
-  - Next of Kin management (emergency contacts)
-  - Medical Info management (conditions/allergies/medications)
-  - Professional form validation with inline errors
-  - Auto-focus, keyboard shortcuts, loading states
-  - Smooth fade-in animations
+  - Children management
+  - Next of Kin management
+  - Medical Info management
 - **Activity Logging System:**
-  - Automatic database triggers on all tables
-  - Complete audit trail with timeline view
-  - Colour-coded action types with icons
-  - Relative timestamps ("2 hours ago")
-  - Statistics cards and expandable details
+  - Automatic database triggers
+  - Complete audit trail
+  - Timeline view
 - **Deceased Member System:**
-  - Complete funeral management with 7 information tabs
+  - 7 information tabs
   - Family contact tracking
   - Expense and payment management
-  - Document tracking for certificates
 
-### v0.1.5 (24 December 2024)
+### v0.1.5 (24 December 2025)
 - Complete member registration wizard
 - Payment management system
 - Dashboard with analytics
 - Late payment tracking
 - Upcoming renewals widget
-- Member action buttons (pause, deceased, delete)
+- Member action buttons
 - Responsive mobile design
-- Toast notifications and UX polish
 
-### v0.1.4 (22 December 2024)
+### v0.1.4 (22 December 2025)
 - Initial MVP release
 - Basic CRUD operations
 - Authentication system
@@ -609,7 +726,7 @@ This system handles sensitive personal data. Security measures include:
 
 **Mission:** Modernise and streamline the administrative operations of Central Region Muslim Funeral Service, enabling the committee to focus on serving the community rather than managing paperwork.
 
-**Vision:** A fully integrated, automated system that handles member lifecycle management, financial tracking, and community engagement—setting the standard for mosque administrative systems in Scotland.
+**Vision:** A fully integrated, automated system that handles member lifecycle management, financial tracking, document management, and community engagement—setting the standard for mosque administrative systems in Scotland.
 
 ---
 
