@@ -21,6 +21,7 @@ import {
   Trash2,
   CheckCircle,
   Clock,
+  Copy,
 } from 'lucide-react';
 
 const stepIcons = [Users, User, Users, Baby, Heart, Stethoscope, FileText, Upload, CheckSquare, CreditCard];
@@ -510,9 +511,16 @@ export default function AddMember() {
   const validateJointMemberStep = (): boolean => {
     const errors: Record<string, string> = {};
 
+    if (!formData.joint_title) errors.joint_title = 'Title is required';
     if (!formData.joint_first_name) errors.joint_first_name = 'First name is required';
     if (!formData.joint_last_name) errors.joint_last_name = 'Last name is required';
     if (!formData.joint_dob) errors.joint_dob = 'Date of birth is required';
+    if (!formData.joint_address_line_1) errors.joint_address_line_1 = 'Address is required';
+    if (!formData.joint_town) errors.joint_town = 'Town is required';
+    if (!formData.joint_city) errors.joint_city = 'City is required';
+    if (!formData.joint_postcode) errors.joint_postcode = 'Postcode is required';
+    if (!formData.joint_mobile) errors.joint_mobile = 'Mobile phone is required';
+    if (!formData.joint_email) errors.joint_email = 'Email is required';
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -972,6 +980,17 @@ function StepMainMember({ formData, updateFormData, validationErrors }: any) {
 }
 
 function StepJointMember({ formData, updateFormData, validationErrors }: any) {
+  const copyMainAddress = () => {
+    updateFormData('joint_address_line_1', formData.address_line_1);
+    updateFormData('joint_town', formData.town);
+    updateFormData('joint_city', formData.city);
+    updateFormData('joint_postcode', formData.postcode);
+  };
+
+  const mainMemberName = formData.first_name && formData.last_name
+    ? `${formData.first_name} ${formData.last_name}`
+    : 'the main member';
+
   return (
     <div className="space-y-6">
       <div>
@@ -980,9 +999,9 @@ function StepJointMember({ formData, updateFormData, validationErrors }: any) {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
-          <select value={formData.joint_title} onChange={(e) => updateFormData('joint_title', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Title <span className="text-red-500">*</span></label>
+          <select value={formData.joint_title} onChange={(e) => updateFormData('joint_title', e.target.value)} required
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_title ? 'border-red-500' : 'border-gray-300'}`}>
             <option value="">Select title</option>
             <option value="Mr">Mr</option>
             <option value="Mrs">Mrs</option>
@@ -991,6 +1010,7 @@ function StepJointMember({ formData, updateFormData, validationErrors }: any) {
             <option value="Dr">Dr</option>
             <option value="Prof">Prof</option>
           </select>
+          {validationErrors.joint_title && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_title}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
@@ -1013,32 +1033,49 @@ function StepJointMember({ formData, updateFormData, validationErrors }: any) {
           />
           {validationErrors.joint_dob && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_dob}</p>}
         </div>
+
         <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1</label>
-          <input type="text" value={formData.joint_address_line_1} onChange={(e) => updateFormData('joint_address_line_1', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter street address" />
+          <button
+            type="button"
+            onClick={copyMainAddress}
+            className="mb-4 inline-flex items-center px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors font-medium"
+          >
+            <Copy className="h-4 w-4 mr-2" />
+            Does this member live at the same address as {mainMemberName}?
+          </button>
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1 <span className="text-red-500">*</span></label>
+          <input type="text" required value={formData.joint_address_line_1} onChange={(e) => updateFormData('joint_address_line_1', e.target.value)}
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_address_line_1 ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter street address" />
+          {validationErrors.joint_address_line_1 && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_address_line_1}</p>}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Town</label>
-          <input type="text" value={formData.joint_town} onChange={(e) => updateFormData('joint_town', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter town" />
+          <label className="block text-sm font-medium text-gray-700 mb-2">Town <span className="text-red-500">*</span></label>
+          <input type="text" required value={formData.joint_town} onChange={(e) => updateFormData('joint_town', e.target.value)}
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_town ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter town" />
+          {validationErrors.joint_town && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_town}</p>}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
-          <input type="text" value={formData.joint_city} onChange={(e) => updateFormData('joint_city', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter city" />
+          <label className="block text-sm font-medium text-gray-700 mb-2">City <span className="text-red-500">*</span></label>
+          <input type="text" required value={formData.joint_city} onChange={(e) => updateFormData('joint_city', e.target.value)}
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_city ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter city" />
+          {validationErrors.joint_city && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_city}</p>}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Postcode</label>
-          <input type="text" value={formData.joint_postcode} onChange={(e) => updateFormData('joint_postcode', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter postcode" />
+          <label className="block text-sm font-medium text-gray-700 mb-2">Postcode <span className="text-red-500">*</span></label>
+          <input type="text" required value={formData.joint_postcode} onChange={(e) => updateFormData('joint_postcode', e.target.value)}
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_postcode ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter postcode" />
+          {validationErrors.joint_postcode && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_postcode}</p>}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone</label>
-          <input type="tel" pattern="[0-9]{11}" value={formData.joint_mobile} onChange={(e) => updateFormData('joint_mobile', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+          <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone <span className="text-red-500">*</span></label>
+          <input type="tel" required pattern="[0-9]{11}" value={formData.joint_mobile} onChange={(e) => updateFormData('joint_mobile', e.target.value)}
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_mobile ? 'border-red-500' : 'border-gray-300'}`}
             placeholder="Mobile number (11 digits)"
             title="Mobile number must be exactly 11 digits" />
+          {validationErrors.joint_mobile && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_mobile}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Home Phone</label>
@@ -1051,9 +1088,10 @@ function StepJointMember({ formData, updateFormData, validationErrors }: any) {
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter work phone" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-          <input type="email" value={formData.joint_email} onChange={(e) => updateFormData('joint_email', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter email address" />
+          <label className="block text-sm font-medium text-gray-700 mb-2">Email <span className="text-red-500">*</span></label>
+          <input type="email" required value={formData.joint_email} onChange={(e) => updateFormData('joint_email', e.target.value)}
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_email ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter email address" />
+          {validationErrors.joint_email && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_email}</p>}
         </div>
       </div>
     </div>
