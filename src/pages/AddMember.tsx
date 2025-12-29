@@ -131,6 +131,25 @@ export default function AddMember() {
   const [adjustmentReason, setAdjustmentReason] = useState('');
   const [paymentReceived, setPaymentReceived] = useState(false);
   const [mainDob, setMainDob] = useState(savedApplication?.form_data?.dob || '');
+
+  // Medical Consent
+  const [mainMedicalConsent, setMainMedicalConsent] = useState(false);
+  const [mainMedicalSignature, setMainMedicalSignature] = useState('');
+  const [jointMedicalConsent, setJointMedicalConsent] = useState(false);
+  const [jointMedicalSignature, setJointMedicalSignature] = useState('');
+
+  // Final Declaration
+  const [mainFinalDeclaration, setMainFinalDeclaration] = useState(false);
+  const [mainFinalSignature, setMainFinalSignature] = useState('');
+  const [jointFinalDeclaration, setJointFinalDeclaration] = useState(false);
+  const [jointFinalSignature, setJointFinalSignature] = useState('');
+
+  // GP Details (shared for both applicants)
+  const [gpPracticeName, setGpPracticeName] = useState('');
+  const [gpPracticeAddress, setGpPracticeAddress] = useState('');
+  const [gpPostcode, setGpPostcode] = useState('');
+  const [gpTelephone, setGpTelephone] = useState('');
+  const [gpEmail, setGpEmail] = useState('');
   
   const [formData, setFormData] = useState<FormData>(savedApplication?.form_data || {
     app_type: 'single',
@@ -355,8 +374,12 @@ export default function AddMember() {
       });
 
       await supabase.from('gp_details').insert({
-        member_id: memberId, gp_name_surgery: formData.gp_name_surgery, address_line_1: formData.gp_address_line_1,
-        town: formData.gp_town, city: formData.gp_city, postcode: formData.gp_postcode, phone: formData.gp_phone, email: formData.gp_email,
+        member_id: memberId,
+        gp_name_surgery: gpPracticeName,
+        address_line_1: gpPracticeAddress,
+        postcode: gpPostcode,
+        phone: gpTelephone,
+        email: gpEmail || null,
       });
 
       await supabase.from('medical_info').insert({ member_id: memberId, member_type: 'main', disclaimer: formData.main_disclaimer, conditions: formData.main_conditions });
@@ -366,8 +389,21 @@ export default function AddMember() {
       }
 
       await supabase.from('declarations').insert({
-        member_id: memberId, agreement_sig_1: formData.agreement_sig_1, agreement_sig_2: formData.agreement_sig_2,
-        funding_sig_1: formData.funding_sig_1, funding_sig_2: formData.funding_sig_2, declaration_sig_1: formData.declaration_sig_1, declaration_sig_2: formData.declaration_sig_2,
+        member_id: memberId,
+        main_medical_consent: mainMedicalConsent,
+        main_medical_signature: mainMedicalSignature,
+        main_medical_consent_date: new Date().toISOString(),
+        main_final_declaration: mainFinalDeclaration,
+        main_final_signature: mainFinalSignature,
+        main_final_declaration_date: new Date().toISOString(),
+        ...(formData.app_type === 'joint' && {
+          joint_medical_consent: jointMedicalConsent,
+          joint_medical_signature: jointMedicalSignature,
+          joint_medical_consent_date: new Date().toISOString(),
+          joint_final_declaration: jointFinalDeclaration,
+          joint_final_signature: jointFinalSignature,
+          joint_final_declaration_date: new Date().toISOString(),
+        }),
       });
 
       await supabase.from('payments').insert({
@@ -582,14 +618,26 @@ export default function AddMember() {
   const validateDeclarationsStep = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (!formData.agreement_sig_1) errors.agreement_sig_1 = 'Main member agreement is required';
-    if (!formData.funding_sig_1) errors.funding_sig_1 = 'Main member funding acknowledgment is required';
-    if (!formData.declaration_sig_1) errors.declaration_sig_1 = 'Main member declaration is required';
+    // Validate GP Details
+    if (!gpPracticeName) errors.gpPracticeName = 'GP practice name is required';
+    if (!gpPracticeAddress) errors.gpPracticeAddress = 'GP practice address is required';
+    if (!gpPostcode) errors.gpPostcode = 'GP postcode is required';
+    if (!gpTelephone) errors.gpTelephone = 'GP telephone is required';
 
+    // Validate Main Member Medical Consent
+    if (!mainMedicalConsent) errors.mainMedicalConsent = 'Medical consent is required';
+    if (!mainMedicalSignature) errors.mainMedicalSignature = 'Medical consent signature is required';
+
+    // Validate Main Member Final Declaration
+    if (!mainFinalDeclaration) errors.mainFinalDeclaration = 'Final declaration is required';
+    if (!mainFinalSignature) errors.mainFinalSignature = 'Final declaration signature is required';
+
+    // Validate Joint Member Declarations (if applicable)
     if (formData.app_type === 'joint') {
-      if (!formData.agreement_sig_2) errors.agreement_sig_2 = 'Joint member agreement is required';
-      if (!formData.funding_sig_2) errors.funding_sig_2 = 'Joint member funding acknowledgment is required';
-      if (!formData.declaration_sig_2) errors.declaration_sig_2 = 'Joint member declaration is required';
+      if (!jointMedicalConsent) errors.jointMedicalConsent = 'Joint member medical consent is required';
+      if (!jointMedicalSignature) errors.jointMedicalSignature = 'Joint member medical consent signature is required';
+      if (!jointFinalDeclaration) errors.jointFinalDeclaration = 'Joint member final declaration is required';
+      if (!jointFinalSignature) errors.jointFinalSignature = 'Joint member final declaration signature is required';
     }
 
     setValidationErrors(errors);
@@ -774,7 +822,23 @@ export default function AddMember() {
         {currentStep === 5 && <StepGPDetails formData={formData} updateFormData={updateFormData} />}
         {currentStep === 6 && <StepMedicalInfo formData={formData} updateFormData={updateFormData} mainHasMedicalCondition={mainHasMedicalCondition} setMainHasMedicalCondition={setMainHasMedicalCondition} jointHasMedicalCondition={jointHasMedicalCondition} setJointHasMedicalCondition={setJointHasMedicalCondition} />}
         {currentStep === 7 && <StepDocuments formData={formData} updateFormData={updateFormData} />}
-        {currentStep === 8 && <StepDeclarations formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
+        {currentStep === 8 && <StepDeclarations
+          formData={formData}
+          gpPracticeName={gpPracticeName} setGpPracticeName={setGpPracticeName}
+          gpPracticeAddress={gpPracticeAddress} setGpPracticeAddress={setGpPracticeAddress}
+          gpPostcode={gpPostcode} setGpPostcode={setGpPostcode}
+          gpTelephone={gpTelephone} setGpTelephone={setGpTelephone}
+          gpEmail={gpEmail} setGpEmail={setGpEmail}
+          mainMedicalConsent={mainMedicalConsent} setMainMedicalConsent={setMainMedicalConsent}
+          mainMedicalSignature={mainMedicalSignature} setMainMedicalSignature={setMainMedicalSignature}
+          jointMedicalConsent={jointMedicalConsent} setJointMedicalConsent={setJointMedicalConsent}
+          jointMedicalSignature={jointMedicalSignature} setJointMedicalSignature={setJointMedicalSignature}
+          mainFinalDeclaration={mainFinalDeclaration} setMainFinalDeclaration={setMainFinalDeclaration}
+          mainFinalSignature={mainFinalSignature} setMainFinalSignature={setMainFinalSignature}
+          jointFinalDeclaration={jointFinalDeclaration} setJointFinalDeclaration={setJointFinalDeclaration}
+          jointFinalSignature={jointFinalSignature} setJointFinalSignature={setJointFinalSignature}
+          validationErrors={validationErrors}
+        />}
         {currentStep === 9 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} signupDate={signupDate} setSignupDate={setSignupDate} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} mainJoiningFee={mainJoiningFee} jointJoiningFee={jointJoiningFee} proRataAnnualFee={proRataAnnualFee} mainProRataFee={mainProRataFee} jointProRataFee={jointProRataFee} adjustmentValue={adjustmentValue} totalDue={totalDue} coverageEndDate={coverageEndDate} />}
       </div>
 
@@ -1497,104 +1561,363 @@ function StepDocuments({ formData, updateFormData }: any) {
   );
 }
 
-function StepDeclarations({ formData, updateFormData, validationErrors }: any) {
-  const mainName = formData.first_name && formData.last_name 
-    ? `${formData.first_name} ${formData.last_name}` 
-    : 'Main member';
-  const jointName = formData.joint_first_name && formData.joint_last_name 
-    ? `${formData.joint_first_name} ${formData.joint_last_name}` 
-    : 'Joint member';
+function StepDeclarations({
+  formData,
+  gpPracticeName, setGpPracticeName,
+  gpPracticeAddress, setGpPracticeAddress,
+  gpPostcode, setGpPostcode,
+  gpTelephone, setGpTelephone,
+  gpEmail, setGpEmail,
+  mainMedicalConsent, setMainMedicalConsent,
+  mainMedicalSignature, setMainMedicalSignature,
+  jointMedicalConsent, setJointMedicalConsent,
+  jointMedicalSignature, setJointMedicalSignature,
+  mainFinalDeclaration, setMainFinalDeclaration,
+  mainFinalSignature, setMainFinalSignature,
+  jointFinalDeclaration, setJointFinalDeclaration,
+  jointFinalSignature, setJointFinalSignature,
+  validationErrors
+}: any) {
+  const hasJointMember = formData.app_type === 'joint';
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Declarations</h2>
-        <p className="text-sm text-gray-600">Please confirm the following declarations</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Declarations & Signatures</h2>
+        <p className="text-sm text-gray-600">Please complete all required declarations</p>
       </div>
-      <div className="space-y-4">
-        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-          <h3 className="font-medium text-gray-900 mb-3">Agreement Signatures <span className="text-red-500">*</span></h3>
-          <div className="space-y-2">
-            <label className="flex items-start">
-              <input type="checkbox" checked={formData.agreement_sig_1}
-                onChange={(e) => updateFormData('agreement_sig_1', e.target.checked)}
-                className="h-4 w-4 mt-1 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
-              <span className="ml-2 text-sm text-gray-700">
-                <strong>{mainName}</strong> agrees to the terms and conditions of the funeral service
-              </span>
-            </label>
-            {validationErrors.agreement_sig_1 && <p className="text-red-500 text-xs mt-1 ml-6">{validationErrors.agreement_sig_1}</p>}
-            {formData.app_type === 'joint' && (
-              <>
-                <label className="flex items-start">
-                  <input type="checkbox" checked={formData.agreement_sig_2}
-                    onChange={(e) => updateFormData('agreement_sig_2', e.target.checked)}
-                    className="h-4 w-4 mt-1 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
-                  <span className="ml-2 text-sm text-gray-700">
-                    <strong>{jointName}</strong> agrees to the terms and conditions of the funeral service
-                  </span>
-                </label>
-                {validationErrors.agreement_sig_2 && <p className="text-red-500 text-xs mt-1 ml-6">{validationErrors.agreement_sig_2}</p>}
-              </>
-            )}
+
+      {/* ============================================ */}
+      {/* SECTION 6: MEDICAL CONSENT */}
+      {/* ============================================ */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-6">
+          Section 6: Medical Consent
+        </h3>
+
+        {/* Medical Consent Statement */}
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+          <p className="text-sm text-blue-900 leading-relaxed">
+            I do not have any medical condition or illness other than those disclosed in the medical
+            history section of this form that may invalidate my application (see section 14). In the
+            event of my death, I authorise CRMFS to request information from my medical records
+            relevant to my application for funeral cover. I give consent for this information to be
+            sourced from my GP or other medical specialists that I may have received treatment from.
+          </p>
+        </div>
+
+        {/* GP Details */}
+        <div className="mb-6">
+          <h4 className="text-sm font-semibold text-gray-900 mb-4">GP Practice Details</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                GP Practice Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={gpPracticeName}
+                onChange={(e) => setGpPracticeName(e.target.value)}
+                required
+                placeholder="Enter GP practice name"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPracticeName ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {validationErrors.gpPracticeName && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPracticeName}</p>}
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                GP Practice Address <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={gpPracticeAddress}
+                onChange={(e) => setGpPracticeAddress(e.target.value)}
+                required
+                placeholder="Enter GP practice address"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPracticeAddress ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {validationErrors.gpPracticeAddress && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPracticeAddress}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Post Code <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={gpPostcode}
+                onChange={(e) => setGpPostcode(e.target.value)}
+                required
+                placeholder="e.g., FK1 1UG"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPostcode ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {validationErrors.gpPostcode && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPostcode}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Telephone <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="tel"
+                value={gpTelephone}
+                onChange={(e) => setGpTelephone(e.target.value)}
+                required
+                placeholder="GP practice phone"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpTelephone ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {validationErrors.gpTelephone && <p className="text-red-500 text-xs mt-1">{validationErrors.gpTelephone}</p>}
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                value={gpEmail}
+                onChange={(e) => setGpEmail(e.target.value)}
+                placeholder="GP practice email (optional)"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+            </div>
           </div>
         </div>
 
-        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-          <h3 className="font-medium text-gray-900 mb-3">Funding Signatures <span className="text-red-500">*</span></h3>
-          <div className="space-y-2">
-            <label className="flex items-start">
-              <input type="checkbox" checked={formData.funding_sig_1}
-                onChange={(e) => updateFormData('funding_sig_1', e.target.checked)}
-                className="h-4 w-4 mt-1 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
-              <span className="ml-2 text-sm text-gray-700">
-                <strong>{mainName}</strong> acknowledges the funding requirements
+        {/* Main Member Consent & Signature */}
+        <div className="mb-6 pb-6 border-b border-gray-200">
+          <h4 className="text-sm font-semibold text-gray-900 mb-4">Applicant 1 Consent</h4>
+
+          <div className="space-y-4">
+            {/* Checkbox */}
+            <label className="flex items-start cursor-pointer">
+              <input
+                type="checkbox"
+                checked={mainMedicalConsent}
+                onChange={(e) => setMainMedicalConsent(e.target.checked)}
+                required
+                className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+              />
+              <span className="ml-3 text-sm text-gray-700">
+                I confirm that I have read and agree to the medical consent statement above <span className="text-red-500">*</span>
               </span>
             </label>
-            {validationErrors.funding_sig_1 && <p className="text-red-500 text-xs mt-1 ml-6">{validationErrors.funding_sig_1}</p>}
-            {formData.app_type === 'joint' && (
-              <>
-                <label className="flex items-start">
-                  <input type="checkbox" checked={formData.funding_sig_2}
-                    onChange={(e) => updateFormData('funding_sig_2', e.target.checked)}
-                    className="h-4 w-4 mt-1 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
-                  <span className="ml-2 text-sm text-gray-700">
-                    <strong>{jointName}</strong> acknowledges the funding requirements
-                  </span>
-                </label>
-                {validationErrors.funding_sig_2 && <p className="text-red-500 text-xs mt-1 ml-6">{validationErrors.funding_sig_2}</p>}
-              </>
-            )}
+            {validationErrors.mainMedicalConsent && <p className="text-red-500 text-xs mt-1">{validationErrors.mainMedicalConsent}</p>}
+
+            {/* Signature Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Applicant 1 Signature (Full Name) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={mainMedicalSignature}
+                onChange={(e) => setMainMedicalSignature(e.target.value)}
+                required
+                placeholder="Type your full name as signature"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-serif italic text-lg ${validationErrors.mainMedicalSignature ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                By typing your name, you are providing your electronic signature
+              </p>
+              {validationErrors.mainMedicalSignature && <p className="text-red-500 text-xs mt-1">{validationErrors.mainMedicalSignature}</p>}
+            </div>
+
+            {/* Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Date
+              </label>
+              <input
+                type="date"
+                defaultValue={new Date().toISOString().split('T')[0]}
+                readOnly
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+              />
+            </div>
           </div>
         </div>
 
-        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-          <h3 className="font-medium text-gray-900 mb-3">Declaration Signatures <span className="text-red-500">*</span></h3>
-          <div className="space-y-2">
-            <label className="flex items-start">
-              <input type="checkbox" checked={formData.declaration_sig_1}
-                onChange={(e) => updateFormData('declaration_sig_1', e.target.checked)}
-                className="h-4 w-4 mt-1 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
-              <span className="ml-2 text-sm text-gray-700">
-                <strong>{mainName}</strong> declares all information provided is accurate
+        {/* Joint Member Consent & Signature (if applicable) */}
+        {hasJointMember && (
+          <div className="mb-6">
+            <h4 className="text-sm font-semibold text-gray-900 mb-4">Applicant 2 Consent</h4>
+
+            <div className="space-y-4">
+              {/* Checkbox */}
+              <label className="flex items-start cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={jointMedicalConsent}
+                  onChange={(e) => setJointMedicalConsent(e.target.checked)}
+                  required={hasJointMember}
+                  className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                />
+                <span className="ml-3 text-sm text-gray-700">
+                  I confirm that I have read and agree to the medical consent statement above <span className="text-red-500">*</span>
+                </span>
+              </label>
+              {validationErrors.jointMedicalConsent && <p className="text-red-500 text-xs mt-1">{validationErrors.jointMedicalConsent}</p>}
+
+              {/* Signature Field */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Applicant 2 Signature (Full Name) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={jointMedicalSignature}
+                  onChange={(e) => setJointMedicalSignature(e.target.value)}
+                  required={hasJointMember}
+                  placeholder="Type full name as signature"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-serif italic text-lg ${validationErrors.jointMedicalSignature ? 'border-red-500' : 'border-gray-300'}`}
+                />
+                {validationErrors.jointMedicalSignature && <p className="text-red-500 text-xs mt-1">{validationErrors.jointMedicalSignature}</p>}
+              </div>
+
+              {/* Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  defaultValue={new Date().toISOString().split('T')[0]}
+                  readOnly
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ============================================ */}
+      {/* SECTION 7: DECLARATION */}
+      {/* ============================================ */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-6">
+          Section 7: Declaration
+        </h3>
+
+        {/* Declaration Statement */}
+        <div className="bg-purple-50 border-l-4 border-purple-500 p-4 mb-6">
+          <p className="text-sm text-purple-900 leading-relaxed">
+            I solemnly declare that I have read, understood, and agree to abide by the terms and
+            conditions as set out here in this document by Central Region Muslim Funerals Services
+            (CRMFS). Should CRMFS create emergency only funds to meet the unexpected cost, I
+            agree to contribute my equal share. I hereby declare that the personal details provided
+            in this form are true and correct. A copy of which I have received.
+          </p>
+        </div>
+
+        {/* Main Member Declaration & Signature */}
+        <div className="mb-6 pb-6 border-b border-gray-200">
+          <h4 className="text-sm font-semibold text-gray-900 mb-4">Applicant 1 Declaration</h4>
+
+          <div className="space-y-4">
+            {/* Checkbox */}
+            <label className="flex items-start cursor-pointer">
+              <input
+                type="checkbox"
+                checked={mainFinalDeclaration}
+                onChange={(e) => setMainFinalDeclaration(e.target.checked)}
+                required
+                className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+              />
+              <span className="ml-3 text-sm text-gray-700">
+                I confirm that I have read and agree to the declaration above <span className="text-red-500">*</span>
               </span>
             </label>
-            {validationErrors.declaration_sig_1 && <p className="text-red-500 text-xs mt-1 ml-6">{validationErrors.declaration_sig_1}</p>}
-            {formData.app_type === 'joint' && (
-              <>
-                <label className="flex items-start">
-                  <input type="checkbox" checked={formData.declaration_sig_2}
-                    onChange={(e) => updateFormData('declaration_sig_2', e.target.checked)}
-                    className="h-4 w-4 mt-1 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
-                  <span className="ml-2 text-sm text-gray-700">
-                    <strong>{jointName}</strong> declares all information provided is accurate
-                  </span>
-                </label>
-                {validationErrors.declaration_sig_2 && <p className="text-red-500 text-xs mt-1 ml-6">{validationErrors.declaration_sig_2}</p>}
-              </>
-            )}
+            {validationErrors.mainFinalDeclaration && <p className="text-red-500 text-xs mt-1">{validationErrors.mainFinalDeclaration}</p>}
+
+            {/* Signature Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Applicant 1 Signature (Full Name) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={mainFinalSignature}
+                onChange={(e) => setMainFinalSignature(e.target.value)}
+                required
+                placeholder="Type your full name as signature"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-serif italic text-lg ${validationErrors.mainFinalSignature ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                By typing your name, you are providing your electronic signature
+              </p>
+              {validationErrors.mainFinalSignature && <p className="text-red-500 text-xs mt-1">{validationErrors.mainFinalSignature}</p>}
+            </div>
+
+            {/* Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Date
+              </label>
+              <input
+                type="date"
+                defaultValue={new Date().toISOString().split('T')[0]}
+                readOnly
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+              />
+            </div>
           </div>
         </div>
+
+        {/* Joint Member Declaration & Signature (if applicable) */}
+        {hasJointMember && (
+          <div className="mb-6">
+            <h4 className="text-sm font-semibold text-gray-900 mb-4">Applicant 2 Declaration</h4>
+
+            <div className="space-y-4">
+              {/* Checkbox */}
+              <label className="flex items-start cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={jointFinalDeclaration}
+                  onChange={(e) => setJointFinalDeclaration(e.target.checked)}
+                  required={hasJointMember}
+                  className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                />
+                <span className="ml-3 text-sm text-gray-700">
+                  I confirm that I have read and agree to the declaration above <span className="text-red-500">*</span>
+                </span>
+              </label>
+              {validationErrors.jointFinalDeclaration && <p className="text-red-500 text-xs mt-1">{validationErrors.jointFinalDeclaration}</p>}
+
+              {/* Signature Field */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Applicant 2 Signature (Full Name) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={jointFinalSignature}
+                  onChange={(e) => setJointFinalSignature(e.target.value)}
+                  required={hasJointMember}
+                  placeholder="Type full name as signature"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-serif italic text-lg ${validationErrors.jointFinalSignature ? 'border-red-500' : 'border-gray-300'}`}
+                />
+                {validationErrors.jointFinalSignature && <p className="text-red-500 text-xs mt-1">{validationErrors.jointFinalSignature}</p>}
+              </div>
+
+              {/* Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  defaultValue={new Date().toISOString().split('T')[0]}
+                  readOnly
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
