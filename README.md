@@ -4,7 +4,7 @@
 
 **Built by:** [Kelpie AI](https://kelpieai.co.uk)  
 **Version:** 0.3.1.0  
-**Status:** Launch Ready  
+**Status:** Active Development  
 **Tech Stack:** React + TypeScript + Supabase + Tailwind CSS
 
 ---
