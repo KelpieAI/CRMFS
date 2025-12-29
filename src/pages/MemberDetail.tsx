@@ -29,6 +29,9 @@ import {
   FileText,
   Upload,
   AlertCircle,
+  Eye,
+  Download,
+  Info,
 } from 'lucide-react';
 
 export default function MemberDetail() {
@@ -401,7 +404,7 @@ export default function MemberDetail() {
         )}
 
         {activeTab === 'documents' && (
-          <DocumentsTab documents={memberData?.documents || []} memberId={id!} />
+          <DocumentsTab member={memberData?.member} />
         )}
 
         {activeTab === 'payments' && (
@@ -1549,19 +1552,355 @@ function MedicalInfoTab({ medicalInfo, memberId }: any) {
 }
 
 // Documents Tab Component (Simple placeholder)
-function DocumentsTab({ documents }: any) {
+function DocumentsTab({ member }: any) {
+  const hasAnyDocuments = member?.main_photo_id_url ||
+    member?.main_proof_address_url ||
+    member?.joint_photo_id_url ||
+    member?.joint_proof_address_url ||
+    (member?.children_documents && Object.keys(member.children_documents).length > 0);
+
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
-      <div className="text-center py-8">
-        <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-        <p className="text-gray-500 font-medium">Document Management</p>
-        <p className="text-sm text-gray-400 mt-1">
-          File upload functionality to be implemented
-        </p>
-        <p className="text-xs text-gray-400 mt-2">
-          {documents.length} document{documents.length !== 1 ? 's' : ''} recorded
-        </p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">
+          Uploaded Documents
+        </h3>
+        <span className="text-sm text-gray-500">
+          Required for membership approval
+        </span>
       </div>
+
+      {/* Main Member Documents */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+          <User className="h-4 w-4 mr-2 text-emerald-600" />
+          Main Member Documents
+        </h4>
+
+        <div className="space-y-4">
+          {/* Photo ID */}
+          <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+            <div className="flex items-center flex-1">
+              <div className={`p-2 rounded-lg mr-3 ${
+                member?.main_photo_id_url
+                  ? 'bg-emerald-100'
+                  : 'bg-gray-100'
+              }`}>
+                <FileText className={`h-6 w-6 ${
+                  member?.main_photo_id_url
+                    ? 'text-emerald-600'
+                    : 'text-gray-400'
+                }`} />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-900">
+                  Photo ID (Passport / Driving Licence)
+                </p>
+                {member?.main_photo_id_url ? (
+                  <p className="text-xs text-gray-500">
+                    Uploaded • Required
+                  </p>
+                ) : (
+                  <p className="text-xs text-red-600">
+                    Not uploaded • Required
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {member?.main_photo_id_url ? (
+              <div className="flex items-center space-x-2">
+                <a
+                  href={member.main_photo_id_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
+                  title="View document"
+                >
+                  <Eye className="h-4 w-4 text-emerald-600" />
+                </a>
+                <a
+                  href={member.main_photo_id_url}
+                  download
+                  className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                  title="Download document"
+                >
+                  <Download className="h-4 w-4 text-blue-600" />
+                </a>
+              </div>
+            ) : (
+              <span className="px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                Missing
+              </span>
+            )}
+          </div>
+
+          {/* Proof of Address */}
+          <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+            <div className="flex items-center flex-1">
+              <div className={`p-2 rounded-lg mr-3 ${
+                member?.main_proof_address_url
+                  ? 'bg-emerald-100'
+                  : 'bg-gray-100'
+              }`}>
+                <FileText className={`h-6 w-6 ${
+                  member?.main_proof_address_url
+                    ? 'text-emerald-600'
+                    : 'text-gray-400'
+                }`} />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-900">
+                  Proof of Address (Utility Bill / Council Tax)
+                </p>
+                {member?.main_proof_address_url ? (
+                  <p className="text-xs text-gray-500">
+                    Uploaded • Required
+                  </p>
+                ) : (
+                  <p className="text-xs text-red-600">
+                    Not uploaded • Required
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {member?.main_proof_address_url ? (
+              <div className="flex items-center space-x-2">
+                <a
+                  href={member.main_proof_address_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
+                  title="View document"
+                >
+                  <Eye className="h-4 w-4 text-emerald-600" />
+                </a>
+                <a
+                  href={member.main_proof_address_url}
+                  download
+                  className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                  title="Download document"
+                >
+                  <Download className="h-4 w-4 text-blue-600" />
+                </a>
+              </div>
+            ) : (
+              <span className="px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                Missing
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Joint Member Documents (if applicable) */}
+      {member?.has_joint_member && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+            <Users className="h-4 w-4 mr-2 text-emerald-600" />
+            Joint Member Documents
+          </h4>
+
+          <div className="space-y-4">
+            {/* Joint Photo ID */}
+            <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+              <div className="flex items-center flex-1">
+                <div className={`p-2 rounded-lg mr-3 ${
+                  member?.joint_photo_id_url
+                    ? 'bg-emerald-100'
+                    : 'bg-gray-100'
+                }`}>
+                  <FileText className={`h-6 w-6 ${
+                    member?.joint_photo_id_url
+                      ? 'text-emerald-600'
+                      : 'text-gray-400'
+                  }`} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">
+                    Photo ID (Passport / Driving Licence)
+                  </p>
+                  {member?.joint_photo_id_url ? (
+                    <p className="text-xs text-gray-500">
+                      Uploaded • Required
+                    </p>
+                  ) : (
+                    <p className="text-xs text-red-600">
+                      Not uploaded • Required
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {member?.joint_photo_id_url ? (
+                <div className="flex items-center space-x-2">
+                  <a
+                    href={member.joint_photo_id_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
+                    title="View document"
+                  >
+                    <Eye className="h-4 w-4 text-emerald-600" />
+                  </a>
+                  <a
+                    href={member.joint_photo_id_url}
+                    download
+                    className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                    title="Download document"
+                  >
+                    <Download className="h-4 w-4 text-blue-600" />
+                  </a>
+                </div>
+              ) : (
+                <span className="px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                  Missing
+                </span>
+              )}
+            </div>
+
+            {/* Joint Proof of Address */}
+            <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+              <div className="flex items-center flex-1">
+                <div className={`p-2 rounded-lg mr-3 ${
+                  member?.joint_proof_address_url
+                    ? 'bg-emerald-100'
+                    : 'bg-gray-100'
+                }`}>
+                  <FileText className={`h-6 w-6 ${
+                    member?.joint_proof_address_url
+                      ? 'text-emerald-600'
+                      : 'text-gray-400'
+                  }`} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">
+                    Proof of Address (Utility Bill / Council Tax)
+                  </p>
+                  {member?.joint_proof_address_url ? (
+                    <p className="text-xs text-gray-500">
+                      Uploaded • Required
+                    </p>
+                  ) : (
+                    <p className="text-xs text-red-600">
+                      Not uploaded • Required
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {member?.joint_proof_address_url ? (
+                <div className="flex items-center space-x-2">
+                  <a
+                    href={member.joint_proof_address_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
+                    title="View document"
+                  >
+                    <Eye className="h-4 w-4 text-emerald-600" />
+                  </a>
+                  <a
+                    href={member.joint_proof_address_url}
+                    download
+                    className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                    title="Download document"
+                  >
+                    <Download className="h-4 w-4 text-blue-600" />
+                  </a>
+                </div>
+              ) : (
+                <span className="px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                  Missing
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Children Documents (if applicable) */}
+      {member?.children_documents && Object.keys(member.children_documents).length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+            <Baby className="h-4 w-4 mr-2 text-emerald-600" />
+            Children's Documents
+          </h4>
+
+          <div className="space-y-4">
+            {Object.entries(member.children_documents).map(([key, url]: [string, any], index: number) => (
+              <div
+                key={key}
+                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+              >
+                <div className="flex items-center flex-1">
+                  <div className="p-2 rounded-lg mr-3 bg-emerald-100">
+                    <FileText className="h-6 w-6 text-emerald-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">
+                      Child {index + 1} - Birth Certificate / Passport
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Uploaded • Required
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
+                    title="View document"
+                  >
+                    <Eye className="h-4 w-4 text-emerald-600" />
+                  </a>
+                  <a
+                    href={url}
+                    download
+                    className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                    title="Download document"
+                  >
+                    <Download className="h-4 w-4 text-blue-600" />
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Documents Summary */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h5 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
+          <Info className="h-4 w-4 mr-2" />
+          Document Information
+        </h5>
+        <ul className="text-xs text-blue-800 space-y-1">
+          <li>• All documents are stored securely in encrypted storage</li>
+          <li>• Click the eye icon to view documents in new tab</li>
+          <li>• Click the download icon to save documents locally</li>
+          <li>• Documents are required before membership can be approved</li>
+          <li>• Contact admin to upload missing documents</li>
+        </ul>
+      </div>
+
+      {/* Empty State (if no documents) */}
+      {!hasAnyDocuments && (
+        <div className="text-center py-12 bg-gray-50 rounded-lg">
+          <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-sm font-medium text-gray-900 mb-2">
+            No Documents Uploaded
+          </h3>
+          <p className="text-sm text-gray-500 mb-4">
+            This member has not uploaded any documents yet.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
