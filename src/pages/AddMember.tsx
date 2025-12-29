@@ -524,7 +524,7 @@ export default function AddMember() {
     saveProgressMutation.mutate();
   };
 
-  const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'GP Details', 'Medical Info', 'Documents', 'Declarations', 'Payment'];
+  const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'Medical Info', 'Documents', 'Declarations', 'Payment'];
 
   const validateMainMemberStep = (): boolean => {
     const errors: Record<string, string> = {};
@@ -666,10 +666,10 @@ export default function AddMember() {
     if (currentStep === 4) {
       return validateNextOfKinStep();
     }
-    if (currentStep === 8) {
+    if (currentStep === 7) {
       return validateDeclarationsStep();
     }
-    if (currentStep === 9) {
+    if (currentStep === 8) {
       return validatePaymentStep();
     }
     return true;
@@ -819,10 +819,9 @@ export default function AddMember() {
         {currentStep === 2 && <StepJointMember formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
         {currentStep === 3 && <StepChildren formData={formData} addChild={addChild} removeChild={removeChild} updateChild={updateChild} childValidationErrors={childValidationErrors} />}
         {currentStep === 4 && <StepNextOfKin formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
-        {currentStep === 5 && <StepGPDetails formData={formData} updateFormData={updateFormData} />}
-        {currentStep === 6 && <StepMedicalInfo formData={formData} updateFormData={updateFormData} mainHasMedicalCondition={mainHasMedicalCondition} setMainHasMedicalCondition={setMainHasMedicalCondition} jointHasMedicalCondition={jointHasMedicalCondition} setJointHasMedicalCondition={setJointHasMedicalCondition} />}
-        {currentStep === 7 && <StepDocuments formData={formData} updateFormData={updateFormData} />}
-        {currentStep === 8 && <StepDeclarations
+        {currentStep === 5 && <StepMedicalInfo formData={formData} updateFormData={updateFormData} mainHasMedicalCondition={mainHasMedicalCondition} setMainHasMedicalCondition={setMainHasMedicalCondition} jointHasMedicalCondition={jointHasMedicalCondition} setJointHasMedicalCondition={setJointHasMedicalCondition} />}
+        {currentStep === 6 && <StepDocuments formData={formData} updateFormData={updateFormData} />}
+        {currentStep === 7 && <StepDeclarations
           formData={formData}
           gpPracticeName={gpPracticeName} setGpPracticeName={setGpPracticeName}
           gpPracticeAddress={gpPracticeAddress} setGpPracticeAddress={setGpPracticeAddress}
@@ -839,7 +838,7 @@ export default function AddMember() {
           jointFinalSignature={jointFinalSignature} setJointFinalSignature={setJointFinalSignature}
           validationErrors={validationErrors}
         />}
-        {currentStep === 9 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} signupDate={signupDate} setSignupDate={setSignupDate} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} mainJoiningFee={mainJoiningFee} jointJoiningFee={jointJoiningFee} proRataAnnualFee={proRataAnnualFee} mainProRataFee={mainProRataFee} jointProRataFee={jointProRataFee} adjustmentValue={adjustmentValue} totalDue={totalDue} coverageEndDate={coverageEndDate} />}
+        {currentStep === 8 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} signupDate={signupDate} setSignupDate={setSignupDate} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} mainJoiningFee={mainJoiningFee} jointJoiningFee={jointJoiningFee} proRataAnnualFee={proRataAnnualFee} mainProRataFee={mainProRataFee} jointProRataFee={jointProRataFee} adjustmentValue={adjustmentValue} totalDue={totalDue} coverageEndDate={coverageEndDate} />}
       </div>
 
       <div className="flex justify-between items-center bg-white rounded-xl shadow-md border border-gray-200 p-6">
@@ -1326,54 +1325,6 @@ function StepNextOfKin({ formData, updateFormData, validationErrors }: any) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Email <span className="text-red-500">*</span></label>
           <input type="email" required value={formData.nok_email} onChange={(e) => updateFormData('nok_email', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter email address" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StepGPDetails({ formData, updateFormData }: any) {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">GP Details</h2>
-        <p className="text-sm text-gray-600">General Practitioner / Doctor information</p>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-2">GP Name / Surgery <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.gp_name_surgery} onChange={(e) => updateFormData('gp_name_surgery', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter GP name or surgery name" />
-        </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1 <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.gp_address_line_1} onChange={(e) => updateFormData('gp_address_line_1', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter street address" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Town</label>
-          <input type="text" value={formData.gp_town} onChange={(e) => updateFormData('gp_town', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter town" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
-          <input type="text" value={formData.gp_city} onChange={(e) => updateFormData('gp_city', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter city" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Postcode</label>
-          <input type="text" value={formData.gp_postcode} onChange={(e) => updateFormData('gp_postcode', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter postcode" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Phone <span className="text-red-500">*</span></label>
-          <input type="tel" required value={formData.gp_phone} onChange={(e) => updateFormData('gp_phone', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter phone number" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-          <input type="email" value={formData.gp_email} onChange={(e) => updateFormData('gp_email', e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter email address" />
         </div>
       </div>
