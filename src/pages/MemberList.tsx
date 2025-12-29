@@ -84,6 +84,7 @@ export default function MemberList() {
       active: 'bg-mosque-gold-100 text-mosque-gold-800 border-mosque-gold-200',
       pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
       inactive: 'bg-gray-100 text-gray-800 border-gray-200',
+      paused: 'bg-red-100 text-red-800 border-red-200',
       deceased: 'bg-gray-100 text-gray-800 border-gray-200',
     };
 
@@ -162,6 +163,7 @@ export default function MemberList() {
                 <option value="active">Active</option>
                 <option value="pending">Pending</option>
                 <option value="inactive">Inactive</option>
+                <option value="paused">Paused</option>
                 <option value="deceased">Deceased</option>
               </select>
             </div>

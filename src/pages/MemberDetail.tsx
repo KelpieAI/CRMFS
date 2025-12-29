@@ -32,6 +32,7 @@ import {
   Eye,
   Download,
   Info,
+  PlayCircle,
 } from 'lucide-react';
 
 export default function MemberDetail() {
@@ -45,6 +46,13 @@ export default function MemberDetail() {
   const [showPauseConfirm, setShowPauseConfirm] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
+  const [showUnpauseModal, setShowUnpauseModal] = useState(false);
+  const [paymentReceived, setPaymentReceived] = useState(false);
+  const [unpauseCalculation, setUnpauseCalculation] = useState({
+    joiningFee: 0,
+    membershipFee: 100,
+    total: 0
+  });
 
   // Fetch member with all related data
   const { data: memberData, isLoading } = useQuery({
@@ -171,6 +179,31 @@ export default function MemberDetail() {
     return age;
   };
 
+  // Calculate unpause fees
+  const calculateUnpauseFees = () => {
+    if (!memberData?.member) return;
+
+    const age = calculateAge(memberData.member.date_of_birth);
+    if (!age) return;
+
+    let joiningFee = 0;
+
+    // Age-based joining fee
+    if (age >= 18 && age <= 25) joiningFee = 75;
+    else if (age >= 26 && age <= 35) joiningFee = 100;
+    else if (age >= 36 && age <= 45) joiningFee = 200;
+    else if (age >= 46 && age <= 55) joiningFee = 300;
+    else if (age >= 56) joiningFee = 500;
+
+    const total = joiningFee + 100;
+
+    setUnpauseCalculation({
+      joiningFee,
+      membershipFee: 100,
+      total
+    });
+  };
+
   // Calculate total paid
   const totalPaid = memberData?.payments
     ?.filter((p: any) => p.payment_status === 'completed')
@@ -280,7 +313,18 @@ export default function MemberDetail() {
                   <CreditCard className="h-4 w-4 mr-1" />
                   <span className="hidden sm:inline">Payments</span>
                 </button>
-                {member.status === 'active' ? (
+                {member.status === 'paused' ? (
+                  <button
+                    onClick={() => {
+                      calculateUnpauseFees();
+                      setShowUnpauseModal(true);
+                    }}
+                    className="inline-flex items-center px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                  >
+                    <PlayCircle className="h-4 w-4 mr-1" />
+                    <span className="hidden sm:inline">Unpause</span>
+                  </button>
+                ) : member.status === 'active' ? (
                   <button
                     onClick={() => {
                       updateStatus.mutate({
@@ -324,6 +368,31 @@ export default function MemberDetail() {
             )}
           </div>
         </div>
+
+        {/* Paused Member Warning */}
+        {member.status === 'paused' && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4">
+            <div className="flex items-start">
+              <AlertCircle className="h-5 w-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <h4 className="text-sm font-semibold text-red-900">
+                  Membership Suspended
+                </h4>
+                <p className="text-sm text-red-800 mt-1">
+                  This membership was paused{member.paused_date && ` on ${new Date(member.paused_date).toLocaleDateString()}`}
+                  {member.paused_reason && ` - ${member.paused_reason}`}
+                </p>
+                <p className="text-sm text-red-800 mt-2">
+                  <strong>To reactivate:</strong> Member must pay joining fee (£{unpauseCalculation.joiningFee})
+                  + annual membership fee (£100) = <strong>£{unpauseCalculation.total}</strong>
+                </p>
+                <p className="text-xs text-red-700 mt-2">
+                  Note: Late fees are waived upon reactivation.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Quick Info Bar */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -535,6 +604,164 @@ export default function MemberDetail() {
           onCancel={() => setShowPauseConfirm(false)}
           isLoading={pauseMembershipMutation.isPending}
         />
+      )}
+
+      {/* Unpause Membership Modal */}
+      {showUnpauseModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <PlayCircle className="h-5 w-5 mr-2 text-emerald-600" />
+                Unpause Membership
+              </h3>
+              <button
+                onClick={() => setShowUnpauseModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Member Info */}
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm font-medium text-gray-900">
+                {member?.first_name} {member?.last_name}
+              </p>
+              <p className="text-xs text-gray-600">
+                Membership No: {member?.membership_number || id?.slice(0, 8)}
+              </p>
+              <p className="text-xs text-gray-600">
+                Age: {calculateAge(member?.date_of_birth)} years
+              </p>
+            </div>
+
+            {/* Fee Breakdown */}
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-blue-900 mb-3">
+                Reactivation Fees
+              </h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-blue-800">Joining Fee (age-based):</span>
+                  <span className="font-medium text-blue-900">
+                    £{unpauseCalculation.joiningFee.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-blue-800">Annual Membership Fee:</span>
+                  <span className="font-medium text-blue-900">
+                    £{unpauseCalculation.membershipFee.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>Late Fees (waived):</span>
+                  <span className="font-medium line-through">£0.00</span>
+                </div>
+                <div className="border-t border-blue-300 pt-2 mt-2">
+                  <div className="flex justify-between font-semibold text-blue-900">
+                    <span>Total Due:</span>
+                    <span className="text-lg">£{unpauseCalculation.total.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Important Notice */}
+            <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <h5 className="text-xs font-semibold text-yellow-900 mb-2">
+                Important Information:
+              </h5>
+              <ul className="text-xs text-yellow-800 space-y-1">
+                <li>• Member must pay full reactivation fee to unpause</li>
+                <li>• Previous late fees are waived as a one-time courtesy</li>
+                <li>• Membership will be active from payment date</li>
+                <li>• Next renewal: January 1st, {new Date().getFullYear() + 1}</li>
+              </ul>
+            </div>
+
+            {/* Payment Status Toggle */}
+            <div className="mb-6">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={paymentReceived}
+                  onChange={(e) => setPaymentReceived(e.target.checked)}
+                  className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                />
+                <span className="ml-3 text-sm text-gray-700">
+                  Payment received (£{unpauseCalculation.total.toFixed(2)})
+                </span>
+              </label>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowUnpauseModal(false);
+                  setPaymentReceived(false);
+                }}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!paymentReceived) {
+                    alert('Please confirm payment has been received');
+                    return;
+                  }
+
+                  try {
+                    // Record payment
+                    const { error: paymentError } = await supabase
+                      .from('payments')
+                      .insert({
+                        member_id: member?.id,
+                        amount: unpauseCalculation.total,
+                        payment_type: 'reactivation',
+                        payment_method: 'cash',
+                        payment_status: 'completed',
+                        payment_date: new Date().toISOString(),
+                        total_amount: unpauseCalculation.total,
+                        notes: `Membership reactivation - Joining fee £${unpauseCalculation.joiningFee} + Annual fee £100`
+                      });
+
+                    if (paymentError) throw paymentError;
+
+                    // Update member status
+                    const { error: memberError } = await supabase
+                      .from('members')
+                      .update({
+                        status: 'active',
+                        late_warnings_count: 0,
+                        paused_date: null,
+                        paused_reason: null,
+                        last_payment_date: new Date().toISOString()
+                      })
+                      .eq('id', member?.id);
+
+                    if (memberError) throw memberError;
+
+                    // Success
+                    setShowUnpauseModal(false);
+                    setPaymentReceived(false);
+                    queryClient.invalidateQueries({ queryKey: ['member-detail', id] });
+                    alert('Membership successfully reactivated!');
+                  } catch (error) {
+                    console.error('Unpause error:', error);
+                    alert('Failed to reactivate membership. Please try again.');
+                  }
+                }}
+                disabled={!paymentReceived}
+                className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Reactivate Membership
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </CompactLayout>
   );
