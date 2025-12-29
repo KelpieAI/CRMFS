@@ -327,7 +327,6 @@ export default function AddMember() {
         dob: formData.dob, address_line_1: formData.address_line_1, town: formData.town, city: formData.city,
         postcode: formData.postcode, mobile: formData.mobile, home_phone: formData.home_phone, work_phone: formData.work_phone,
         email: formData.email, status: memberStatus,
-        member_since: signupDate,
       };
 
       const { data: member, error: memberError } = await supabase.from('members').insert(memberInsert).select().single();
