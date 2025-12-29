@@ -415,6 +415,7 @@ export default function AddMember() {
           memberId,
           memberName,
           applicationReference,
+          paymentReceived,
         },
       });
     },

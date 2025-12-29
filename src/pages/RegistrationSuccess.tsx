@@ -1,137 +1,134 @@
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { CheckCircle, ArrowRight, Home } from 'lucide-react';
+import { CheckCircle, Clock, UserPlus, Eye } from 'lucide-react';
 
 export default function RegistrationSuccess() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { memberName, memberId, applicationReference } = location.state || {};
 
-  // Redirect if accessed directly without state
+  // Get member data and payment status from route state
+  const memberId = location.state?.memberId;
+  const memberName = location.state?.memberName || 'New Member';
+  const paymentReceived = location.state?.paymentReceived || false;
+
   useEffect(() => {
+    // Auto-redirect if no member data (shouldn't happen)
     if (!memberId) {
-      navigate('/');
+      navigate('/members');
     }
   }, [memberId, navigate]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-yellow-50 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-2xl w-full">
         {/* Success Card */}
-        <div className="bg-white rounded-2xl shadow-2xl border border-emerald-200 overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 px-8 py-6 text-center">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full mb-4">
-              <CheckCircle className="h-12 w-12 text-emerald-600" />
-            </div>
-            <h1 className="text-3xl font-bold text-white mb-2">
-              Registration Successful!
-            </h1>
-            <p className="text-emerald-100">
-              The membership application has been submitted successfully
-            </p>
-          </div>
-
-          {/* Content */}
-          <div className="px-8 py-8">
-            <div className="space-y-6">
-              {/* Member Details */}
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  Application Details
-                </h2>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Member Name:</span>
-                    <span className="font-semibold text-gray-900">{memberName || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Member ID:</span>
-                    <span className="font-mono text-sm font-semibold text-emerald-600">
-                      {memberId || 'N/A'}
-                    </span>
-                  </div>
-                  {applicationReference && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Application Reference:</span>
-                      <span className="font-mono text-sm font-semibold text-emerald-600">
-                        {applicationReference}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Status:</span>
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-                      Pending Approval
-                    </span>
-                  </div>
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+          {/* Header - Different based on payment status */}
+          {paymentReceived ? (
+            // PAYMENT RECEIVED - Success State
+            <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 p-8 text-center">
+              <div className="flex justify-center mb-4">
+                <div className="bg-white rounded-full p-3">
+                  <CheckCircle className="h-16 w-16 text-emerald-600" />
                 </div>
               </div>
-
-              {/* Next Steps */}
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
-                <h3 className="text-md font-semibold text-blue-900 mb-3">
-                  What Happens Next?
-                </h3>
-                <ul className="space-y-2 text-sm text-blue-800">
-                  <li className="flex items-start">
-                    <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mt-1.5 mr-3 flex-shrink-0"></span>
-                    <span>Your application will be reviewed by our team</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mt-1.5 mr-3 flex-shrink-0"></span>
-                    <span>You will receive a confirmation email within 24-48 hours</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mt-1.5 mr-3 flex-shrink-0"></span>
-                    <span>Payment processing will begin once approved</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mt-1.5 mr-3 flex-shrink-0"></span>
-                    <span>You can view your application status in the member portal</span>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Contact Info */}
-              <div className="text-center text-sm text-gray-600">
-                <p>
-                  If you have any questions, please contact us at{' '}
-                  <a href="mailto:info@crmfs.org" className="text-emerald-600 hover:text-emerald-700 font-medium">
-                    info@crmfs.org
-                  </a>
-                </p>
-              </div>
+              <h1 className="text-3xl font-bold text-white mb-2">
+                Registration Successful!
+              </h1>
+              <p className="text-emerald-100 text-lg">
+                {memberName} is now an active member
+              </p>
             </div>
-          </div>
+          ) : (
+            // PAYMENT PENDING - Pending State
+            <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 p-8 text-center">
+              <div className="flex justify-center mb-4">
+                <div className="bg-white rounded-full p-3">
+                  <Clock className="h-16 w-16 text-yellow-600" />
+                </div>
+              </div>
+              <h1 className="text-3xl font-bold text-white mb-2">
+                Pending Approval
+              </h1>
+              <p className="text-yellow-100 text-lg">
+                {memberName}'s application is awaiting payment
+              </p>
+            </div>
+          )}
 
-          {/* Actions */}
-          <div className="bg-gray-50 px-8 py-6 flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={() => navigate(`/members/${memberId}`)}
-              className="flex-1 inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md"
-            >
-              View Member Profile
-              <ArrowRight className="h-5 w-5 ml-2" />
-            </button>
-            <button
-              onClick={() => navigate('/')}
-              className="flex-1 inline-flex items-center justify-center px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              <Home className="h-5 w-5 mr-2" />
-              Back to Dashboard
-            </button>
+          {/* Content */}
+          <div className="p-8">
+            {/* Status Message */}
+            <div className={`
+              rounded-lg p-6 mb-6 text-center
+              ${paymentReceived
+                ? 'bg-emerald-50 border border-emerald-200'
+                : 'bg-yellow-50 border border-yellow-200'
+              }
+            `}>
+              {paymentReceived ? (
+                <div>
+                  <p className="text-emerald-800 font-medium mb-2">
+                    ✅ Payment received and processed
+                  </p>
+                  <p className="text-emerald-600 text-sm">
+                    Member status: <span className="font-semibold">ACTIVE</span>
+                  </p>
+                  <p className="text-emerald-600 text-sm">
+                    Membership benefits are now active
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-yellow-800 font-medium mb-2">
+                    ⏳ Payment pending
+                  </p>
+                  <p className="text-yellow-600 text-sm">
+                    Member status: <span className="font-semibold">PENDING</span>
+                  </p>
+                  <p className="text-yellow-600 text-sm">
+                    Membership will activate once payment is received
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-4">
+              {/* View Member Profile */}
+              <button
+                onClick={() => navigate(`/members/${memberId}`)}
+                className="w-full flex items-center justify-center px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+              >
+                <Eye className="h-5 w-5 mr-2" />
+                View Member Profile
+              </button>
+
+              {/* Register Another Member - BIG BUTTON */}
+              <button
+                onClick={() => navigate('/members/new')}
+                className="w-full flex items-center justify-center px-8 py-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-semibold text-lg shadow-lg"
+              >
+                <UserPlus className="h-6 w-6 mr-2" />
+                Register Another Member
+              </button>
+
+              {/* View All Members */}
+              <button
+                onClick={() => navigate('/members')}
+                className="w-full px-6 py-3 text-gray-600 hover:text-gray-900 transition-colors font-medium"
+              >
+                View All Members →
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Additional Actions */}
+        {/* Reference Number (Optional) */}
         <div className="mt-6 text-center">
-          <button
-            onClick={() => navigate('/members/new')}
-            className="text-emerald-600 hover:text-emerald-700 font-medium text-sm"
-          >
-            Register another member →
-          </button>
+          <p className="text-sm text-gray-500">
+            Reference: #{memberId?.slice(0, 8).toUpperCase()}
+          </p>
         </div>
       </div>
     </div>
