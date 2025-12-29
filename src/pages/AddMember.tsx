@@ -215,6 +215,21 @@ export default function AddMember() {
     payment_method: '',
   });
 
+  const [mainPhotoId, setMainPhotoId] = useState<File | null>(null);
+  const [mainPhotoIdUrl, setMainPhotoIdUrl] = useState<string>('');
+  const [mainProofAddress, setMainProofAddress] = useState<File | null>(null);
+  const [mainProofAddressUrl, setMainProofAddressUrl] = useState<string>('');
+
+  const [jointPhotoId, setJointPhotoId] = useState<File | null>(null);
+  const [jointPhotoIdUrl, setJointPhotoIdUrl] = useState<string>('');
+  const [jointProofAddress, setJointProofAddress] = useState<File | null>(null);
+  const [jointProofAddressUrl, setJointProofAddressUrl] = useState<string>('');
+
+  const [childrenDocuments, setChildrenDocuments] = useState<Record<string, File | null>>({});
+  const [childrenDocumentUrls, setChildrenDocumentUrls] = useState<Record<string, string>>({});
+
+  const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
+
   const { data: feeStructure } = useQuery({
     queryKey: ['fee-structure'],
     queryFn: async () => {
@@ -286,6 +301,56 @@ export default function AddMember() {
     if (!feeStructure || age === 0) return { joining: 0, membership: 100 };
     const tier = feeStructure.find((fee: any) => age >= fee.age_min && age <= fee.age_max);
     return { joining: tier ? tier.joining_fee : 0, membership: tier ? tier.membership_fee : 100 };
+  };
+
+  const uploadDocument = async (file: File, category: string, applicantType: string) => {
+    if (!file) return null;
+
+    try {
+      setUploadingDoc(`${applicantType}-${category}`);
+
+      const timestamp = Date.now();
+      const filename = `${applicantType}_${category}_${timestamp}_${file.name}`;
+      const filePath = `documents/${filename}`;
+
+      const { error } = await supabase.storage
+        .from('member-documents')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage
+        .from('member-documents')
+        .getPublicUrl(filePath);
+
+      setUploadingDoc(null);
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload document. Please try again.');
+      setUploadingDoc(null);
+      return null;
+    }
+  };
+
+  const deleteDocument = async (url: string) => {
+    if (!url) return;
+
+    try {
+      const urlParts = url.split('/');
+      const filePath = `documents/${urlParts[urlParts.length - 1]}`;
+
+      const { error } = await supabase.storage
+        .from('member-documents')
+        .remove([filePath]);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Delete error:', error);
+    }
   };
 
   useEffect(() => {
@@ -820,7 +885,23 @@ export default function AddMember() {
         {currentStep === 3 && <StepChildren formData={formData} addChild={addChild} removeChild={removeChild} updateChild={updateChild} childValidationErrors={childValidationErrors} />}
         {currentStep === 4 && <StepNextOfKin formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
         {currentStep === 5 && <StepMedicalInfo formData={formData} updateFormData={updateFormData} mainHasMedicalCondition={mainHasMedicalCondition} setMainHasMedicalCondition={setMainHasMedicalCondition} jointHasMedicalCondition={jointHasMedicalCondition} setJointHasMedicalCondition={setJointHasMedicalCondition} />}
-        {currentStep === 6 && <StepDocuments formData={formData} updateFormData={updateFormData} />}
+        {currentStep === 6 && <StepDocuments
+          formData={formData}
+          mainPhotoId={mainPhotoId} setMainPhotoId={setMainPhotoId}
+          mainPhotoIdUrl={mainPhotoIdUrl} setMainPhotoIdUrl={setMainPhotoIdUrl}
+          mainProofAddress={mainProofAddress} setMainProofAddress={setMainProofAddress}
+          mainProofAddressUrl={mainProofAddressUrl} setMainProofAddressUrl={setMainProofAddressUrl}
+          jointPhotoId={jointPhotoId} setJointPhotoId={setJointPhotoId}
+          jointPhotoIdUrl={jointPhotoIdUrl} setJointPhotoIdUrl={setJointPhotoIdUrl}
+          jointProofAddress={jointProofAddress} setJointProofAddress={setJointProofAddress}
+          jointProofAddressUrl={jointProofAddressUrl} setJointProofAddressUrl={setJointProofAddressUrl}
+          childrenDocuments={childrenDocuments} setChildrenDocuments={setChildrenDocuments}
+          childrenDocumentUrls={childrenDocumentUrls} setChildrenDocumentUrls={setChildrenDocumentUrls}
+          uploadingDoc={uploadingDoc}
+          uploadDocument={uploadDocument}
+          deleteDocument={deleteDocument}
+          calculateAge={calculateAge}
+        />}
         {currentStep === 7 && <StepDeclarations
           formData={formData}
           gpPracticeName={gpPracticeName} setGpPracticeName={setGpPracticeName}
@@ -1473,40 +1554,458 @@ function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, se
   );
 }
 
-function StepDocuments({ formData, updateFormData }: any) {
+function StepDocuments({
+  formData,
+  mainPhotoId, setMainPhotoId,
+  mainPhotoIdUrl, setMainPhotoIdUrl,
+  mainProofAddress, setMainProofAddress,
+  mainProofAddressUrl, setMainProofAddressUrl,
+  jointPhotoId, setJointPhotoId,
+  jointPhotoIdUrl, setJointPhotoIdUrl,
+  jointProofAddress, setJointProofAddress,
+  jointProofAddressUrl, setJointProofAddressUrl,
+  childrenDocuments, setChildrenDocuments,
+  childrenDocumentUrls, setChildrenDocumentUrls,
+  uploadingDoc,
+  uploadDocument,
+  deleteDocument,
+  calculateAge
+}: any) {
+  const hasJointMember = formData.app_type === 'joint';
+  const children = formData.children || [];
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Documents</h2>
-        <p className="text-sm text-gray-600">Document upload feature (coming soon)</p>
-      </div>
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
-        <Upload className="h-12 w-12 mx-auto text-blue-600 mb-4" />
-        <h3 className="font-medium text-blue-900 mb-2">Document Upload Placeholder</h3>
-        <p className="text-sm text-blue-700 mb-4">
-          Document upload functionality will be added in the next phase. Required documents include:
+        <p className="text-sm text-gray-600">
+          Please upload the required documents. Accepted formats: JPG, PNG, PDF (Max 5MB per file)
         </p>
-        <ul className="text-sm text-blue-700 text-left max-w-md mx-auto space-y-1">
-          <li>• Photo ID (main member)</li>
-          <li>• Proof of Address (main member)</li>
-          {formData.app_type === 'joint' && (
-            <>
-              <li>• Photo ID (joint member)</li>
-              <li>• Proof of Address (joint member)</li>
-            </>
-          )}
-          <li>• Birth certificates (children, if applicable)</li>
-        </ul>
-        <div className="mt-4">
-          <label className="flex items-center justify-center">
-            <input type="checkbox" checked={formData.documents_acknowledged}
-              onChange={(e) => updateFormData('documents_acknowledged', e.target.checked)}
-              className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
-            <span className="ml-2 text-sm text-gray-700">
-              I acknowledge documents will be provided
-            </span>
-          </label>
+      </div>
+
+      <div className="mb-8">
+        <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+          <User className="h-4 w-4 mr-2 text-emerald-600" />
+          Main Member Documents
+        </h4>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Photo ID (Passport, Driving Licence) *
+            </label>
+
+            {mainPhotoIdUrl ? (
+              <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <FileText className="h-8 w-8 text-emerald-600 mr-3" />
+                    <div>
+                      <p className="text-sm font-medium text-emerald-900">
+                        {mainPhotoId?.name || 'Uploaded'}
+                      </p>
+                      <p className="text-xs text-emerald-600">
+                        {mainPhotoId ? `${(mainPhotoId.size / 1024).toFixed(1)} KB` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await deleteDocument(mainPhotoIdUrl);
+                      setMainPhotoIdUrl('');
+                      setMainPhotoId(null);
+                    }}
+                    className="p-2 hover:bg-red-100 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4 text-red-600" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 5 * 1024 * 1024) {
+                        alert('File too large. Maximum 5MB.');
+                        return;
+                      }
+                      setMainPhotoId(file);
+                      const url = await uploadDocument(file, 'photo_id', 'main');
+                      if (url) setMainPhotoIdUrl(url);
+                    }
+                  }}
+                  className="hidden"
+                  id="main-photo-id"
+                  disabled={uploadingDoc === 'main-photo_id'}
+                />
+                <label
+                  htmlFor="main-photo-id"
+                  className="flex flex-col items-center cursor-pointer"
+                >
+                  {uploadingDoc === 'main-photo_id' ? (
+                    <>
+                      <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
+                      <span className="text-sm text-gray-600">Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                      <span className="text-sm text-gray-600">Click to upload</span>
+                      <span className="text-xs text-gray-500">or drag and drop</span>
+                    </>
+                  )}
+                </label>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Proof of Address (Utility Bill, Council Tax) *
+            </label>
+
+            {mainProofAddressUrl ? (
+              <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <FileText className="h-8 w-8 text-emerald-600 mr-3" />
+                    <div>
+                      <p className="text-sm font-medium text-emerald-900">
+                        {mainProofAddress?.name || 'Uploaded'}
+                      </p>
+                      <p className="text-xs text-emerald-600">
+                        {mainProofAddress ? `${(mainProofAddress.size / 1024).toFixed(1)} KB` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await deleteDocument(mainProofAddressUrl);
+                      setMainProofAddressUrl('');
+                      setMainProofAddress(null);
+                    }}
+                    className="p-2 hover:bg-red-100 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4 text-red-600" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 5 * 1024 * 1024) {
+                        alert('File too large. Maximum 5MB.');
+                        return;
+                      }
+                      setMainProofAddress(file);
+                      const url = await uploadDocument(file, 'proof_address', 'main');
+                      if (url) setMainProofAddressUrl(url);
+                    }
+                  }}
+                  className="hidden"
+                  id="main-proof-address"
+                  disabled={uploadingDoc === 'main-proof_address'}
+                />
+                <label
+                  htmlFor="main-proof-address"
+                  className="flex flex-col items-center cursor-pointer"
+                >
+                  {uploadingDoc === 'main-proof_address' ? (
+                    <>
+                      <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
+                      <span className="text-sm text-gray-600">Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                      <span className="text-sm text-gray-600">Click to upload</span>
+                      <span className="text-xs text-gray-500">or drag and drop</span>
+                    </>
+                  )}
+                </label>
+              </div>
+            )}
+          </div>
         </div>
+      </div>
+
+      {hasJointMember && (
+        <div className="mb-8 pb-8 border-b border-gray-200">
+          <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+            <Users className="h-4 w-4 mr-2 text-emerald-600" />
+            Joint Member Documents
+          </h4>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Photo ID (Passport, Driving Licence) *
+              </label>
+
+              {jointPhotoIdUrl ? (
+                <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <FileText className="h-8 w-8 text-emerald-600 mr-3" />
+                      <div>
+                        <p className="text-sm font-medium text-emerald-900">
+                          {jointPhotoId?.name || 'Uploaded'}
+                        </p>
+                        <p className="text-xs text-emerald-600">
+                          {jointPhotoId ? `${(jointPhotoId.size / 1024).toFixed(1)} KB` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await deleteDocument(jointPhotoIdUrl);
+                        setJointPhotoIdUrl('');
+                        setJointPhotoId(null);
+                      }}
+                      className="p-2 hover:bg-red-100 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 5 * 1024 * 1024) {
+                          alert('File too large. Maximum 5MB.');
+                          return;
+                        }
+                        setJointPhotoId(file);
+                        const url = await uploadDocument(file, 'photo_id', 'joint');
+                        if (url) setJointPhotoIdUrl(url);
+                      }
+                    }}
+                    className="hidden"
+                    id="joint-photo-id"
+                    disabled={uploadingDoc === 'joint-photo_id'}
+                  />
+                  <label
+                    htmlFor="joint-photo-id"
+                    className="flex flex-col items-center cursor-pointer"
+                  >
+                    {uploadingDoc === 'joint-photo_id' ? (
+                      <>
+                        <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
+                        <span className="text-sm text-gray-600">Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                        <span className="text-sm text-gray-600">Click to upload</span>
+                        <span className="text-xs text-gray-500">or drag and drop</span>
+                      </>
+                    )}
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Proof of Address (Utility Bill, Council Tax) *
+              </label>
+
+              {jointProofAddressUrl ? (
+                <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <FileText className="h-8 w-8 text-emerald-600 mr-3" />
+                      <div>
+                        <p className="text-sm font-medium text-emerald-900">
+                          {jointProofAddress?.name || 'Uploaded'}
+                        </p>
+                        <p className="text-xs text-emerald-600">
+                          {jointProofAddress ? `${(jointProofAddress.size / 1024).toFixed(1)} KB` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await deleteDocument(jointProofAddressUrl);
+                        setJointProofAddressUrl('');
+                        setJointProofAddress(null);
+                      }}
+                      className="p-2 hover:bg-red-100 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 5 * 1024 * 1024) {
+                          alert('File too large. Maximum 5MB.');
+                          return;
+                        }
+                        setJointProofAddress(file);
+                        const url = await uploadDocument(file, 'proof_address', 'joint');
+                        if (url) setJointProofAddressUrl(url);
+                      }
+                    }}
+                    className="hidden"
+                    id="joint-proof-address"
+                    disabled={uploadingDoc === 'joint-proof_address'}
+                  />
+                  <label
+                    htmlFor="joint-proof-address"
+                    className="flex flex-col items-center cursor-pointer"
+                  >
+                    {uploadingDoc === 'joint-proof_address' ? (
+                      <>
+                        <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
+                        <span className="text-sm text-gray-600">Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                        <span className="text-sm text-gray-600">Click to upload</span>
+                        <span className="text-xs text-gray-500">or drag and drop</span>
+                      </>
+                    )}
+                  </label>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {children.length > 0 && (
+        <div className="mb-6">
+          <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+            <Baby className="h-4 w-4 mr-2 text-emerald-600" />
+            Children's Documents
+          </h4>
+
+          <div className="space-y-4">
+            {children.map((child: any, index: number) => (
+              <div key={index} className="border border-gray-200 rounded-lg p-4">
+                <p className="text-sm font-medium text-gray-900 mb-3">
+                  {child.first_name} {child.last_name} (Age {calculateAge(child.dob)})
+                </p>
+
+                {childrenDocumentUrls[`child-${index}`] ? (
+                  <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <FileText className="h-8 w-8 text-emerald-600 mr-3" />
+                        <div>
+                          <p className="text-sm font-medium text-emerald-900">
+                            {childrenDocuments[`child-${index}`]?.name || 'Uploaded'}
+                          </p>
+                          <p className="text-xs text-emerald-600">
+                            Birth Certificate / Passport
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await deleteDocument(childrenDocumentUrls[`child-${index}`]);
+                          setChildrenDocumentUrls((prev: any) => {
+                            const updated = { ...prev };
+                            delete updated[`child-${index}`];
+                            return updated;
+                          });
+                          setChildrenDocuments((prev: any) => {
+                            const updated = { ...prev };
+                            delete updated[`child-${index}`];
+                            return updated;
+                          });
+                        }}
+                        className="p-2 hover:bg-red-100 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.size > 5 * 1024 * 1024) {
+                            alert('File too large. Maximum 5MB.');
+                            return;
+                          }
+                          setChildrenDocuments((prev: any) => ({ ...prev, [`child-${index}`]: file }));
+                          const url = await uploadDocument(file, 'birth_cert', `child_${index}`);
+                          if (url) {
+                            setChildrenDocumentUrls((prev: any) => ({ ...prev, [`child-${index}`]: url }));
+                          }
+                        }
+                      }}
+                      className="hidden"
+                      id={`child-doc-${index}`}
+                      disabled={uploadingDoc === `child_${index}-birth_cert`}
+                    />
+                    <label
+                      htmlFor={`child-doc-${index}`}
+                      className="flex flex-col items-center cursor-pointer"
+                    >
+                      {uploadingDoc === `child_${index}-birth_cert` ? (
+                        <>
+                          <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
+                          <span className="text-sm text-gray-600">Uploading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                          <span className="text-sm text-gray-600">Upload Birth Certificate</span>
+                          <span className="text-xs text-gray-500">or Passport</span>
+                        </>
+                      )}
+                    </label>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h5 className="text-sm font-semibold text-blue-900 mb-2">Upload Requirements:</h5>
+        <ul className="text-xs text-blue-800 space-y-1">
+          <li>• Accepted formats: JPG, PNG, PDF</li>
+          <li>• Maximum file size: 5MB per file</li>
+          <li>• Documents must be clear and readable</li>
+          <li>• Photo ID: Passport or Driving Licence</li>
+          <li>• Proof of Address: Utility bill, Council tax, Bank statement (within last 3 months)</li>
+          <li>• Children: Birth certificate or Passport required</li>
+        </ul>
       </div>
     </div>
   );
