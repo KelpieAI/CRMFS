@@ -199,7 +199,7 @@ export default function Login() {
             </a>
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            Version 0.1.6.3 | Built for Falkirk Central Mosque
+            Version 0.3.1.0 | Built for Falkirk Central Mosque
           </p>
         </div>
       </div>
