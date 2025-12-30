@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { Shield, FileText, Trash2, Eye, AlertCircle, CheckCircle, XCircle, Clock, Download } from 'lucide-react';
+import { Shield, FileText, Trash2, CheckCircle, XCircle, Clock, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Settings() {
@@ -55,7 +55,7 @@ export default function Settings() {
       }
 
       refetch();
-      alert(\`Request \${status} successfully.\`);
+      alert('Request ' + status + ' successfully.');
     } catch (error) {
       console.error('Decision error:', error);
       alert('Failed to update request');
@@ -71,11 +71,11 @@ export default function Settings() {
         <nav className="flex space-x-8">
           <button
             onClick={() => setActiveTab('gdpr')}
-            className={\`pb-4 px-1 border-b-2 font-medium text-sm \${
+            className={'pb-4 px-1 border-b-2 font-medium text-sm ' + (
               activeTab === 'gdpr'
                 ? 'border-mosque-green-600 text-mosque-green-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }\`}
+            )}
           >
             <Shield className="h-4 w-4 inline mr-2" />
             GDPR & Privacy
@@ -150,11 +150,11 @@ export default function Settings() {
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
                           <h3 className="font-semibold text-gray-900">{request.requester_name}</h3>
-                          <span className={\`px-2 py-1 rounded-full text-xs font-medium \${
+                          <span className={'px-2 py-1 rounded-full text-xs font-medium ' + (
                             request.status === 'pending' ? 'bg-orange-100 text-orange-800' :
                             request.status === 'approved' ? 'bg-green-100 text-green-800' :
                             'bg-red-100 text-red-800'
-                          }\`}>
+                          )}>
                             {request.status}
                           </span>
                         </div>
@@ -171,7 +171,7 @@ export default function Settings() {
                             hour: '2-digit',
                             minute: '2-digit'
                           })}
-                          {request.metadata?.requested_via && \` • via \${request.metadata.requested_via}\`}
+                          {request.metadata?.requested_via && ' • via ' + request.metadata.requested_via}
                         </p>
                         {request.reviewed_at && (
                           <div className="mt-2 pt-2 border-t border-gray-200">
