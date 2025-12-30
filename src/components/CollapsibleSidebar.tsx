@@ -9,15 +9,19 @@ import {
   LogOut,
   Menu,
   X,
-  Trash2,
+  ChevronDown,
+  Settings,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function CollapsibleSidebar() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const navigation = [
     { name: 'Dashboard', to: '/', icon: LayoutDashboard },
@@ -25,7 +29,6 @@ export default function CollapsibleSidebar() {
     { name: 'Payments', to: '/payments', icon: CreditCard },
     { name: 'Deceased', to: '/deceased', icon: Heart },
     { name: 'Reports', to: '/reports', icon: FileText },
-    { name: 'Deletion Requests', to: '/deletion-requests', icon: Trash2 },
   ];
 
   const handleSignOut = async () => {
@@ -36,17 +39,14 @@ export default function CollapsibleSidebar() {
   // Handle hover expansion on desktop
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      // Check if mouse is within 5% of left edge (hover zone)
       const hoverZoneWidth = window.innerWidth * 0.05;
       if (e.clientX <= hoverZoneWidth) {
         setIsExpanded(true);
       } else if (e.clientX > 250) {
-        // Close if mouse is beyond sidebar width
         setIsExpanded(false);
       }
     };
 
-    // Only add listener on desktop
     if (window.innerWidth >= 768) {
       window.addEventListener('mousemove', handleMouseMove);
     }
@@ -60,6 +60,33 @@ export default function CollapsibleSidebar() {
   useEffect(() => {
     setIsMobileOpen(false);
   }, [location.pathname]);
+
+  // Close profile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (showProfileMenu) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    if (showProfileMenu) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showProfileMenu]);
+
+  const getInitial = () => {
+    if (!user?.email) return 'U';
+    return user.email.charAt(0).toUpperCase();
+  };
+
+  const getDisplayName = () => {
+    if (!user?.email) return 'User';
+    return user.email.split('@')[0];
+  };
 
   return (
     <>
@@ -82,7 +109,7 @@ export default function CollapsibleSidebar() {
       {/* Sidebar */}
       <div
         className={`
-          fixed top-0 left-0 h-full bg-mosque-green-600 text-white z-40 transition-all duration-300 ease-in-out
+          fixed top-0 left-0 h-full bg-mosque-green-600 text-white z-40 transition-all duration-300 ease-in-out flex flex-col
           ${isExpanded ? 'w-64' : 'w-16'}
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
@@ -90,7 +117,7 @@ export default function CollapsibleSidebar() {
         onMouseLeave={() => window.innerWidth >= 768 && setIsExpanded(false)}
       >
         {/* Logo Section */}
-        <div className="h-16 flex items-center justify-center border-b border-mosque-green-700 overflow-hidden">
+        <div className="h-16 flex items-center justify-center border-b border-mosque-green-700 overflow-hidden flex-shrink-0">
           <div className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 absolute'}`}>
             <div className="px-4 py-2">
               <h1 className="text-lg font-bold text-mosque-gold-500 whitespace-nowrap">Kelpie AI</h1>
@@ -105,7 +132,7 @@ export default function CollapsibleSidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-2 py-4 space-y-1">
+        <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
           {navigation.map((item) => {
             const Icon = item.icon;
             const isActive = item.to === '/'
@@ -139,26 +166,74 @@ export default function CollapsibleSidebar() {
           })}
         </nav>
 
-        {/* Sign Out Button */}
-        <div className="border-t border-mosque-green-700 p-2">
+        {/* Profile Section at Bottom */}
+        <div className="border-t border-mosque-green-700 p-2 mt-auto flex-shrink-0 relative">
           <button
-            onClick={handleSignOut}
-            className={`
-              relative w-full flex items-center rounded-lg transition-all duration-200 overflow-hidden
-              text-gray-300 hover:bg-mosque-green-700 hover:text-white
-              pl-3 pr-3 py-3
-            `}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowProfileMenu(!showProfileMenu);
+            }}
+            className="w-full flex items-center px-3 py-3 text-white hover:bg-mosque-green-700 rounded-lg transition-colors relative"
           >
-            <LogOut className="h-5 w-5 flex-shrink-0 relative z-10" />
-            <span 
+            {/* Profile Picture */}
+            <div className="w-10 h-10 rounded-full bg-mosque-gold-500 flex items-center justify-center text-mosque-green-900 font-bold text-sm flex-shrink-0">
+              {getInitial()}
+            </div>
+            
+            {/* Name (show when expanded) */}
+            <div 
               className={`
-                font-medium whitespace-nowrap transition-all duration-200 ml-3
+                ml-3 flex-1 text-left transition-all duration-200
                 ${isExpanded ? 'opacity-100' : 'opacity-0'}
               `}
             >
-              Sign Out
-            </span>
+              <p className="text-sm font-medium text-white truncate">
+                {getDisplayName()}
+              </p>
+              <p className="text-xs text-mosque-green-200">
+                Committee Member
+              </p>
+            </div>
+            
+            {/* Dropdown Icon */}
+            <ChevronDown 
+              className={`
+                h-4 w-4 text-mosque-green-200 transition-all duration-200
+                ${showProfileMenu ? 'rotate-180' : ''}
+                ${isExpanded ? 'opacity-100' : 'opacity-0'}
+              `}
+            />
           </button>
+
+          {/* Dropdown Menu */}
+          {showProfileMenu && (
+            <div 
+              className={`absolute ${isExpanded ? 'left-2 right-2 bottom-full' : 'left-16 bottom-2'} mb-2 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50 min-w-[200px]`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => {
+                  navigate('/settings');
+                  setShowProfileMenu(false);
+                }}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
+              >
+                <Settings className="h-4 w-4 mr-3 text-gray-500" />
+                Settings
+              </button>
+              
+              <button
+                onClick={() => {
+                  handleSignOut();
+                  setShowProfileMenu(false);
+                }}
+                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center border-t border-gray-100 transition-colors"
+              >
+                <LogOut className="h-4 w-4 mr-3" />
+                Sign Out
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
