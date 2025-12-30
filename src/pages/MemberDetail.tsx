@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
@@ -50,7 +50,7 @@ export default function MemberDetail() {
   const [showUnpauseModal, setShowUnpauseModal] = useState(false);
   const [paymentReceived, setPaymentReceived] = useState(false);
 
-  // GDPR state
+  // GDPR Admin Tools
   const [showDeletionRequestModal, setShowDeletionRequestModal] = useState(false);
   const [deletionReason, setDeletionReason] = useState('');
   const [deletionRequestedBy, setDeletionRequestedBy] = useState('');
@@ -213,9 +213,32 @@ export default function MemberDetail() {
     });
   };
 
+  // Log access when member detail page is opened
+  useEffect(() => {
+    if (!memberData?.member?.id) return;
+
+    const logAccess = async () => {
+      try {
+        await supabase.from('access_log').insert({
+          member_id: memberData.member.id,
+          accessed_by: 'Committee Member',
+          access_type: 'view',
+          accessed_data: ['personal_data', 'contact_info'],
+          accessed_at: new Date().toISOString(),
+        });
+        console.log('Access logged');
+      } catch (error) {
+        console.error('Failed to log access:', error);
+      }
+    };
+
+    logAccess();
+  }, [memberData?.member?.id]);
+
   // GDPR: Export member data
   const exportMemberData = async () => {
     const { member, jointMember, children, nextOfKin, gpDetails, medicalInfo, payments } = memberData || {};
+    const activities = memberData?.activities || [];
     if (!member) return;
 
     try {
@@ -225,19 +248,18 @@ export default function MemberDetail() {
           exported_by_committee: true,
           member_request_date: new Date().toISOString(),
           data_controller: 'Falkirk Central Mosque - Central Region Muslim Funeral Service',
-          purpose: 'GDPR Right to Access (Article 15) - Member requested data via committee',
+          purpose: 'GDPR Right to Access (Article 15)',
         },
         personal_data: {
           title: member.title,
           first_name: member.first_name,
           last_name: member.last_name,
-          date_of_birth: member.dob,
-          age: calculateAge(member.dob),
+          date_of_birth: member.date_of_birth ?? member.dob,
           email: member.email,
           mobile: member.mobile,
-          phone_home: member.home_phone,
-          phone_work: member.work_phone,
-          address: member.address_line_1,
+          phone_home: member.phone_home ?? member.home_phone,
+          phone_work: member.phone_work ?? member.work_phone,
+          address: member.address ?? member.address_line_1,
           town: member.town,
           city: member.city,
           postcode: member.postcode,
@@ -245,45 +267,31 @@ export default function MemberDetail() {
           created_at: member.created_at,
           updated_at: member.updated_at,
         },
-        joint_member: member.app_type === 'joint' ? jointMember : null,
+        joint_member: member.app_type === 'joint' && jointMember ? {
+          title: jointMember.title,
+          first_name: jointMember.first_name,
+          last_name: jointMember.last_name,
+          date_of_birth: jointMember.date_of_birth ?? jointMember.dob,
+          email: jointMember.email,
+          mobile: jointMember.mobile,
+          relation: jointMember.relation,
+        } : null,
         children: children || [],
         next_of_kin: nextOfKin || [],
         gp_details: gpDetails || null,
         medical_info: medicalInfo || null,
-        documents: {
-          main_photo_id_url: member.main_photo_id_url,
-          main_proof_address_url: member.main_proof_address_url,
-          joint_photo_id_url: member.joint_photo_id_url,
-          joint_proof_address_url: member.joint_proof_address_url,
-          children_documents: member.children_documents,
-        },
         consents: {
           consent_obtained_via: member.consent_obtained_via,
           paper_form_version: member.paper_form_version,
           paper_form_date: member.paper_form_date,
-          consent_personal_data: member.consent_personal_data,
-          consent_personal_data_date: member.consent_personal_data_date,
-          consent_medical_data: member.consent_medical_data,
-          consent_medical_data_date: member.consent_medical_data_date,
-          consent_gp_data: member.consent_gp_data,
-          consent_gp_data_date: member.consent_gp_data_date,
-          consent_data_sharing: member.consent_data_sharing,
-          consent_data_retention: member.consent_data_retention,
-          privacy_policy_version: member.privacy_policy_version,
         },
         signatures: {
           main_signature: member.main_signature,
           main_signature_date: member.main_signature_date,
           joint_signature: member.joint_signature,
-          joint_signature_date: member.joint_signature_date,
         },
         payments: payments || [],
-        activity_log: [],
-        pause_info: {
-          late_warnings_count: member.late_warnings_count,
-          paused_date: member.paused_date,
-          paused_reason: member.paused_reason,
-        },
+        activity_log: activities || [],
       };
 
       const jsonString = JSON.stringify(exportData, null, 2);
@@ -299,7 +307,7 @@ export default function MemberDetail() {
 
       await supabase.from('activity_log').insert({
         member_id: member.id,
-        action_type: 'member_edited',
+        action_type: 'data_export',
         entity_type: 'member',
         description: 'Committee exported member data for GDPR Right to Access request',
       });
@@ -338,10 +346,11 @@ export default function MemberDetail() {
     }
   };
 
-  // Load access logs when modal opens
-  if (showAccessLog && accessLogs.length === 0) {
-    loadAccessLogs();
-  }
+  useEffect(() => {
+    if (showAccessLog) {
+      loadAccessLogs();
+    }
+  }, [showAccessLog, memberData?.member?.id]);
 
   // Calculate total paid
   const totalPaid = memberData?.payments
@@ -578,6 +587,47 @@ export default function MemberDetail() {
           </div>
         </div>
 
+        {/* GDPR Data Rights (Committee Actions) */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6 mt-6">
+          <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
+            <Shield className="h-4 w-4 mr-2 text-mosque-green-600" />
+            GDPR Data Rights (Committee Actions)
+          </h3>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+            <p className="text-xs text-blue-800">
+              Use these tools when members contact committee to request their data or account deletion.
+              All actions are logged for audit purposes.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={exportMemberData}
+              className="px-4 py-2 border border-mosque-green-600 text-mosque-green-600 rounded-lg hover:bg-mosque-green-50 flex items-center text-sm font-medium"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export Member Data
+            </button>
+
+            <button
+              onClick={() => setShowDeletionRequestModal(true)}
+              className="px-4 py-2 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 flex items-center text-sm font-medium"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Create Deletion Request
+            </button>
+
+            <button
+              onClick={() => setShowAccessLog(true)}
+              className="px-4 py-2 border border-gray-600 text-gray-600 rounded-lg hover:bg-gray-50 flex items-center text-sm font-medium"
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              View Access Log
+            </button>
+          </div>
+        </div>
+
         {/* Content Area */}
         {activeTab === 'personal' && (
           <PersonalInfoTab
@@ -626,52 +676,6 @@ export default function MemberDetail() {
         {!['personal', 'joint', 'children', 'nok', 'medical', 'gp', 'declarations', 'documents', 'payments', 'activity'].includes(activeTab) && (
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <p className="text-gray-500">Content for {activeTab} tab coming soon...</p>
-          </div>
-        )}
-
-        {/* GDPR Admin Actions */}
-        {activeTab === 'personal' && (
-          <div className="bg-white rounded-lg border border-gray-200 p-6 mt-6">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
-              <Shield className="h-4 w-4 mr-2 text-emerald-600" />
-              GDPR Data Rights (Committee Actions)
-            </h3>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-              <p className="text-xs text-blue-800">
-                Use these tools when members contact committee to request their data or account deletion.
-                All actions are logged for audit purposes.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={exportMemberData}
-                className="px-4 py-2 border border-emerald-600 text-emerald-600 rounded-lg hover:bg-emerald-50 flex items-center text-sm font-medium"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export Member Data
-              </button>
-
-              <button
-                onClick={() => setShowDeletionRequestModal(true)}
-                className="px-4 py-2 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 flex items-center text-sm font-medium"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Create Deletion Request
-              </button>
-
-              <button
-                onClick={() => {
-                  setShowAccessLog(true);
-                  loadAccessLogs();
-                }}
-                className="px-4 py-2 border border-gray-600 text-gray-600 rounded-lg hover:bg-gray-50 flex items-center text-sm font-medium"
-              >
-                <Eye className="h-4 w-4 mr-2" />
-                View Access Log
-              </button>
-            </div>
           </div>
         )}
       </div>
@@ -972,26 +976,11 @@ export default function MemberDetail() {
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <h4 className="text-sm font-semibold text-blue-900 mb-2">
-                Committee Instructions
-              </h4>
+              <h4 className="text-sm font-semibold text-blue-900 mb-2">Committee Instructions</h4>
               <ul className="text-sm text-blue-800 space-y-1">
                 <li>• Create this request when a member contacts you to delete their account</li>
                 <li>• Member request can be via email, phone, or letter</li>
                 <li>• Committee must review and approve/reject within 30 days</li>
-                <li>• You can reject if legal obligation to retain data (active membership, outstanding payments)</li>
-                <li>• Member must be notified of decision</li>
-              </ul>
-            </div>
-
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-              <h4 className="text-sm font-semibold text-red-900 mb-2">
-                Important
-              </h4>
-              <ul className="text-sm text-red-800 space-y-1">
-                <li>• Deletion will permanently remove membership and funeral coverage</li>
-                <li>• Some data must be retained for 7 years (financial records, legal obligation)</li>
-                <li>• Paper application form must still be retained</li>
               </ul>
             </div>
 
@@ -1004,7 +993,7 @@ export default function MemberDetail() {
                   value={deletionRequestedBy}
                   onChange={(e) => setDeletionRequestedBy(e.target.value)}
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 >
                   <option value="">Select method</option>
                   <option value="email">Email</option>
@@ -1023,8 +1012,8 @@ export default function MemberDetail() {
                   onChange={(e) => setDeletionReason(e.target.value)}
                   required
                   rows={4}
-                  placeholder="E.g., 'Moving abroad', 'No longer need service', 'Financial reasons'..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
+                  placeholder="E.g., 'Moving abroad', 'No longer need service'..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
 
@@ -1037,8 +1026,8 @@ export default function MemberDetail() {
                   value={deletionConfirmation}
                   onChange={(e) => setDeletionConfirmation(e.target.value)}
                   required
-                  placeholder={`${memberData?.member?.first_name} ${memberData?.member?.last_name}`}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
+                  placeholder={`${member?.first_name} ${member?.last_name}`}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
             </div>
@@ -1059,56 +1048,56 @@ export default function MemberDetail() {
                 onClick={async () => {
                   if (!deletionReason.trim() || !deletionRequestedBy) {
                     alert('Please complete all fields');
-                    return;
-                  }
+                  return;
+                }
 
-                  const expectedName = `${memberData?.member?.first_name} ${memberData?.member?.last_name}`;
-                  if (deletionConfirmation.trim().toLowerCase() !== expectedName.toLowerCase()) {
-                    alert(`Please type the member's full name exactly: ${expectedName}`);
-                    return;
-                  }
+                const expectedName = `${member?.first_name} ${member?.last_name}`;
+                if (deletionConfirmation.trim().toLowerCase() !== expectedName.toLowerCase()) {
+                  alert(`Please type the member's full name exactly: ${expectedName}`);
+                  return;
+                }
 
-                  try {
-                    const { error } = await supabase
-                      .from('deletion_requests')
-                      .insert({
-                        member_id: memberData?.member?.id,
-                        requester_name: expectedName,
-                        requester_email: memberData?.member?.email || 'Not provided',
-                        reason: deletionReason,
-                        status: 'pending',
-                        requested_at: new Date().toISOString(),
+                try {
+                  const { error } = await supabase
+                    .from('deletion_requests')
+                    .insert({
+                      member_id: member?.id,
+                      requester_name: expectedName,
+                      requester_email: member?.email || 'Not provided',
+                      reason: deletionReason,
+                      status: 'pending',
+                      requested_at: new Date().toISOString(),
                         metadata: {
                           requested_via: deletionRequestedBy,
                           created_by_committee: true,
                         },
                       });
 
-                    if (error) throw error;
+                  if (error) throw error;
 
-                    await supabase.from('activity_log').insert({
-                      member_id: memberData?.member?.id,
-                      action_type: 'member_edited',
-                      entity_type: 'member',
-                      description: `Committee created deletion request on behalf of member (requested via ${deletionRequestedBy})`,
-                    });
+                  await supabase.from('activity_log').insert({
+                    member_id: member?.id,
+                    action_type: 'deletion_request',
+                    entity_type: 'member',
+                    description: `Committee created deletion request on behalf of member (requested via ${deletionRequestedBy})`,
+                  });
 
-                    setShowDeletionRequestModal(false);
-                    setDeletionReason('');
-                    setDeletionRequestedBy('');
-                    setDeletionConfirmation('');
+                  setShowDeletionRequestModal(false);
+                  setDeletionReason('');
+                  setDeletionRequestedBy('');
+                  setDeletionConfirmation('');
 
-                    alert('Deletion request created successfully. Committee will review within 30 days.');
-                  } catch (error) {
-                    console.error('Deletion request error:', error);
-                    alert('Failed to create deletion request. Please try again.');
-                  }
-                }}
-                disabled={deletionConfirmation.trim().toLowerCase() !== `${memberData?.member?.first_name} ${memberData?.member?.last_name}`.toLowerCase()}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Create Deletion Request
-              </button>
+                  alert('Deletion request created successfully. Review in Settings → GDPR & Privacy.');
+                } catch (error) {
+                  console.error('Deletion request error:', error);
+                  alert('Failed to create deletion request. Please try again.');
+                }
+              }}
+              disabled={deletionConfirmation.trim().toLowerCase() !== `${member?.first_name} ${member?.last_name}`.toLowerCase()}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Create Deletion Request
+            </button>
             </div>
           </div>
         </div>
