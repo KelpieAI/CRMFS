@@ -13,15 +13,14 @@ import {
   Settings,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
 
 export default function CollapsibleSidebar() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
 
   const navigation = [
     { name: 'Dashboard', to: '/', icon: LayoutDashboard },
@@ -30,6 +29,19 @@ export default function CollapsibleSidebar() {
     { name: 'Deceased', to: '/deceased', icon: Heart },
     { name: 'Reports', to: '/reports', icon: FileText },
   ];
+
+  // Get current user
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -108,23 +120,21 @@ export default function CollapsibleSidebar() {
 
       {/* Sidebar */}
       <div
-        className={`
-          fixed top-0 left-0 h-full bg-mosque-green-600 text-white z-40 transition-all duration-300 ease-in-out flex flex-col
-          ${isExpanded ? 'w-64' : 'w-16'}
-          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-        `}
+        className={'fixed top-0 left-0 h-full bg-mosque-green-600 text-white z-40 transition-all duration-300 ease-in-out flex flex-col ' + 
+          (isExpanded ? 'w-64' : 'w-16') + ' ' +
+          (isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0')}
         onMouseEnter={() => window.innerWidth >= 768 && setIsExpanded(true)}
         onMouseLeave={() => window.innerWidth >= 768 && setIsExpanded(false)}
       >
         {/* Logo Section */}
         <div className="h-16 flex items-center justify-center border-b border-mosque-green-700 overflow-hidden flex-shrink-0">
-          <div className={`transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 absolute'}`}>
+          <div className={'transition-opacity duration-200 ' + (isExpanded ? 'opacity-100' : 'opacity-0 absolute')}>
             <div className="px-4 py-2">
               <h1 className="text-lg font-bold text-mosque-gold-500 whitespace-nowrap">Kelpie AI</h1>
               <p className="text-xs text-gray-400 whitespace-nowrap">CRMFS</p>
             </div>
           </div>
-          <div className={`transition-opacity duration-200 ${!isExpanded ? 'opacity-100' : 'opacity-0 absolute'}`}>
+          <div className={'transition-opacity duration-200 ' + (!isExpanded ? 'opacity-100' : 'opacity-0 absolute')}>
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-mosque-gold-500 to-mosque-gold-700 flex items-center justify-center font-bold text-white">
               K
             </div>
@@ -143,22 +153,14 @@ export default function CollapsibleSidebar() {
               <Link
                 key={item.name}
                 to={item.to}
-                className={`
-                  relative flex items-center rounded-lg transition-all duration-200 overflow-hidden
-                  ${isActive
+                className={'relative flex items-center rounded-lg transition-all duration-200 overflow-hidden pl-3 pr-3 py-3 ' +
+                  (isActive
                     ? 'bg-mosque-gold-600 text-white'
-                    : 'text-gray-300 hover:bg-mosque-green-700 hover:text-white'
-                  }
-                  pl-3 pr-3 py-3
-                `}
+                    : 'text-gray-300 hover:bg-mosque-green-700 hover:text-white')}
               >
                 <Icon className="h-5 w-5 flex-shrink-0 relative z-10" />
-                <span 
-                  className={`
-                    font-medium whitespace-nowrap transition-all duration-200 ml-3
-                    ${isExpanded ? 'opacity-100' : 'opacity-0'}
-                  `}
-                >
+                <span className={'font-medium whitespace-nowrap transition-all duration-200 ml-3 ' +
+                  (isExpanded ? 'opacity-100' : 'opacity-0')}>
                   {item.name}
                 </span>
               </Link>
@@ -181,12 +183,8 @@ export default function CollapsibleSidebar() {
             </div>
             
             {/* Name (show when expanded) */}
-            <div 
-              className={`
-                ml-3 flex-1 text-left transition-all duration-200
-                ${isExpanded ? 'opacity-100' : 'opacity-0'}
-              `}
-            >
+            <div className={'ml-3 flex-1 text-left transition-all duration-200 ' + 
+              (isExpanded ? 'opacity-100' : 'opacity-0')}>
               <p className="text-sm font-medium text-white truncate">
                 {getDisplayName()}
               </p>
@@ -196,19 +194,16 @@ export default function CollapsibleSidebar() {
             </div>
             
             {/* Dropdown Icon */}
-            <ChevronDown 
-              className={`
-                h-4 w-4 text-mosque-green-200 transition-all duration-200
-                ${showProfileMenu ? 'rotate-180' : ''}
-                ${isExpanded ? 'opacity-100' : 'opacity-0'}
-              `}
-            />
+            <ChevronDown className={'h-4 w-4 text-mosque-green-200 transition-all duration-200 ' +
+              (showProfileMenu ? 'rotate-180 ' : '') +
+              (isExpanded ? 'opacity-100' : 'opacity-0')} />
           </button>
 
           {/* Dropdown Menu */}
           {showProfileMenu && (
             <div 
-              className={`absolute ${isExpanded ? 'left-2 right-2 bottom-full' : 'left-16 bottom-2'} mb-2 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50 min-w-[200px]`}
+              className={'absolute bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50 min-w-[200px] mb-2 ' +
+                (isExpanded ? 'left-2 right-2 bottom-full' : 'left-16 bottom-2')}
               onClick={(e) => e.stopPropagation()}
             >
               <button
