@@ -3,8 +3,8 @@
 > A comprehensive member and payment management system built for Falkirk Central Mosque's death committee (Central Region Muslim Funeral Service).
 
 **Built by:** [Kelpie AI](https://kelpieai.co.uk)  
-**Version:** 0.5.0.0  
-**Status:** Production Ready  
+**Version:** 0.7.0.0  
+**Status:** Active Development  
 **Tech Stack:** React + TypeScript + Supabase + Tailwind CSS
 
 ---
@@ -22,8 +22,9 @@ This CRM serves the death committee's operational needs by:
 - Centralising all member information in one secure location
 - Managing document uploads and storage securely
 - Handling membership pauses and reactivations
+- Ensuring GDPR compliance and data protection
 - Reducing administrative overhead and manual paperwork
-- Ensuring compliance with legal declarations and documentation
+- Maintaining comprehensive audit trails for legal compliance
 
 ---
 
@@ -37,6 +38,36 @@ This CRM serves the death committee's operational needs by:
 - Environment validation and connection monitoring
 - Password-protected member deletion
 - Complete audit trails for compliance
+- GDPR-compliant data handling
+
+### 🛡️ GDPR & Data Protection
+- **Profile Management:**
+  - Profile button with user avatar in sidebar
+  - Dropdown menu (Settings + Sign Out)
+  - Committee member identification
+- **Settings & Privacy:**
+  - Dedicated Settings page for GDPR administration
+  - Privacy Policy download section
+  - Deletion Requests management interface
+  - Data protection obligations guidance
+- **Member Data Rights:**
+  - Export Member Data function (GDPR Article 15 compliance)
+  - One-click JSON export of complete member records
+  - Create Deletion Request workflow (GDPR Article 17)
+  - Committee review and approval process (30-day deadline)
+  - View Access Log for audit transparency
+- **Paper Form Compliance:**
+  - Paper application form tracking (v01.25)
+  - Signature capture from Section 7 declarations
+  - Record of who entered data and when
+  - Confirmation that physical forms are filed
+  - Automatic consent recording from paper forms
+- **Access Logging:**
+  - Automatic logging when viewing member data
+  - Complete audit trail of data access
+  - GDPR Article 30 compliance
+  - Tracks who, what, and when for all data access
+  - Searchable access history per member
 
 ### 👥 Member Management
 - **10-Step Registration Wizard** with progress tracking:
@@ -47,9 +78,9 @@ This CRM serves the death committee's operational needs by:
   - GP information (mandatory)
   - Medical declarations with conditional Yes/No questions
   - Legal declarations with electronic signatures
-  - **Document uploads (Photo ID, Proof of Address, Children certificates)**
+  - Document uploads (Photo ID, Proof of Address, Children certificates)
+  - **Paper Form Record (GDPR compliance tracking)**
   - Pro-rata payment calculation with age-based fees
-  - Review and submit
 - **Save Progress Feature** - Resume incomplete registrations
 - **Comprehensive Member Detail Pages** with:
   - Modern Supabase-style collapsible navigation
@@ -60,15 +91,19 @@ This CRM serves the death committee's operational needs by:
   - Next of Kin tab (mandatory emergency contacts with CRUD)
   - GP Details tab (mandatory medical practitioner info)
   - Medical Info tab (conditional based on health questions)
-  - **Documents tab (view, preview, download all uploaded files)**
+  - Documents tab (view, preview, download all uploaded files)
   - Declarations tab (legal compliance with signatures)
   - Payments tab (transaction history with summary cards)
   - Activity Log tab (complete audit trail with timeline)
+  - **GDPR Data Rights section (committee actions)**
 - **Member Actions:**
   - Edit mode with inline field editing
   - View payment history with status badges
-  - **Pause membership (temporary suspension with warning system)**
-  - **Unpause membership (reactivation with age-based fees)**
+  - Pause membership (temporary suspension with warning system)
+  - Unpause membership (reactivation with age-based fees)
+  - Export member data (GDPR request handling)
+  - Create deletion request (on member's behalf)
+  - View access log (audit transparency)
   - Mark as deceased (preserves records)
   - Delete member (password-protected with confirmation)
 - **Enhanced Validations:**
@@ -77,6 +112,7 @@ This CRM serves the death committee's operational needs by:
   - Age display next to date of birth
   - Mandatory GP and Next of Kin fields
   - Document upload validation (file size, type)
+  - Paper form confirmation required
 
 ### 📄 Document Management System
 - **Document Upload During Registration:**
@@ -211,6 +247,9 @@ This CRM serves the death committee's operational needs by:
   - Funeral arrangements
   - Expense additions
   - Contact additions
+  - Data exports (GDPR)
+  - Deletion requests (GDPR)
+  - Access logging (GDPR)
 
 ### 🎨 User Experience
 - **Modern Islamic Design:**
@@ -220,6 +259,8 @@ This CRM serves the death committee's operational needs by:
   - Professional typography
 - **Navigation System:**
   - Collapsible main sidebar (64px collapsed, 256px expanded)
+  - Profile button with avatar at bottom
+  - Dropdown menu (Settings + Sign Out)
   - Supabase-style smooth animations
   - Hover-to-expand functionality
   - Mobile hamburger menu
@@ -263,7 +304,7 @@ This CRM serves the death committee's operational needs by:
 Built on Supabase PostgreSQL with the following tables:
 
 ### Core Tables
-- **members** - Primary member records with age-based fees, document URLs, pause status
+- **members** - Primary member records with age-based fees, document URLs, pause status, GDPR consents
 - **joint_members** - Joint membership details
 - **children** - Dependent information
 - **next_of_kin** - Mandatory emergency contacts
@@ -280,6 +321,12 @@ Built on Supabase PostgreSQL with the following tables:
 - **funeral_contacts** - Family contacts
 - **funeral_expenses** - Itemised costs
 - **funeral_payments** - Contributions
+
+### GDPR & Compliance Tables
+- **deletion_requests** - Member data deletion requests with committee review workflow
+- **access_log** - Automatic audit trail of all data access (GDPR Article 30)
+- **consent_withdrawals** - Tracking of consent withdrawals
+- **data_breaches** - Breach reporting (72-hour ICO notification)
 
 ### Administrative Tables
 - **documents** - File attachments metadata
@@ -333,11 +380,22 @@ All tables include Row Level Security (RLS) policies for data protection.
 6. Add mandatory GP details
 7. Complete conditional medical declarations
 8. Sign legal declarations electronically
-9. **Upload supporting documents (Photo ID, Proof of Address, Children certificates)**
-10. Review pro-rata fees and submit
-11. Mark payment as received (sets Active/Pending status)
+9. Upload supporting documents (Photo ID, Proof of Address, Children certificates)
+10. **Record paper form details (GDPR compliance)**
+11. Review pro-rata fees and submit
+12. Mark payment as received (sets Active/Pending status)
 
 **Progress can be saved at any step and resumed later.**
+
+### GDPR Data Request Handling
+1. Member contacts committee (email/phone/letter) requesting their data
+2. Committee opens member detail page
+3. Clicks "Export Member Data" button
+4. System generates comprehensive JSON export
+5. Committee sends file to member via email/post
+6. Export logged automatically for audit trail
+
+**All data access is logged in accordance with GDPR Article 30.**
 
 ### Document Management
 1. Upload documents during registration
@@ -397,7 +455,7 @@ All tables include Row Level Security (RLS) policies for data protection.
 
 ## 🎯 Planned Features
 
-### Phase 3 (Q2 2025)
+### Phase 3 (Q1 2026)
 - [ ] Children turn 18 automation (90-day tracking, auto-removal, notifications)
 - [ ] Late fee warning system (3-tier automated warnings)
 - [ ] Automated pause after 3 warnings (currently manual)
@@ -408,7 +466,7 @@ All tables include Row Level Security (RLS) policies for data protection.
 - [ ] Bulk operations (mass email, status updates)
 - [ ] PDF receipt generation
 
-### Phase 4 (Q3 2025)
+### Phase 4 (Q2 2026)
 - [ ] User authentication with role-based access control
 - [ ] Multi-language support (Arabic, Urdu)
 - [ ] Mobile app (React Native)
@@ -476,7 +534,8 @@ All tables include Row Level Security (RLS) policies for data protection.
 4. Create Storage bucket: `member-documents`
 5. Set up authentication provider  
 6. Run activity log trigger creation script
-7. Update environment variables  
+7. Run GDPR compliance table creation script
+8. Update environment variables  
 
 ---
 
@@ -500,17 +559,17 @@ See `STYLING_GUIDE.md` for detailed instructions.
 
 ## 📊 Project Metrics
 
-- **Total Components:** 45+
-- **Database Tables:** 18
+- **Total Components:** 50+
+- **Database Tables:** 22 (including GDPR compliance tables)
 - **Storage Buckets:** 1 (member-documents)
-- **Lines of Code:** ~28,000
-- **Pages:** 16
-- **API Endpoints:** 90+ (via Supabase)
+- **Lines of Code:** ~32,000
+- **Pages:** 18
+- **API Endpoints:** 110+ (via Supabase)
 - **Member Detail Tabs:** 10
 - **Deceased Detail Tabs:** 7
 - **Registration Steps:** 10
 - **Document Types:** 5 (Photo ID, Proof of Address x2, Children x multiple)
-- **Premium Features:** 7 (Skeletons, Cmd+K, Caching, Optimistic, Bulk, Documents, Pause)
+- **Premium Features:** 10 (Skeletons, Cmd+K, Caching, Optimistic, Bulk, Documents, Pause, GDPR Tools, Access Logging, Profile Menu)
 
 ---
 
@@ -562,8 +621,11 @@ This system handles sensitive personal data. Security measures include:
 - Document access control
 - Environment variable protection
 - Automatic activity logging for audit compliance
+- GDPR Article 30 compliance (access logging)
+- GDPR Article 15 compliance (right to access)
+- GDPR Article 17 compliance (right to erasure)
 - Regular security audits
-- GDPR compliance considerations
+- ICO notification procedures for data breaches
 
 **Report security vulnerabilities to:** info@kelpieai.co.uk
 
@@ -571,162 +633,170 @@ This system handles sensitive personal data. Security measures include:
 
 ## 📈 Version History
 
-### v0.5.0.0 (Current - 30 December 2025)
+### v0.7.0.0 (Current - 30 December 2025)
+This release focuses on GDPR compliance and data protection, implementing the final administrative tools needed for handling member data requests. The system now provides complete transparency around data access and gives committee members the ability to respond to member requests efficiently while maintaining full audit trails.
+
+- **GDPR Admin Tools:**
+  - Export Member Data function with one-click JSON generation
+  - Create Deletion Request workflow with committee approval process
+  - View Access Log for complete transparency of data access
+  - All tools accessible from Member Detail page for convenience
+  - Automatic logging of all data exports and access
+- **Paper Form Compliance:**
+  - New Step 9 in registration wizard for paper form tracking
+  - Records paper application form version (v01.25)
+  - Captures main and joint member signatures from Section 7
+  - Tracks who entered data and when for audit purposes
+  - Confirms physical paper forms are filed for 7-year retention
+  - Auto-records all GDPR consents obtained via paper form
+- **Access Logging System:**
+  - Automatic logging whenever member data is accessed
+  - Tracks who viewed data, what was accessed, and when
+  - Complete audit trail for GDPR Article 30 compliance
+  - Searchable access history per member
+  - Access logs viewable from Member Detail page
+
+### v0.6.0.0 (30 December 2025)
+Following user feedback about the previous navigation structure, this release introduces a cleaner interface with better organization of system settings and privacy controls. The new profile-based navigation makes it easier for committee members to access their settings while keeping the main sidebar focused on core workflows.
+
+- **Profile & Settings Navigation:**
+  - Profile button with user avatar added to bottom of sidebar
+  - Dropdown menu for Settings and Sign Out (cleaner than before)
+  - Automatic user identification from Supabase Auth session
+  - Responsive dropdown positioning on mobile and desktop
+- **Settings Page:**
+  - New dedicated page for system administration and privacy
+  - Privacy Policy download section for member distribution
+  - Deletion Requests management with pending/approved/rejected stats
+  - Committee approval workflow with 30-day deadline tracking
+  - Data protection obligations guidance for committee members
+  - GDPR Article 17 compliance (right to erasure)
+- **Database Updates:**
+  - Created deletion_requests table with review workflow
+  - Created access_log table for audit trail
+  - Added consent_withdrawals and data_breaches tables
+  - Implemented proper indexes for performance
+
+### v0.5.0.0 (30 December 2025)
+This release addresses two critical operational needs: document management and membership lifecycle handling. The document system eliminates the need for physical filing of ID copies, while the pause/unpause system provides a more humane approach to handling members who fall behind on payments.
+
 - **Document Management System:**
   - Document upload during registration (Photo ID, Proof of Address, Children certificates)
-  - File validation (type, size, format)
-  - Supabase Storage integration
-  - Upload progress indicators with smooth UX
-  - Delete functionality with confirmation
-  - Document viewing in Member Detail → Documents tab
-  - Preview documents in new tab (eye icon)
-  - Download documents locally (download icon)
-  - Status indicators (uploaded/missing)
-  - Organized display by member type
-  - Empty state guidance
+  - Supabase Storage integration with secure file handling
+  - Document viewing in Member Detail with preview and download options
+  - Upload progress indicators and delete functionality
+  - File validation (type, size, format) for security
+  - Organized display by member type with status indicators
 - **Membership Pause/Unpause System:**
-  - Paused status tracking with reason
-  - Late warnings counter (0-3)
-  - Red "Paused" status badges throughout app
-  - Warning banner on member detail page
+  - Paused status tracking with reason and warning counter
+  - Red status badges throughout app for visibility
   - "Unpause Membership" button with payment modal
   - Age-based reactivation fee calculation (£75-£600)
-  - Late fees waived on reactivation (£0)
-  - Payment recording with "reactivation" type
-  - Status update to Active on unpause
-  - Late warnings reset to 0
-  - Filter members by paused status
+  - Late fees waived on reactivation as one-time courtesy
+  - Filter members by paused status for bulk management
 - **Database Enhancements:**
-  - Added 5 document URL columns
-  - Added 3 pause tracking columns
-  - Created indexes for performance
-  - Updated payment types enum
-  - Storage bucket policies configured
+  - Added 5 document URL columns for file references
+  - Added 3 pause tracking columns (status, reason, warnings)
+  - Storage bucket policies configured for secure access
+  - Payment types enum updated with "reactivation"
 
 ### v0.4.0.0 (29 December 2025)
-- **Phase 1 Critical Features:**
-  - Password-protected member deletion
-  - Medical info conditional Yes/No questions
-  - Pro-rata payment calculations (signup → Dec 31)
-  - Age-based joining fees (£75-£500)
-  - Registration success screens (payment-based)
-  - Legal declarations with electronic signatures
-  - Medical consent declaration
-  - Posthumous medical authorization
-  - GP details integration
-  - Final T&Cs acceptance
+The Phase 1 critical features release brings the system to production-ready status with proper legal compliance and payment accuracy. This version implements the core business logic that was missing from earlier builds, including the age-based fee structure requested by the committee and the legal declarations required for funeral cover validity.
 
-### v0.3.1.0 (29 December 2025)
-- **Security Hardening:**
-  - Enabled Row Level Security (RLS) on all 18 database tables
-  - Public access policies for internal mosque use
-  - Fixed function search path vulnerabilities
-- **Critical Bug Fixes:**
-  - Fixed routing issues (deceased routes leading to 404)
-  - Resolved table name mismatch in deceased system
-  - Added debug logging for troubleshooting
-
-### v0.3.0.0 (28 December 2025)
+- **Payment System Accuracy:**
+  - Pro-rata calculations from signup date to December 31st
+  - Age-based joining fees in 5 tiers (£75-£500)
+  - Registration success screens with payment status indicators
 - **Legal Compliance:**
+  - Password-protected member deletion for safety
   - Medical disclosure declaration with electronic signatures
   - Posthumous medical authorization with electronic signatures
-  - Both declarations required for main and joint members
-  - Permanent storage with timestamps for audit compliance
-- **Registration Success Redesign:**
-  - Payment-based success screens (paid = green, pending = yellow)
-  - Removed generic "What happens next?" section
-  - Prominent "Register Another Member" button
-  - Professional status indicators
+  - Final T&Cs acceptance requirement
+  - GP details integration as mandatory field
+
+### v0.3.1.0 (29 December 2025)
+Security hardening release addressing vulnerabilities discovered during internal audit. Row Level Security (RLS) was not properly enabled on all tables, creating potential data exposure risks. This release also fixed several routing bugs that were causing 404 errors when navigating to deceased member records.
+
+- Enabled Row Level Security (RLS) on all 18 database tables
+- Fixed deceased system routing issues (404 errors)
+- Resolved table name mismatches in deceased workflows
+- Added debug logging for troubleshooting
+
+### v0.3.0.0 (28 December 2025)
+Legal compliance focused release implementing the two critical declarations required for funeral cover validity. Without these signed declarations, the mosque cannot legally provide funeral services, making this a non-negotiable requirement before production deployment.
+
+- Medical disclosure declaration with electronic signatures
+- Posthumous medical authorization with electronic signatures
+- Registration success screen redesigned with payment-based status
+- Removed generic "What happens next?" section
+- Added prominent "Register Another Member" button
 
 ### v0.2.5.0 (28 December 2025)
-- **Payment System Overhaul:**
-  - Pro-rata annual fee calculation (signup date → Dec 31)
-  - Age-based joining fees (£75-£500 based on 5 age brackets)
-  - Legacy membership support (£0 joining fee for children turning 18)
-  - Adjustments field for prepaying following year
-  - Clear coverage period display
-  - Payment received toggle (Active/Pending status)
-  - Automated fee breakdown with real-time totals
-- **Medical Information Enhancement:**
-  - Conditional Yes/No question for medical conditions
-  - Text box appears only if conditions exist
-  - Applied to both main and joint members
+Major payment system overhaul to implement fair pricing based on age brackets and signup timing. The previous flat-rate system didn't account for the actuarial risk differences across age groups or the unfairness of charging full annual fees for December signups.
+
+- Pro-rata annual fee calculation (signup date → Dec 31)
+- Age-based joining fees (£75-£500 across 5 age brackets)
+- Legacy membership support (£0 joining fee for children turning 18)
+- Adjustment field for prepaying following year
+- Clear coverage period display on all payment screens
+- Conditional medical information (Yes/No question with text box)
 
 ### v0.2.3 (27 December 2025)
-- **Islamic Branding Update:**
-  - Sidebar redesigned with Islamic Green (#06420c)
-  - Mosque Gold (#D4AF37) accents throughout
-  - Active nav items highlighted in gold
-- **Enhanced Validations:**
-  - Mobile number validation (must be 11 digits)
-  - Email format validation
-  - GP details now mandatory
-  - Next of Kin fields now mandatory
-  - Relation field converted to dropdown
-- **UI Improvements:**
-  - Age auto-calculation next to date of birth
-  - Removed "Member since" field from registration
-  - Improved form field organization
+Branding update to align with Islamic visual identity and fix several form validation gaps discovered during user testing. Mobile number validation was particularly important as incorrect numbers were causing payment reminder failures.
+
+- Sidebar redesigned with Islamic Green (#06420c)
+- Mosque Gold (#D4AF37) accents throughout
+- Mobile number validation (must be 11 digits)
+- Email format validation
+- GP details now mandatory
+- Next of Kin fields now mandatory with relation dropdown
+- Age auto-calculation next to date of birth
 
 ### v0.2.2 (27 December 2025)
-- **Premium Polish Features:**
-  - Loading skeletons with shimmer animations
-  - Command Palette (Cmd+K / Ctrl+K)
-  - Aggressive caching (5min stale, 30min cache)
-  - Optimistic UI updates with rollback
-  - Bulk actions with floating action bar
-- **Death Record Wizard:**
-  - 4-step guided flow
-  - Islamic verse display
-  - Progress indicator
-  - Form validation at each step
+Premium polish release adding professional UX features that significantly improve daily usage. The loading skeletons and caching prevent the jarring "blank screen" experience, while Command Palette enables power users to navigate quickly.
+
+- Loading skeletons with shimmer animations
+- Command Palette (Cmd+K / Ctrl+K) for quick navigation
+- Aggressive caching (5min stale, 30min cache)
+- Optimistic UI updates with rollback
+- Bulk actions with floating action bar
+- 4-step Death Record Wizard with Islamic verse display
 
 ### v0.2.1 (26 December 2025)
-- **Major UI/UX Overhaul:**
-  - Supabase-style collapsible navigation
-  - Mobile hamburger menu
-  - Proper content padding
-- **Member Detail Page Redesign:**
-  - Modern sub-navigation sidebar
-  - 10 fully functional tabs
-  - Two-column layouts
-  - Professional card-based design
-- **Premium CRUD Modals:**
-  - Children management
-  - Next of Kin management
-  - Medical Info management
-- **Activity Logging System:**
-  - Automatic database triggers
-  - Complete audit trail
-  - Timeline view
-- **Deceased Member System:**
-  - 7 information tabs
-  - Family contact tracking
-  - Expense and payment management
+Major UI/UX overhaul based on feedback that the previous interface felt cramped and difficult to navigate. The Supabase-style collapsible navigation creates more breathing room while maintaining quick access to all features.
+
+- Supabase-style collapsible navigation sidebar
+- Mobile hamburger menu for responsive design
+- Member Detail page completely redesigned with 10 tabs
+- Premium CRUD modals for Children and Next of Kin
+- Activity Logging System with automatic database triggers
+- Deceased Member System with 7 information tabs
 
 ### v0.1.5 (24 December 2025)
+Feature complete MVP with all core workflows functional. This version was the first to be tested with real data from existing members, revealing several pain points that were addressed in subsequent releases.
+
 - Complete member registration wizard
-- Payment management system
-- Dashboard with analytics
-- Late payment tracking
-- Upcoming renewals widget
-- Member action buttons
+- Payment management system with tracking
+- Dashboard with real-time analytics
+- Late payment identification and tracking
+- Upcoming renewals widget with colour-coded urgency
 - Responsive mobile design
 
 ### v0.1.4 (22 December 2025)
-- Initial MVP release
-- Basic CRUD operations
-- Authentication system
+Initial MVP release demonstrating core CRUD operations and database connectivity. This version established the technical foundation and proved the Supabase integration was viable for the mosque's needs.
+
+- Basic CRUD operations for members
+- Authentication system with Supabase Auth
 - Database schema implementation
-- Supabase integration
+- Initial UI components and routing
 
 ---
 
 ## 🎯 Goals
 
-**Mission:** Modernise and streamline the administrative operations of Central Region Muslim Funeral Service, enabling the committee to focus on serving the community rather than managing paperwork.
+**Mission:** Modernise and streamline the administrative operations of Central Region Muslim Funeral Service, enabling the committee to focus on serving the community rather than managing paperwork, while ensuring full GDPR compliance and data protection for all members.
 
-**Vision:** A fully integrated, automated system that handles member lifecycle management, financial tracking, document management, and community engagement—setting the standard for mosque administrative systems in Scotland.
+**Vision:** A fully integrated, automated system that handles member lifecycle management, financial tracking, document management, GDPR compliance, and community engagement—setting the standard for mosque administrative systems in Scotland and demonstrating that data protection and operational efficiency can coexist.
 
 ---
 
