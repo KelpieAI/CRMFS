@@ -507,7 +507,7 @@ export default function AddMember() {
         }),
       });
 
-      // Paper Form validation (Step 9)
+            // Paper Form validation (Step 9)
       if (currentStep === 9) {
         const errors: string[] = [];
   
