@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tantml:tanstack/react-query';
 import { ToastProvider } from './contexts/ToastContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import CompactLayout from './components/CompactLayout';
@@ -15,6 +15,7 @@ import DeceasedDetail from './pages/DeceasedDetail';
 import RecordDeath from './pages/RecordDeath';
 import RegistrationSuccess from './pages/RegistrationSuccess';
 import DeletionRequests from './pages/DeletionRequests';
+import Settings from './pages/Settings';
 import NotFound from './pages/NotFound';
 import CommandPalette from './components/CommandPalette';
 
@@ -56,6 +57,7 @@ function App() {
                 <Route path="deceased/:id" element={<DeceasedDetail />} />
                 <Route path="deceased/record/:memberId?" element={<RecordDeath />} />
                 <Route path="deletion-requests" element={<DeletionRequests />} />
+                <Route path="settings" element={<Settings />} />
                 <Route path="registration-success" element={<RegistrationSuccess />} />
               </Route>
 
