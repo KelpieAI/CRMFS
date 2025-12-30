@@ -25,7 +25,7 @@ import {
   Shield,
 } from 'lucide-react';
 
-const stepIcons = [Users, User, Users, Baby, Heart, Stethoscope, FileText, Upload, CheckSquare, Shield, CreditCard];
+const stepIcons = [Users, User, Users, Baby, Heart, Stethoscope, FileText, Upload, CheckSquare, FileText, CreditCard];
 
 interface Child {
   first_name: string;
