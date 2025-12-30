@@ -59,6 +59,7 @@ function App() {
                 <Route path="deceased" element={<DeceasedMembers />} />
                 <Route path="deceased/:id" element={<DeceasedDetail />} />
                 <Route path="deceased/record/:memberId?" element={<RecordDeath />} />
+                <Route path="settings" element={<Settings />} />
                 <Route path="deletion-requests" element={<DeletionRequests />} />
                 <Route path="registration-success" element={<RegistrationSuccess />} />
               </Route>
