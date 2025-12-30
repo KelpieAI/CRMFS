@@ -507,6 +507,25 @@ export default function AddMember() {
         }),
       });
 
+      // Paper Form validation (Step 9)
+      if (currentStep === 9) {
+        const errors: string[] = [];
+  
+        if (!applicationDate) errors.push('Application date is required');
+        if (!mainSignature.trim()) errors.push('Main member signature is required');
+        if (!dataEnteredBy.trim()) errors.push('Data entered by field is required');
+        if (!paperFormConfirmed) errors.push('Please confirm the paper form has been completed and filed');
+  
+        if (formData.app_type === 'joint' && !jointSignature.trim()) {
+          errors.push('Joint member signature is required');
+        }
+  
+        if (errors.length > 0) {
+          alert(errors.join('\n'));
+          return;
+        }
+      }
+
       await supabase.from('payments').insert({
         member_id: memberId, 
         payment_type: 'registration', 
