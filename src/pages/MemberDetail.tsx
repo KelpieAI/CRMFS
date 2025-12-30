@@ -33,6 +33,7 @@ import {
   Download,
   Info,
   PlayCircle,
+  Shield,
 } from 'lucide-react';
 
 export default function MemberDetail() {
@@ -48,6 +49,14 @@ export default function MemberDetail() {
   const [deleteError, setDeleteError] = useState('');
   const [showUnpauseModal, setShowUnpauseModal] = useState(false);
   const [paymentReceived, setPaymentReceived] = useState(false);
+
+  // GDPR state
+  const [showDeletionRequestModal, setShowDeletionRequestModal] = useState(false);
+  const [deletionReason, setDeletionReason] = useState('');
+  const [deletionRequestedBy, setDeletionRequestedBy] = useState('');
+  const [deletionConfirmation, setDeletionConfirmation] = useState('');
+  const [showAccessLog, setShowAccessLog] = useState(false);
+  const [accessLogs, setAccessLogs] = useState<any[]>([]);
   const [unpauseCalculation, setUnpauseCalculation] = useState({
     joiningFee: 0,
     membershipFee: 100,
@@ -203,6 +212,136 @@ export default function MemberDetail() {
       total
     });
   };
+
+  // GDPR: Export member data
+  const exportMemberData = async () => {
+    const { member, jointMember, children, nextOfKin, gpDetails, medicalInfo, payments } = memberData || {};
+    if (!member) return;
+
+    try {
+      const exportData = {
+        export_info: {
+          exported_at: new Date().toISOString(),
+          exported_by_committee: true,
+          member_request_date: new Date().toISOString(),
+          data_controller: 'Falkirk Central Mosque - Central Region Muslim Funeral Service',
+          purpose: 'GDPR Right to Access (Article 15) - Member requested data via committee',
+        },
+        personal_data: {
+          title: member.title,
+          first_name: member.first_name,
+          last_name: member.last_name,
+          date_of_birth: member.dob,
+          age: calculateAge(member.dob),
+          email: member.email,
+          mobile: member.mobile,
+          phone_home: member.home_phone,
+          phone_work: member.work_phone,
+          address: member.address_line_1,
+          town: member.town,
+          city: member.city,
+          postcode: member.postcode,
+          status: member.status,
+          created_at: member.created_at,
+          updated_at: member.updated_at,
+        },
+        joint_member: member.app_type === 'joint' ? jointMember : null,
+        children: children || [],
+        next_of_kin: nextOfKin || [],
+        gp_details: gpDetails || null,
+        medical_info: medicalInfo || null,
+        documents: {
+          main_photo_id_url: member.main_photo_id_url,
+          main_proof_address_url: member.main_proof_address_url,
+          joint_photo_id_url: member.joint_photo_id_url,
+          joint_proof_address_url: member.joint_proof_address_url,
+          children_documents: member.children_documents,
+        },
+        consents: {
+          consent_obtained_via: member.consent_obtained_via,
+          paper_form_version: member.paper_form_version,
+          paper_form_date: member.paper_form_date,
+          consent_personal_data: member.consent_personal_data,
+          consent_personal_data_date: member.consent_personal_data_date,
+          consent_medical_data: member.consent_medical_data,
+          consent_medical_data_date: member.consent_medical_data_date,
+          consent_gp_data: member.consent_gp_data,
+          consent_gp_data_date: member.consent_gp_data_date,
+          consent_data_sharing: member.consent_data_sharing,
+          consent_data_retention: member.consent_data_retention,
+          privacy_policy_version: member.privacy_policy_version,
+        },
+        signatures: {
+          main_signature: member.main_signature,
+          main_signature_date: member.main_signature_date,
+          joint_signature: member.joint_signature,
+          joint_signature_date: member.joint_signature_date,
+        },
+        payments: payments || [],
+        activity_log: [],
+        pause_info: {
+          late_warnings_count: member.late_warnings_count,
+          paused_date: member.paused_date,
+          paused_reason: member.paused_reason,
+        },
+      };
+
+      const jsonString = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `CRMFS_Data_${member.first_name}_${member.last_name}_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      await supabase.from('activity_log').insert({
+        member_id: member.id,
+        action_type: 'member_edited',
+        entity_type: 'member',
+        description: 'Committee exported member data for GDPR Right to Access request',
+      });
+
+      await supabase.from('access_log').insert({
+        member_id: member.id,
+        accessed_by: 'Committee Member',
+        access_type: 'export',
+        accessed_data: ['all_data'],
+        accessed_at: new Date().toISOString(),
+      });
+
+      alert('Data exported successfully. Send this file to the member via email or post.');
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('Failed to export data. Please try again.');
+    }
+  };
+
+  // GDPR: Load access logs
+  const loadAccessLogs = async () => {
+    if (!memberData?.member) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('access_log')
+        .select('*')
+        .eq('member_id', memberData.member.id)
+        .order('accessed_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      setAccessLogs(data || []);
+    } catch (error) {
+      console.error('Failed to load access logs:', error);
+    }
+  };
+
+  // Load access logs when modal opens
+  if (showAccessLog && accessLogs.length === 0) {
+    loadAccessLogs();
+  }
 
   // Calculate total paid
   const totalPaid = memberData?.payments
@@ -489,6 +628,52 @@ export default function MemberDetail() {
             <p className="text-gray-500">Content for {activeTab} tab coming soon...</p>
           </div>
         )}
+
+        {/* GDPR Admin Actions */}
+        {activeTab === 'personal' && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mt-6">
+            <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
+              <Shield className="h-4 w-4 mr-2 text-emerald-600" />
+              GDPR Data Rights (Committee Actions)
+            </h3>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-xs text-blue-800">
+                Use these tools when members contact committee to request their data or account deletion.
+                All actions are logged for audit purposes.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={exportMemberData}
+                className="px-4 py-2 border border-emerald-600 text-emerald-600 rounded-lg hover:bg-emerald-50 flex items-center text-sm font-medium"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export Member Data
+              </button>
+
+              <button
+                onClick={() => setShowDeletionRequestModal(true)}
+                className="px-4 py-2 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 flex items-center text-sm font-medium"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Create Deletion Request
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowAccessLog(true);
+                  loadAccessLogs();
+                }}
+                className="px-4 py-2 border border-gray-600 text-gray-600 rounded-lg hover:bg-gray-50 flex items-center text-sm font-medium"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                View Access Log
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Confirmation Modals */}
@@ -758,6 +943,250 @@ export default function MemberDetail() {
                 className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Reactivate Membership
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deletion Request Modal */}
+      {showDeletionRequestModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <AlertCircle className="h-5 w-5 mr-2 text-red-600" />
+                Create Deletion Request
+              </h3>
+              <button
+                onClick={() => {
+                  setShowDeletionRequestModal(false);
+                  setDeletionReason('');
+                  setDeletionRequestedBy('');
+                  setDeletionConfirmation('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <h4 className="text-sm font-semibold text-blue-900 mb-2">
+                Committee Instructions
+              </h4>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• Create this request when a member contacts you to delete their account</li>
+                <li>• Member request can be via email, phone, or letter</li>
+                <li>• Committee must review and approve/reject within 30 days</li>
+                <li>• You can reject if legal obligation to retain data (active membership, outstanding payments)</li>
+                <li>• Member must be notified of decision</li>
+              </ul>
+            </div>
+
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <h4 className="text-sm font-semibold text-red-900 mb-2">
+                Important
+              </h4>
+              <ul className="text-sm text-red-800 space-y-1">
+                <li>• Deletion will permanently remove membership and funeral coverage</li>
+                <li>• Some data must be retained for 7 years (financial records, legal obligation)</li>
+                <li>• Paper application form must still be retained</li>
+              </ul>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  How did member request deletion? *
+                </label>
+                <select
+                  value={deletionRequestedBy}
+                  onChange={(e) => setDeletionRequestedBy(e.target.value)}
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
+                >
+                  <option value="">Select method</option>
+                  <option value="email">Email</option>
+                  <option value="phone">Phone call</option>
+                  <option value="letter">Letter/Post</option>
+                  <option value="in_person">In person</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Member's Reason for Deletion *
+                </label>
+                <textarea
+                  value={deletionReason}
+                  onChange={(e) => setDeletionReason(e.target.value)}
+                  required
+                  rows={4}
+                  placeholder="E.g., 'Moving abroad', 'No longer need service', 'Financial reasons'..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Type member's full name to confirm *
+                </label>
+                <input
+                  type="text"
+                  value={deletionConfirmation}
+                  onChange={(e) => setDeletionConfirmation(e.target.value)}
+                  required
+                  placeholder={`${memberData?.member?.first_name} ${memberData?.member?.last_name}`}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeletionRequestModal(false);
+                  setDeletionReason('');
+                  setDeletionRequestedBy('');
+                  setDeletionConfirmation('');
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!deletionReason.trim() || !deletionRequestedBy) {
+                    alert('Please complete all fields');
+                    return;
+                  }
+
+                  const expectedName = `${memberData?.member?.first_name} ${memberData?.member?.last_name}`;
+                  if (deletionConfirmation.trim().toLowerCase() !== expectedName.toLowerCase()) {
+                    alert(`Please type the member's full name exactly: ${expectedName}`);
+                    return;
+                  }
+
+                  try {
+                    const { error } = await supabase
+                      .from('deletion_requests')
+                      .insert({
+                        member_id: memberData?.member?.id,
+                        requester_name: expectedName,
+                        requester_email: memberData?.member?.email || 'Not provided',
+                        reason: deletionReason,
+                        status: 'pending',
+                        requested_at: new Date().toISOString(),
+                        metadata: {
+                          requested_via: deletionRequestedBy,
+                          created_by_committee: true,
+                        },
+                      });
+
+                    if (error) throw error;
+
+                    await supabase.from('activity_log').insert({
+                      member_id: memberData?.member?.id,
+                      action_type: 'member_edited',
+                      entity_type: 'member',
+                      description: `Committee created deletion request on behalf of member (requested via ${deletionRequestedBy})`,
+                    });
+
+                    setShowDeletionRequestModal(false);
+                    setDeletionReason('');
+                    setDeletionRequestedBy('');
+                    setDeletionConfirmation('');
+
+                    alert('Deletion request created successfully. Committee will review within 30 days.');
+                  } catch (error) {
+                    console.error('Deletion request error:', error);
+                    alert('Failed to create deletion request. Please try again.');
+                  }
+                }}
+                disabled={deletionConfirmation.trim().toLowerCase() !== `${memberData?.member?.first_name} ${memberData?.member?.last_name}`.toLowerCase()}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Create Deletion Request
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Access Log Modal */}
+      {showAccessLog && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <Eye className="h-5 w-5 mr-2 text-gray-600" />
+                Access Log - {memberData?.member?.first_name} {memberData?.member?.last_name}
+              </h3>
+              <button
+                onClick={() => setShowAccessLog(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-xs text-blue-800">
+                This log shows who accessed this member's data and when. Required for GDPR Article 30 compliance.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {accessLogs.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No access logs yet
+                </div>
+              ) : (
+                accessLogs.map((log) => (
+                  <div key={log.id} className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-sm font-medium text-gray-900">
+                            {log.accessed_by}
+                          </span>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            log.access_type === 'view' ? 'bg-blue-100 text-blue-800' :
+                            log.access_type === 'edit' ? 'bg-green-100 text-green-800' :
+                            log.access_type === 'export' ? 'bg-purple-100 text-purple-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {log.access_type}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(log.accessed_at).toLocaleString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                        {log.accessed_data && log.accessed_data.length > 0 && (
+                          <p className="text-xs text-gray-600 mt-1">
+                            Data accessed: {log.accessed_data.join(', ')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowAccessLog(false)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+              >
+                Close
               </button>
             </div>
           </div>

@@ -14,6 +14,7 @@ import DeceasedMembers from './pages/DeceasedMembers';
 import DeceasedDetail from './pages/DeceasedDetail';
 import RecordDeath from './pages/RecordDeath';
 import RegistrationSuccess from './pages/RegistrationSuccess';
+import DeletionRequests from './pages/DeletionRequests';
 import NotFound from './pages/NotFound';
 import CommandPalette from './components/CommandPalette';
 
@@ -54,6 +55,7 @@ function App() {
                 <Route path="deceased" element={<DeceasedMembers />} />
                 <Route path="deceased/:id" element={<DeceasedDetail />} />
                 <Route path="deceased/record/:memberId?" element={<RecordDeath />} />
+                <Route path="deletion-requests" element={<DeletionRequests />} />
                 <Route path="registration-success" element={<RegistrationSuccess />} />
               </Route>
 

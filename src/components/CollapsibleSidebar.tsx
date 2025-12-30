@@ -9,6 +9,7 @@ import {
   LogOut,
   Menu,
   X,
+  Trash2,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -24,6 +25,7 @@ export default function CollapsibleSidebar() {
     { name: 'Payments', to: '/payments', icon: CreditCard },
     { name: 'Deceased', to: '/deceased', icon: Heart },
     { name: 'Reports', to: '/reports', icon: FileText },
+    { name: 'Deletion Requests', to: '/deletion-requests', icon: Trash2 },
   ];
 
   const handleSignOut = async () => {
