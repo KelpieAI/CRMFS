@@ -17,6 +17,7 @@ import DeceasedMembers from './pages/DeceasedMembers';
 import DeceasedDetail from './pages/DeceasedDetail';
 import RecordDeath from './pages/RecordDeath';
 import RegistrationSuccess from './pages/RegistrationSuccess';
+import Settings from './pages/Settings';
 import DeletionRequests from './pages/DeletionRequests';
 import NotFound from './pages/NotFound';
 import CommandPalette from './components/CommandPalette';
