@@ -1086,8 +1086,8 @@ export default function MemberDetail() {
                   setDeletionReason('');
                   setDeletionRequestedBy('');
                   setDeletionConfirmation('');
-
-                  alert('Deletion request created successfully. Review in Settings → GDPR & Privacy.');
+                  
+                  // Success - modal closes silently
                 } catch (error) {
                   console.error('Deletion request error:', error);
                   alert('Failed to create deletion request. Please try again.');
