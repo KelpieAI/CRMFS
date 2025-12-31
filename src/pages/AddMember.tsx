@@ -644,7 +644,7 @@ export default function AddMember() {
     saveProgressMutation.mutate();
   };
 
-  const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'Medical Info', 'Documents', 'Declarations', 'Paper Form Record', 'Payment'];
+  const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'Medical Info', 'Documents', 'Declarations', 'GDPR Compliance', 'Payment'];
 
   const validateMainMemberStep = (): boolean => {
     const errors: Record<string, string> = {};
