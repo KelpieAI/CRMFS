@@ -9,6 +9,10 @@ import {
   CheckSquare,
   CreditCard,
   Activity,
+  Printer,
+  Download,
+  Mail,
+  Trash2,
 } from 'lucide-react';
 
 interface MemberSubNavProps {
@@ -20,6 +24,12 @@ interface MemberSubNavProps {
     payments?: number;
   };
   showJointMember?: boolean;
+  quickActions?: {
+    onPrint?: () => void;
+    onExport?: () => void;
+    onEmail?: () => void;
+    onDeleteRequest?: () => void;
+  };
 }
 
 export default function MemberSubNav({
@@ -27,6 +37,7 @@ export default function MemberSubNav({
   onTabChange,
   counts = {},
   showJointMember = false,
+  quickActions = {},
 }: MemberSubNavProps) {
   const navItems = [
     { id: 'personal', label: 'Personal Info', icon: User, show: true },
@@ -96,14 +107,33 @@ export default function MemberSubNav({
       <div className="mt-3 px-3 py-2.5 bg-gray-50 border-t border-gray-200">
         <p className="text-xs text-gray-500 font-medium mb-1.5">QUICK ACTIONS</p>
         <div className="space-y-1.5">
-          <button className="w-full text-left text-xs text-gray-600 hover:text-emerald-600 transition-colors">
+          <button 
+            onClick={quickActions.onPrint || (() => window.print())}
+            className="w-full text-left text-xs text-gray-600 hover:text-emerald-600 transition-colors flex items-center"
+          >
+            <Printer className="h-3 w-3 mr-2" />
             Print Summary
           </button>
-          <button className="w-full text-left text-xs text-gray-600 hover:text-emerald-600 transition-colors">
+          <button 
+            onClick={quickActions.onExport}
+            className="w-full text-left text-xs text-gray-600 hover:text-emerald-600 transition-colors flex items-center"
+          >
+            <Download className="h-3 w-3 mr-2" />
             Export Data
           </button>
-          <button className="w-full text-left text-xs text-gray-600 hover:text-emerald-600 transition-colors">
+          <button 
+            onClick={quickActions.onEmail}
+            className="w-full text-left text-xs text-gray-600 hover:text-emerald-600 transition-colors flex items-center"
+          >
+            <Mail className="h-3 w-3 mr-2" />
             Send Email
+          </button>
+          <button 
+            onClick={quickActions.onDeleteRequest}
+            className="w-full text-left text-xs text-red-600 hover:text-red-700 transition-colors flex items-center"
+          >
+            <Trash2 className="h-3 w-3 mr-2" />
+            Create Deletion Request
           </button>
         </div>
       </div>
