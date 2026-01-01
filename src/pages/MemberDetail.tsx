@@ -34,6 +34,7 @@ import {
   Info,
   PlayCircle,
   Shield,
+  MoreVertical,
 } from 'lucide-react';
 
 export default function MemberDetail() {
@@ -62,6 +63,9 @@ export default function MemberDetail() {
     membershipFee: 100,
     total: 0
   });
+  
+  // Actions menu dropdown
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
 
   // Fetch member with all related data
   const { data: memberData, isLoading } = useQuery({
@@ -394,6 +398,12 @@ export default function MemberDetail() {
             payments: payments.length,
           }}
           showJointMember={member.app_type === 'joint'}
+          quickActions={{
+            onPrint: () => window.print(),
+            onExport: exportMemberData,
+            onEmail: () => window.location.href = `mailto:${member.email}`,
+            onDeleteRequest: () => setShowDeletionRequestModal(true),
+          }}
         />
       }
     >
@@ -446,73 +456,128 @@ export default function MemberDetail() {
                 </button>
               </>
             ) : (
-              <>
+              <div className="relative">
                 <button
-                  onClick={handleEdit}
-                  className="inline-flex items-center px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                  onClick={() => setShowActionsMenu(!showActionsMenu)}
+                  className="inline-flex items-center px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                 >
-                  <Edit className="h-4 w-4 mr-1" />
-                  <span className="hidden sm:inline">Edit</span>
+                  <MoreVertical className="h-4 w-4" />
                 </button>
-                <button
-                  onClick={() => setActiveTab('payments')}
-                  className="inline-flex items-center px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <CreditCard className="h-4 w-4 mr-1" />
-                  <span className="hidden sm:inline">Payments</span>
-                </button>
-                {member.status === 'paused' ? (
-                  <button
-                    onClick={() => {
-                      calculateUnpauseFees();
-                      setShowUnpauseModal(true);
-                    }}
-                    className="inline-flex items-center px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-                  >
-                    <PlayCircle className="h-4 w-4 mr-1" />
-                    <span className="hidden sm:inline">Unpause</span>
-                  </button>
-                ) : member.status === 'active' ? (
-                  <button
-                    onClick={() => {
-                      updateStatus.mutate({
-                        memberId: id!,
-                        newStatus: 'inactive',
-                      });
-                    }}
-                    disabled={updateStatus.isPending}
-                    className="inline-flex items-center px-3 py-1.5 text-sm bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Pause className="h-4 w-4 mr-1" />
-                    <span className="hidden sm:inline">
-                      {updateStatus.isPending ? 'Pausing...' : 'Pause'}
-                    </span>
-                  </button>
-                ) : member.status === 'inactive' && (
-                  <button
-                    onClick={() => {
-                      updateStatus.mutate({
-                        memberId: id!,
-                        newStatus: 'active',
-                      });
-                    }}
-                    disabled={updateStatus.isPending}
-                    className="inline-flex items-center px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    <span className="hidden sm:inline">
-                      {updateStatus.isPending ? 'Activating...' : 'Activate'}
-                    </span>
-                  </button>
+                
+                {showActionsMenu && (
+                  <>
+                    {/* Backdrop to close menu */}
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setShowActionsMenu(false)}
+                    />
+                    
+                    {/* Dropdown Menu */}
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                      <button
+                        onClick={() => {
+                          handleEdit();
+                          setShowActionsMenu(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                      >
+                        <Edit className="h-4 w-4 mr-3 text-gray-400" />
+                        Edit Member
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          setActiveTab('payments');
+                          setShowActionsMenu(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                      >
+                        <CreditCard className="h-4 w-4 mr-3 text-gray-400" />
+                        Record Payment
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          window.print();
+                          setShowActionsMenu(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                      >
+                        <FileText className="h-4 w-4 mr-3 text-gray-400" />
+                        Print Summary
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          window.location.href = `mailto:${member.email}`;
+                          setShowActionsMenu(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                      >
+                        <Upload className="h-4 w-4 mr-3 text-gray-400" />
+                        Send Email
+                      </button>
+                      
+                      <div className="border-t border-gray-100 my-1"></div>
+                      
+                      {member.status === 'paused' ? (
+                        <button
+                          onClick={() => {
+                            calculateUnpauseFees();
+                            setShowUnpauseModal(true);
+                            setShowActionsMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-emerald-600 hover:bg-emerald-50 flex items-center"
+                        >
+                          <PlayCircle className="h-4 w-4 mr-3" />
+                          Unpause Member
+                        </button>
+                      ) : member.status === 'active' ? (
+                        <button
+                          onClick={() => {
+                            updateStatus.mutate({
+                              memberId: id!,
+                              newStatus: 'inactive',
+                            });
+                            setShowActionsMenu(false);
+                          }}
+                          disabled={updateStatus.isPending}
+                          className="w-full px-4 py-2 text-left text-sm text-yellow-600 hover:bg-yellow-50 flex items-center disabled:opacity-50"
+                        >
+                          <Pause className="h-4 w-4 mr-3" />
+                          {updateStatus.isPending ? 'Pausing...' : 'Pause Member'}
+                        </button>
+                      ) : member.status === 'inactive' && (
+                        <button
+                          onClick={() => {
+                            updateStatus.mutate({
+                              memberId: id!,
+                              newStatus: 'active',
+                            });
+                            setShowActionsMenu(false);
+                          }}
+                          disabled={updateStatus.isPending}
+                          className="w-full px-4 py-2 text-left text-sm text-green-600 hover:bg-green-50 flex items-center disabled:opacity-50"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-3" />
+                          {updateStatus.isPending ? 'Activating...' : 'Activate Member'}
+                        </button>
+                      )}
+                      
+                      <button
+                        onClick={() => {
+                          setShowDeleteConfirm(true);
+                          setShowActionsMenu(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center"
+                      >
+                        <Trash2 className="h-4 w-4 mr-3" />
+                        Delete Member
+                      </button>
+                    </div>
+                  </>
                 )}
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="inline-flex items-center px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  <span className="hidden sm:inline">Delete</span>
-                </button>
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -584,47 +649,6 @@ export default function MemberDetail() {
                 <p className="text-sm font-semibold text-gray-900">£{totalPaid.toFixed(2)}</p>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* GDPR Data Rights (Committee Actions) */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 mt-6">
-          <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
-            <Shield className="h-4 w-4 mr-2 text-mosque-green-600" />
-            GDPR Data Rights (Committee Actions)
-          </h3>
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-            <p className="text-xs text-blue-800">
-              Use these tools when members contact committee to request their data or account deletion.
-              All actions are logged for audit purposes.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={exportMemberData}
-              className="px-4 py-2 border border-mosque-green-600 text-mosque-green-600 rounded-lg hover:bg-mosque-green-50 flex items-center text-sm font-medium"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export Member Data
-            </button>
-
-            <button
-              onClick={() => setShowDeletionRequestModal(true)}
-              className="px-4 py-2 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 flex items-center text-sm font-medium"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Create Deletion Request
-            </button>
-
-            <button
-              onClick={() => setShowAccessLog(true)}
-              className="px-4 py-2 border border-gray-600 text-gray-600 rounded-lg hover:bg-gray-50 flex items-center text-sm font-medium"
-            >
-              <Eye className="h-4 w-4 mr-2" />
-              View Access Log
-            </button>
           </div>
         </div>
 
