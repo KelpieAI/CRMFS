@@ -1330,11 +1330,19 @@ function PersonalInfoTab({ member, isEditing, updateField }: any) {
 
 // Helper Components
 function InfoRow({ label, value, displayValue, isEditing, type = 'text', options, onChange }: any) {
+  // Helper to capitalize first letter (for status display)
+  const capitalizeValue = (val: string) => {
+    if (!val) return val;
+    return val.charAt(0).toUpperCase() + val.slice(1);
+  };
+
   if (!isEditing) {
     return (
-      <div className="flex justify-between items-start py-1">
-        <dt className="text-xs text-gray-500 font-medium">{label}</dt>
-        <dd className="text-sm text-gray-900 text-right">{displayValue || value || 'N/A'}</dd>
+      <div className="py-1">
+        <span className="text-xs text-gray-500 font-medium">{label}: </span>
+        <span className="text-sm text-gray-900">
+          {label === 'Status' ? capitalizeValue(displayValue || value) : (displayValue || value || 'N/A')}
+        </span>
       </div>
     );
   }
@@ -1421,6 +1429,21 @@ function JointMemberTab({ jointMember }: any) {
     );
   }
 
+  // Calculate age from DOB
+  const calculateAge = (dob: string) => {
+    if (!dob) return null;
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const age = calculateAge(jointMember.dob);
+
   return (
     <div className="space-y-4">
       {/* Two Column Layout */}
@@ -1432,27 +1455,31 @@ function JointMemberTab({ jointMember }: any) {
             Partner Details
           </h3>
           <dl className="space-y-2">
-            <div className="flex justify-between items-start py-1">
-              <dt className="text-xs text-gray-500 font-medium">Title</dt>
-              <dd className="text-sm text-gray-900 text-right">{jointMember.title || 'N/A'}</dd>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Title: </span>
+              <span className="text-sm text-gray-900">{jointMember.title || 'N/A'}</span>
             </div>
-            <div className="flex justify-between items-start py-1">
-              <dt className="text-xs text-gray-500 font-medium">First Name</dt>
-              <dd className="text-sm text-gray-900 text-right">{jointMember.first_name || 'N/A'}</dd>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">First Name: </span>
+              <span className="text-sm text-gray-900">{jointMember.first_name || 'N/A'}</span>
             </div>
-            <div className="flex justify-between items-start py-1">
-              <dt className="text-xs text-gray-500 font-medium">Last Name</dt>
-              <dd className="text-sm text-gray-900 text-right">{jointMember.last_name || 'N/A'}</dd>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Last Name: </span>
+              <span className="text-sm text-gray-900">{jointMember.last_name || 'N/A'}</span>
             </div>
-            <div className="flex justify-between items-start py-1">
-              <dt className="text-xs text-gray-500 font-medium">Date of Birth</dt>
-              <dd className="text-sm text-gray-900 text-right">
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Date of Birth: </span>
+              <span className="text-sm text-gray-900">
                 {jointMember.dob ? new Date(jointMember.dob).toLocaleDateString() : 'N/A'}
-              </dd>
+              </span>
             </div>
-            <div className="flex justify-between items-start py-1">
-              <dt className="text-xs text-gray-500 font-medium">Relationship</dt>
-              <dd className="text-sm text-gray-900 text-right capitalize">{jointMember.relationship || 'N/A'}</dd>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Age: </span>
+              <span className="text-sm text-gray-900">{age ? `${age} years` : 'N/A'}</span>
+            </div>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Relationship: </span>
+              <span className="text-sm text-gray-900 capitalize">{jointMember.relation || 'N/A'}</span>
             </div>
           </dl>
         </div>
@@ -1464,21 +1491,21 @@ function JointMemberTab({ jointMember }: any) {
             Contact Information
           </h3>
           <dl className="space-y-2">
-            <div className="flex justify-between items-start py-1">
-              <dt className="text-xs text-gray-500 font-medium">Mobile</dt>
-              <dd className="text-sm text-gray-900 text-right">{jointMember.mobile || 'N/A'}</dd>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Mobile: </span>
+              <span className="text-sm text-gray-900">{jointMember.mobile || 'N/A'}</span>
             </div>
-            <div className="flex justify-between items-start py-1">
-              <dt className="text-xs text-gray-500 font-medium">Home Phone</dt>
-              <dd className="text-sm text-gray-900 text-right">{jointMember.home_phone || 'N/A'}</dd>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Home Phone: </span>
+              <span className="text-sm text-gray-900">{jointMember.home_phone || 'N/A'}</span>
             </div>
-            <div className="flex justify-between items-start py-1">
-              <dt className="text-xs text-gray-500 font-medium">Work Phone</dt>
-              <dd className="text-sm text-gray-900 text-right">{jointMember.work_phone || 'N/A'}</dd>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Work Phone: </span>
+              <span className="text-sm text-gray-900">{jointMember.work_phone || 'N/A'}</span>
             </div>
-            <div className="flex justify-between items-start py-1">
-              <dt className="text-xs text-gray-500 font-medium">Email</dt>
-              <dd className="text-sm text-gray-900 text-right">{jointMember.email || 'N/A'}</dd>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Email: </span>
+              <span className="text-sm text-gray-900">{jointMember.email || 'N/A'}</span>
             </div>
           </dl>
         </div>
@@ -1512,27 +1539,25 @@ function GPDetailsTab({ gpDetails }: any) {
           GP Practice Information
         </h3>
         <dl className="space-y-2">
-          <div className="flex justify-between items-start py-1">
-            <dt className="text-xs text-gray-500 font-medium">Practice Name</dt>
-            <dd className="text-sm text-gray-900 text-right">{gpDetails.gp_name_surgery || 'N/A'}</dd>
+          <div className="py-1">
+            <span className="text-xs text-gray-500 font-medium">Practice Name: </span>
+            <span className="text-sm text-gray-900">{gpDetails.gp_name_surgery || 'N/A'}</span>
           </div>
-          <div className="flex justify-between items-start py-1">
-            <dt className="text-xs text-gray-500 font-medium">Address</dt>
-            <dd className="text-sm text-gray-900 text-right max-w-xs">
-              {gpDetails.address_line_1 || 'N/A'}
-            </dd>
+          <div className="py-1">
+            <span className="text-xs text-gray-500 font-medium">Address: </span>
+            <span className="text-sm text-gray-900">{gpDetails.address_line_1 || 'N/A'}</span>
           </div>
-          <div className="flex justify-between items-start py-1">
-            <dt className="text-xs text-gray-500 font-medium">Postcode</dt>
-            <dd className="text-sm text-gray-900 text-right">{gpDetails.postcode || 'N/A'}</dd>
+          <div className="py-1">
+            <span className="text-xs text-gray-500 font-medium">Postcode: </span>
+            <span className="text-sm text-gray-900">{gpDetails.postcode || 'N/A'}</span>
           </div>
-          <div className="flex justify-between items-start py-1">
-            <dt className="text-xs text-gray-500 font-medium">Phone</dt>
-            <dd className="text-sm text-gray-900 text-right">{gpDetails.phone || 'N/A'}</dd>
+          <div className="py-1">
+            <span className="text-xs text-gray-500 font-medium">Phone: </span>
+            <span className="text-sm text-gray-900">{gpDetails.phone || 'N/A'}</span>
           </div>
-          <div className="flex justify-between items-start py-1">
-            <dt className="text-xs text-gray-500 font-medium">Email</dt>
-            <dd className="text-sm text-gray-900 text-right">{gpDetails.email || 'N/A'}</dd>
+          <div className="py-1">
+            <span className="text-xs text-gray-500 font-medium">Email: </span>
+            <span className="text-sm text-gray-900">{gpDetails.email || 'N/A'}</span>
           </div>
         </dl>
       </div>
