@@ -35,6 +35,8 @@ import {
   PlayCircle,
   Shield,
   MoreVertical,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 export default function MemberDetail() {
@@ -2604,6 +2606,17 @@ function PaymentsTab({ payments, memberId }: any) {
   const [showAdjustModal, setShowAdjustModal] = useState(false);
   const [editingPayment, setEditingPayment] = useState<any>(null);
   const [showPaymentMenu, setShowPaymentMenu] = useState<string | null>(null);
+  const [expandedPayments, setExpandedPayments] = useState<Set<string>>(new Set());
+
+  const togglePaymentExpanded = (paymentId: string) => {
+    const newExpanded = new Set(expandedPayments);
+    if (newExpanded.has(paymentId)) {
+      newExpanded.delete(paymentId);
+    } else {
+      newExpanded.add(paymentId);
+    }
+    setExpandedPayments(newExpanded);
+  };
 
   const totalPaid = payments
     .filter((p: any) => p.payment_status === 'completed')
@@ -2760,103 +2773,116 @@ function PaymentsTab({ payments, memberId }: any) {
               <div key={payment.id} className="p-4 hover:bg-gray-50 transition-colors">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    {/* Header */}
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className="text-lg font-bold text-gray-900">
-                        £{Number(payment.total_amount).toFixed(2)}
-                      </span>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${
-                          payment.payment_status === 'completed'
-                            ? 'bg-mosque-gold-100 text-mosque-gold-800'
-                            : payment.payment_status === 'pending'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}
-                      >
-                        {payment.payment_status}
-                      </span>
-                    </div>
+                    {/* Clickable Header to Expand/Collapse */}
+                    <div 
+                      onClick={() => togglePaymentExpanded(payment.id)}
+                      className="cursor-pointer"
+                    >
+                      {/* Header */}
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="text-lg font-bold text-gray-900">
+                          £{Number(payment.total_amount).toFixed(2)}
+                        </span>
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${
+                            payment.payment_status === 'completed'
+                              ? 'bg-mosque-gold-100 text-mosque-gold-800'
+                              : payment.payment_status === 'pending'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}
+                        >
+                          {payment.payment_status}
+                        </span>
+                        {expandedPayments.has(payment.id) ? (
+                          <ChevronUp className="h-4 w-4 text-gray-400" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-gray-400" />
+                        )}
+                      </div>
 
-                    {/* Payment Info */}
-                    <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
-                      <span className="capitalize">{payment.payment_type?.replace('_', ' ')}</span>
-                      <span>•</span>
-                      <span className="capitalize">{payment.payment_method?.replace('_', ' ')}</span>
-                      <span>•</span>
-                      <span>
-                        {payment.payment_date 
-                          ? new Date(payment.payment_date).toLocaleDateString()
-                          : new Date(payment.created_at).toLocaleDateString()}
-                      </span>
-                      {payment.reference_no && (
-                        <>
-                          <span>•</span>
-                          <span>Ref: {payment.reference_no}</span>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Breakdown */}
-                    <div className="bg-gray-50 rounded-lg p-3 space-y-1.5">
-                      <p className="text-xs font-semibold text-gray-700 mb-2">Payment Breakdown:</p>
-                      
-                      {payment.main_joining_fee && Number(payment.main_joining_fee) > 0 && (
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-600">Main Member - Joining Fee:</span>
-                          <span className="text-gray-900 font-medium">£{Number(payment.main_joining_fee).toFixed(2)}</span>
-                        </div>
-                      )}
-                      
-                      {payment.main_membership_fee && Number(payment.main_membership_fee) > 0 && (
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-600">Main Member - Membership Fee:</span>
-                          <span className="text-gray-900 font-medium">£{Number(payment.main_membership_fee).toFixed(2)}</span>
-                        </div>
-                      )}
-                      
-                      {payment.main_misc && Number(payment.main_misc) > 0 && (
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-600">Main Member - Miscellaneous:</span>
-                          <span className="text-gray-900 font-medium">£{Number(payment.main_misc).toFixed(2)}</span>
-                        </div>
-                      )}
-                      
-                      {payment.joint_joining_fee && Number(payment.joint_joining_fee) > 0 && (
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-600">Joint Member - Joining Fee:</span>
-                          <span className="text-gray-900 font-medium">£{Number(payment.joint_joining_fee).toFixed(2)}</span>
-                        </div>
-                      )}
-                      
-                      {payment.joint_membership_fee && Number(payment.joint_membership_fee) > 0 && (
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-600">Joint Member - Membership Fee:</span>
-                          <span className="text-gray-900 font-medium">£{Number(payment.joint_membership_fee).toFixed(2)}</span>
-                        </div>
-                      )}
-                      
-                      {payment.joint_misc && Number(payment.joint_misc) > 0 && (
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-600">Joint Member - Miscellaneous:</span>
-                          <span className="text-gray-900 font-medium">£{Number(payment.joint_misc).toFixed(2)}</span>
-                        </div>
-                      )}
-                      
-                      {payment.late_fee && Number(payment.late_fee) > 0 && (
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-600 text-red-600">Late Fee:</span>
-                          <span className="text-red-600 font-medium">£{Number(payment.late_fee).toFixed(2)}</span>
-                        </div>
-                      )}
-                      
-                      <div className="flex justify-between text-xs pt-2 mt-2 border-t border-gray-200">
-                        <span className="text-gray-900 font-semibold">Total:</span>
-                        <span className="text-gray-900 font-bold">£{Number(payment.total_amount).toFixed(2)}</span>
+                      {/* Payment Info */}
+                      <div className="flex items-center space-x-4 text-sm text-gray-500 mb-2">
+                        <span className="capitalize">{payment.payment_type?.replace('_', ' ')}</span>
+                        <span>•</span>
+                        <span className="capitalize">{payment.payment_method?.replace('_', ' ')}</span>
+                        <span>•</span>
+                        <span>
+                          {payment.payment_date 
+                            ? new Date(payment.payment_date).toLocaleDateString()
+                            : new Date(payment.created_at).toLocaleDateString()}
+                        </span>
+                        {payment.reference_no && (
+                          <>
+                            <span>•</span>
+                            <span>Ref: {payment.reference_no}</span>
+                          </>
+                        )}
                       </div>
                     </div>
 
-                    {payment.notes && (
+                    {/* Breakdown - Only shown when expanded */}
+                    {expandedPayments.has(payment.id) && (
+                      <div className="bg-gray-50 rounded-lg p-3 space-y-1.5 mt-3">
+                        <p className="text-xs font-semibold text-gray-700 mb-2">Payment Breakdown:</p>
+                        
+                        {payment.main_joining_fee && Number(payment.main_joining_fee) > 0 && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-600">Main Member - Joining Fee:</span>
+                            <span className="text-gray-900 font-medium">£{Number(payment.main_joining_fee).toFixed(2)}</span>
+                          </div>
+                        )}
+                        
+                        {payment.main_membership_fee && Number(payment.main_membership_fee) > 0 && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-600">Main Member - Membership Fee:</span>
+                            <span className="text-gray-900 font-medium">£{Number(payment.main_membership_fee).toFixed(2)}</span>
+                          </div>
+                        )}
+                        
+                        {payment.main_misc && Number(payment.main_misc) > 0 && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-600">Main Member - Miscellaneous:</span>
+                            <span className="text-gray-900 font-medium">£{Number(payment.main_misc).toFixed(2)}</span>
+                          </div>
+                        )}
+                        
+                        {payment.joint_joining_fee && Number(payment.joint_joining_fee) > 0 && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-600">Joint Member - Joining Fee:</span>
+                            <span className="text-gray-900 font-medium">£{Number(payment.joint_joining_fee).toFixed(2)}</span>
+                          </div>
+                        )}
+                        
+                        {payment.joint_membership_fee && Number(payment.joint_membership_fee) > 0 && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-600">Joint Member - Membership Fee:</span>
+                            <span className="text-gray-900 font-medium">£{Number(payment.joint_membership_fee).toFixed(2)}</span>
+                          </div>
+                        )}
+                        
+                        {payment.joint_misc && Number(payment.joint_misc) > 0 && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-600">Joint Member - Miscellaneous:</span>
+                            <span className="text-gray-900 font-medium">£{Number(payment.joint_misc).toFixed(2)}</span>
+                          </div>
+                        )}
+                        
+                        {payment.late_fee && Number(payment.late_fee) > 0 && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-600 text-red-600">Late Fee:</span>
+                            <span className="text-red-600 font-medium">£{Number(payment.late_fee).toFixed(2)}</span>
+                          </div>
+                        )}
+                        
+                        <div className="flex justify-between text-xs pt-2 mt-2 border-t border-gray-200">
+                          <span className="text-gray-900 font-semibold">Total:</span>
+                          <span className="text-gray-900 font-bold">£{Number(payment.total_amount).toFixed(2)}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {payment.notes && expandedPayments.has(payment.id) && (
                       <p className="text-xs text-gray-600 mt-2 italic">Note: {payment.notes}</p>
                     )}
                   </div>
