@@ -680,15 +680,15 @@ export default function MemberDetail() {
         )}
 
         {activeTab === 'gp' && (
-          <GPDetailsTab gpDetails={memberData?.gpDetails} />
+          <GPDetailsTab gpDetails={memberData?.gpDetails} memberId={id!} member={memberData?.member} />
         )}
 
         {activeTab === 'declarations' && (
-          <DeclarationsTab declarations={memberData?.declarations} />
+          <DeclarationsTab declarations={memberData?.declarations} memberId={id!} member={memberData?.member} />
         )}
 
         {activeTab === 'documents' && (
-          <DocumentsTab member={memberData?.member} />
+          <DocumentsTab member={memberData?.member} memberId={id!} />
         )}
 
         {activeTab === 'payments' && (
@@ -1541,167 +1541,177 @@ function JointMemberTab({ jointMember }: any) {
 }
 
 // GP Details Tab Component
-function GPDetailsTab({ gpDetails }: any) {
+function GPDetailsTab({ gpDetails, memberId, member }: any) {
+  const [showGPModal, setShowGPModal] = useState(false);
+  
   if (!gpDetails) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="text-center py-8">
-          <Stethoscope className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-          <p className="text-gray-500 font-medium">No GP details recorded</p>
-          <p className="text-sm text-gray-400 mt-1">
-            GP information hasn't been added yet.
-          </p>
+      <>
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="text-center py-8">
+            <Stethoscope className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <p className="text-gray-500 font-medium">No GP details recorded</p>
+            <p className="text-sm text-gray-400 mt-1 mb-4">
+              GP information hasn't been added yet.
+            </p>
+            <button
+              onClick={() => setShowGPModal(true)}
+              className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <Stethoscope className="h-4 w-4 mr-2" />
+              Add GP Details
+            </button>
+          </div>
         </div>
-      </div>
+
+        {showGPModal && (
+          <GPDetailsModal
+            isOpen={showGPModal}
+            onClose={() => setShowGPModal(false)}
+            memberId={memberId}
+            gpDetails={null}
+          />
+        )}
+      </>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* GP Information Card */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-          <Stethoscope className="h-4 w-4 mr-2 text-gray-400" />
-          GP Practice Information
-        </h3>
-        <dl className="space-y-2">
-          <div className="py-1">
-            <span className="text-xs text-gray-500 font-medium">Practice Name: </span>
-            <span className="text-sm text-gray-900">{gpDetails.gp_name_surgery || 'N/A'}</span>
-          </div>
-          <div className="py-1">
-            <span className="text-xs text-gray-500 font-medium">Address: </span>
-            <span className="text-sm text-gray-900">{gpDetails.address_line_1 || 'N/A'}</span>
-          </div>
-          <div className="py-1">
-            <span className="text-xs text-gray-500 font-medium">Postcode: </span>
-            <span className="text-sm text-gray-900">{gpDetails.postcode || 'N/A'}</span>
-          </div>
-          <div className="py-1">
-            <span className="text-xs text-gray-500 font-medium">Phone: </span>
-            <span className="text-sm text-gray-900">{gpDetails.phone || 'N/A'}</span>
-          </div>
-          <div className="py-1">
-            <span className="text-xs text-gray-500 font-medium">Email: </span>
-            <span className="text-sm text-gray-900">{gpDetails.email || 'N/A'}</span>
-          </div>
-        </dl>
+    <>
+      <div className="space-y-4">
+        {/* Header with Edit Button */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">GP Practice Information</h3>
+          <button
+            onClick={() => setShowGPModal(true)}
+            className="inline-flex items-center px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            <Edit className="h-4 w-4 mr-1" />
+            Edit GP Details
+          </button>
+        </div>
+
+        {/* GP Information Card */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+            <Stethoscope className="h-4 w-4 mr-2 text-gray-400" />
+            GP Practice Information
+          </h3>
+          <dl className="space-y-2">
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Practice Name: </span>
+              <span className="text-sm text-gray-900">{gpDetails.gp_name_surgery || 'N/A'}</span>
+            </div>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Address: </span>
+              <span className="text-sm text-gray-900">{gpDetails.address_line_1 || 'N/A'}</span>
+            </div>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Town: </span>
+              <span className="text-sm text-gray-900">{gpDetails.town || 'N/A'}</span>
+            </div>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">City: </span>
+              <span className="text-sm text-gray-900">{gpDetails.city || 'N/A'}</span>
+            </div>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Postcode: </span>
+              <span className="text-sm text-gray-900">{gpDetails.postcode || 'N/A'}</span>
+            </div>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Phone: </span>
+              <span className="text-sm text-gray-900">{gpDetails.phone || 'N/A'}</span>
+            </div>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Email: </span>
+              <span className="text-sm text-gray-900">{gpDetails.email || 'N/A'}</span>
+            </div>
+          </dl>
+        </div>
       </div>
-    </div>
+
+      {showGPModal && (
+        <GPDetailsModal
+          isOpen={showGPModal}
+          onClose={() => setShowGPModal(false)}
+          memberId={memberId}
+          gpDetails={gpDetails}
+        />
+      )}
+    </>
   );
 }
 
 // Declarations Tab Component
-function DeclarationsTab({ declarations }: any) {
+function DeclarationsTab({ declarations, memberId, member }: any) {
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+
   if (!declarations) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="text-center py-8">
-          <CheckSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-          <p className="text-gray-500 font-medium">No declarations recorded</p>
-          <p className="text-sm text-gray-400 mt-1">
-            Declarations haven't been completed yet.
-          </p>
+      <>
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="text-center py-8">
+            <CheckSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <p className="text-gray-500 font-medium">No declarations recorded</p>
+            <p className="text-sm text-gray-400 mt-1 mb-4">
+              Declarations haven't been completed yet.
+            </p>
+            <button
+              onClick={() => setShowSignatureModal(true)}
+              className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <CheckSquare className="h-4 w-4 mr-2" />
+              Sign Declarations
+            </button>
+          </div>
         </div>
-      </div>
+
+        {showSignatureModal && (
+          <DeclarationsSignatureModal
+            isOpen={showSignatureModal}
+            onClose={() => setShowSignatureModal(false)}
+            memberId={memberId}
+            member={member}
+            declarations={null}
+          />
+        )}
+      </>
     );
   }
 
+  const hasMainSignatures = declarations.main_medical_signature || declarations.main_final_signature;
+  const hasJointSignatures = declarations.joint_medical_signature || declarations.joint_final_signature;
+  const isComplete = declarations.main_medical_signature && declarations.main_final_signature;
+
   return (
-    <div className="space-y-4">
-      {/* Medical Consent - Main Member */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <div className="bg-blue-50 border-l-4 border-blue-500 p-3 mb-4">
-          <h3 className="text-sm font-semibold text-blue-900 mb-1">
-            Section 6: Medical Consent - Applicant 1
-          </h3>
+    <>
+      <div className="space-y-4">
+        {/* Header with Sign Button */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Declaration Signatures</h3>
+          {!isComplete && (
+            <button
+              onClick={() => setShowSignatureModal(true)}
+              className="inline-flex items-center px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <CheckSquare className="h-4 w-4 mr-1" />
+              {hasMainSignatures ? 'Update Signatures' : 'Sign Declarations'}
+            </button>
+          )}
         </div>
-        <dl className="space-y-2">
-          <div className="flex justify-between items-start py-1">
-            <dt className="text-xs text-gray-500 font-medium">Consent Given</dt>
-            <dd className="text-sm text-gray-900 text-right">
-              {declarations.main_medical_consent ? (
-                <span className="inline-flex items-center text-green-600">
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                  Yes
-                </span>
-              ) : (
-                <span className="text-red-600">No</span>
-              )}
-            </dd>
-          </div>
-          {declarations.main_medical_signature && (
-            <div className="flex justify-between items-start py-1">
-              <dt className="text-xs text-gray-500 font-medium">Signature</dt>
-              <dd className="text-lg text-gray-900 text-right font-serif italic">
-                {declarations.main_medical_signature}
-              </dd>
-            </div>
-          )}
-          {declarations.main_medical_consent_date && (
-            <div className="flex justify-between items-start py-1">
-              <dt className="text-xs text-gray-500 font-medium">Date Signed</dt>
-              <dd className="text-sm text-gray-900 text-right">
-                {new Date(declarations.main_medical_consent_date).toLocaleDateString()}
-              </dd>
-            </div>
-          )}
-        </dl>
-      </div>
 
-      {/* Final Declaration - Main Member */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <div className="bg-purple-50 border-l-4 border-purple-500 p-3 mb-4">
-          <h3 className="text-sm font-semibold text-purple-900 mb-1">
-            Section 7: Final Declaration - Applicant 1
-          </h3>
-        </div>
-        <dl className="space-y-2">
-          <div className="flex justify-between items-start py-1">
-            <dt className="text-xs text-gray-500 font-medium">Declaration Accepted</dt>
-            <dd className="text-sm text-gray-900 text-right">
-              {declarations.main_final_declaration ? (
-                <span className="inline-flex items-center text-green-600">
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                  Yes
-                </span>
-              ) : (
-                <span className="text-red-600">No</span>
-              )}
-            </dd>
-          </div>
-          {declarations.main_final_signature && (
-            <div className="flex justify-between items-start py-1">
-              <dt className="text-xs text-gray-500 font-medium">Signature</dt>
-              <dd className="text-lg text-gray-900 text-right font-serif italic">
-                {declarations.main_final_signature}
-              </dd>
-            </div>
-          )}
-          {declarations.main_final_declaration_date && (
-            <div className="flex justify-between items-start py-1">
-              <dt className="text-xs text-gray-500 font-medium">Date Signed</dt>
-              <dd className="text-sm text-gray-900 text-right">
-                {new Date(declarations.main_final_declaration_date).toLocaleDateString()}
-              </dd>
-            </div>
-          )}
-        </dl>
-      </div>
-
-      {/* Medical Consent - Joint Member */}
-      {declarations.joint_medical_consent !== undefined && declarations.joint_medical_consent !== null && (
+        {/* Medical Consent - Main Member */}
         <div className="bg-white rounded-lg border border-gray-200 p-4">
           <div className="bg-blue-50 border-l-4 border-blue-500 p-3 mb-4">
             <h3 className="text-sm font-semibold text-blue-900 mb-1">
-              Section 6: Medical Consent - Applicant 2
+              Section 6: Medical Consent - Applicant 1
             </h3>
           </div>
           <dl className="space-y-2">
             <div className="flex justify-between items-start py-1">
               <dt className="text-xs text-gray-500 font-medium">Consent Given</dt>
               <dd className="text-sm text-gray-900 text-right">
-                {declarations.joint_medical_consent ? (
+                {declarations.main_medical_consent ? (
                   <span className="inline-flex items-center text-green-600">
                     <CheckCircle className="h-4 w-4 mr-1" />
                     Yes
@@ -1711,39 +1721,37 @@ function DeclarationsTab({ declarations }: any) {
                 )}
               </dd>
             </div>
-            {declarations.joint_medical_signature && (
+            {declarations.main_medical_signature && (
               <div className="flex justify-between items-start py-1">
                 <dt className="text-xs text-gray-500 font-medium">Signature</dt>
                 <dd className="text-lg text-gray-900 text-right font-serif italic">
-                  {declarations.joint_medical_signature}
+                  {declarations.main_medical_signature}
                 </dd>
               </div>
             )}
-            {declarations.joint_medical_consent_date && (
+            {declarations.main_medical_consent_date && (
               <div className="flex justify-between items-start py-1">
                 <dt className="text-xs text-gray-500 font-medium">Date Signed</dt>
                 <dd className="text-sm text-gray-900 text-right">
-                  {new Date(declarations.joint_medical_consent_date).toLocaleDateString()}
+                  {new Date(declarations.main_medical_consent_date).toLocaleDateString()}
                 </dd>
               </div>
             )}
           </dl>
         </div>
-      )}
 
-      {/* Final Declaration - Joint Member */}
-      {declarations.joint_final_declaration !== undefined && declarations.joint_final_declaration !== null && (
+        {/* Final Declaration - Main Member */}
         <div className="bg-white rounded-lg border border-gray-200 p-4">
           <div className="bg-purple-50 border-l-4 border-purple-500 p-3 mb-4">
             <h3 className="text-sm font-semibold text-purple-900 mb-1">
-              Section 7: Final Declaration - Applicant 2
+              Section 7: Final Declaration - Applicant 1
             </h3>
           </div>
           <dl className="space-y-2">
             <div className="flex justify-between items-start py-1">
               <dt className="text-xs text-gray-500 font-medium">Declaration Accepted</dt>
               <dd className="text-sm text-gray-900 text-right">
-                {declarations.joint_final_declaration ? (
+                {declarations.main_final_declaration ? (
                   <span className="inline-flex items-center text-green-600">
                     <CheckCircle className="h-4 w-4 mr-1" />
                     Yes
@@ -1753,26 +1761,120 @@ function DeclarationsTab({ declarations }: any) {
                 )}
               </dd>
             </div>
-            {declarations.joint_final_signature && (
+            {declarations.main_final_signature && (
               <div className="flex justify-between items-start py-1">
                 <dt className="text-xs text-gray-500 font-medium">Signature</dt>
                 <dd className="text-lg text-gray-900 text-right font-serif italic">
-                  {declarations.joint_final_signature}
+                  {declarations.main_final_signature}
                 </dd>
               </div>
             )}
-            {declarations.joint_final_declaration_date && (
+            {declarations.main_final_declaration_date && (
               <div className="flex justify-between items-start py-1">
                 <dt className="text-xs text-gray-500 font-medium">Date Signed</dt>
                 <dd className="text-sm text-gray-900 text-right">
-                  {new Date(declarations.joint_final_declaration_date).toLocaleDateString()}
+                  {new Date(declarations.main_final_declaration_date).toLocaleDateString()}
                 </dd>
               </div>
             )}
           </dl>
         </div>
+
+        {/* Medical Consent - Joint Member */}
+        {declarations.joint_medical_consent !== undefined && declarations.joint_medical_consent !== null && (
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-blue-50 border-l-4 border-blue-500 p-3 mb-4">
+              <h3 className="text-sm font-semibold text-blue-900 mb-1">
+                Section 6: Medical Consent - Applicant 2
+              </h3>
+            </div>
+            <dl className="space-y-2">
+              <div className="flex justify-between items-start py-1">
+                <dt className="text-xs text-gray-500 font-medium">Consent Given</dt>
+                <dd className="text-sm text-gray-900 text-right">
+                  {declarations.joint_medical_consent ? (
+                    <span className="inline-flex items-center text-green-600">
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Yes
+                    </span>
+                  ) : (
+                    <span className="text-red-600">No</span>
+                  )}
+                </dd>
+              </div>
+              {declarations.joint_medical_signature && (
+                <div className="flex justify-between items-start py-1">
+                  <dt className="text-xs text-gray-500 font-medium">Signature</dt>
+                  <dd className="text-lg text-gray-900 text-right font-serif italic">
+                    {declarations.joint_medical_signature}
+                  </dd>
+                </div>
+              )}
+              {declarations.joint_medical_consent_date && (
+                <div className="flex justify-between items-start py-1">
+                  <dt className="text-xs text-gray-500 font-medium">Date Signed</dt>
+                  <dd className="text-sm text-gray-900 text-right">
+                    {new Date(declarations.joint_medical_consent_date).toLocaleDateString()}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </div>
+        )}
+
+        {/* Final Declaration - Joint Member */}
+        {declarations.joint_final_declaration !== undefined && declarations.joint_final_declaration !== null && (
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-purple-50 border-l-4 border-purple-500 p-3 mb-4">
+              <h3 className="text-sm font-semibold text-purple-900 mb-1">
+                Section 7: Final Declaration - Applicant 2
+              </h3>
+            </div>
+            <dl className="space-y-2">
+              <div className="flex justify-between items-start py-1">
+                <dt className="text-xs text-gray-500 font-medium">Declaration Accepted</dt>
+                <dd className="text-sm text-gray-900 text-right">
+                  {declarations.joint_final_declaration ? (
+                    <span className="inline-flex items-center text-green-600">
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Yes
+                    </span>
+                  ) : (
+                    <span className="text-red-600">No</span>
+                  )}
+                </dd>
+              </div>
+              {declarations.joint_final_signature && (
+                <div className="flex justify-between items-start py-1">
+                  <dt className="text-xs text-gray-500 font-medium">Signature</dt>
+                  <dd className="text-lg text-gray-900 text-right font-serif italic">
+                    {declarations.joint_final_signature}
+                  </dd>
+                </div>
+              )}
+              {declarations.joint_final_declaration_date && (
+                <div className="flex justify-between items-start py-1">
+                  <dt className="text-xs text-gray-500 font-medium">Date Signed</dt>
+                  <dd className="text-sm text-gray-900 text-right">
+                    {new Date(declarations.joint_final_declaration_date).toLocaleDateString()}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </div>
+        )}
+      </div>
+
+      {showSignatureModal && (
+        <DeclarationsSignatureModal
+          isOpen={showSignatureModal}
+          onClose={() => setShowSignatureModal(false)}
+          memberId={memberId}
+          member={member}
+          declarations={declarations}
+        />
       )}
-    </div>
+    </>
   );
 }
 // ============================================
@@ -2248,7 +2350,9 @@ function MedicalInfoTab({ medicalInfo, memberId }: any) {
 }
 
 // Documents Tab Component (Simple placeholder)
-function DocumentsTab({ member }: any) {
+function DocumentsTab({ member, memberId }: any) {
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  
   const hasAnyDocuments = member?.main_photo_id_url ||
     member?.main_proof_address_url ||
     member?.joint_photo_id_url ||
@@ -2256,16 +2360,21 @@ function DocumentsTab({ member }: any) {
     (member?.children_documents && Object.keys(member.children_documents).length > 0);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Uploaded Documents
-        </h3>
-        <span className="text-sm text-gray-500">
-          Required for membership approval
-        </span>
-      </div>
+    <>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Uploaded Documents
+          </h3>
+          <button
+            onClick={() => setShowUploadModal(true)}
+            className="inline-flex items-center px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            <Upload className="h-4 w-4 mr-1" />
+            {hasAnyDocuments ? 'Manage Documents' : 'Upload Documents'}
+          </button>
+        </div>
 
       {/* Main Member Documents */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -2598,6 +2707,16 @@ function DocumentsTab({ member }: any) {
         </div>
       )}
     </div>
+
+    {showUploadModal && (
+      <DocumentUploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        memberId={memberId}
+        member={member}
+      />
+    )}
+  </>
   );
 }
 
@@ -3926,6 +4045,753 @@ function AdjustPaymentModal({ payment, onClose, memberId, onSuccess }: any) {
                 </span>
               ) : (
                 'Save Changes'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// GPDetailsModal Component
+interface GPDetailsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  memberId: string;
+  gpDetails: any;
+}
+
+function GPDetailsModal({ isOpen, onClose, memberId, gpDetails }: GPDetailsModalProps) {
+  const queryClient = useQueryClient();
+  const [formData, setFormData] = useState({
+    gp_name_surgery: gpDetails?.gp_name_surgery || '',
+    address_line_1: gpDetails?.address_line_1 || '',
+    town: gpDetails?.town || '',
+    city: gpDetails?.city || '',
+    postcode: gpDetails?.postcode || '',
+    phone: gpDetails?.phone || '',
+    email: gpDetails?.email || '',
+  });
+  const [errors, setErrors] = useState<any>({});
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (gpDetails) {
+        // Update existing GP details
+        const { error } = await supabase
+          .from('members')
+          .update({
+            gp_name_surgery: data.gp_name_surgery,
+            gp_address_line_1: data.address_line_1,
+            gp_town: data.town,
+            gp_city: data.city,
+            gp_postcode: data.postcode,
+            gp_phone: data.phone,
+            gp_email: data.email,
+          })
+          .eq('id', memberId);
+        if (error) throw error;
+      } else {
+        // Add new GP details
+        const { error } = await supabase
+          .from('members')
+          .update({
+            gp_name_surgery: data.gp_name_surgery,
+            gp_address_line_1: data.address_line_1,
+            gp_town: data.town,
+            gp_city: data.city,
+            gp_postcode: data.postcode,
+            gp_phone: data.phone,
+            gp_email: data.email,
+          })
+          .eq('id', memberId);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+      onClose();
+    },
+  });
+
+  const validate = () => {
+    const newErrors: any = {};
+    if (!formData.gp_name_surgery.trim()) newErrors.gp_name_surgery = 'Practice name is required';
+    if (!formData.postcode.trim()) newErrors.postcode = 'Postcode is required';
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (validate()) {
+      saveMutation.mutate(formData);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-in zoom-in-95 duration-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {gpDetails ? 'Edit GP Details' : 'Add GP Details'}
+            </h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Practice Name *
+            </label>
+            <input
+              type="text"
+              value={formData.gp_name_surgery}
+              onChange={(e) => setFormData({ ...formData, gp_name_surgery: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${
+                errors.gp_name_surgery ? 'border-red-300' : 'border-gray-300'
+              }`}
+              placeholder="e.g., Central Medical Practice"
+            />
+            {errors.gp_name_surgery && <p className="text-xs text-red-600 mt-1">{errors.gp_name_surgery}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Address Line 1
+            </label>
+            <input
+              type="text"
+              value={formData.address_line_1}
+              onChange={(e) => setFormData({ ...formData, address_line_1: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              placeholder="e.g., 123 Main Street"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Town
+              </label>
+              <input
+                type="text"
+                value={formData.town}
+                onChange={(e) => setFormData({ ...formData, town: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                placeholder="e.g., Falkirk"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                City
+              </label>
+              <input
+                type="text"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                placeholder="e.g., Falkirk"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Postcode *
+            </label>
+            <input
+              type="text"
+              value={formData.postcode}
+              onChange={(e) => setFormData({ ...formData, postcode: e.target.value.toUpperCase() })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${
+                errors.postcode ? 'border-red-300' : 'border-gray-300'
+              }`}
+              placeholder="e.g., FK1 1AB"
+            />
+            {errors.postcode && <p className="text-xs text-red-600 mt-1">{errors.postcode}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Phone
+            </label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              placeholder="e.g., 01324 123456"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email
+            </label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              placeholder="e.g., reception@practice.nhs.uk"
+            />
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {saveMutation.isPending ? (
+                <span className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </span>
+              ) : (
+                gpDetails ? 'Update GP Details' : 'Add GP Details'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// DeclarationsSignatureModal Component
+interface DeclarationsSignatureModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  memberId: string;
+  member: any;
+  declarations: any;
+}
+
+function DeclarationsSignatureModal({ isOpen, onClose, memberId, member, declarations }: DeclarationsSignatureModalProps) {
+  const queryClient = useQueryClient();
+  const hasJointMember = member?.app_type === 'joint';
+  
+  const [formData, setFormData] = useState({
+    main_medical_consent: declarations?.main_medical_consent || false,
+    main_medical_signature: declarations?.main_medical_signature || '',
+    main_final_declaration: declarations?.main_final_declaration || false,
+    main_final_signature: declarations?.main_final_signature || '',
+    joint_medical_consent: declarations?.joint_medical_consent || false,
+    joint_medical_signature: declarations?.joint_medical_signature || '',
+    joint_final_declaration: declarations?.joint_final_declaration || false,
+    joint_final_signature: declarations?.joint_final_signature || '',
+  });
+  const [errors, setErrors] = useState<any>({});
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const today = new Date().toISOString();
+      
+      const updateData: any = {
+        main_medical_consent: data.main_medical_consent,
+        main_medical_signature: data.main_medical_signature,
+        main_medical_consent_date: data.main_medical_consent ? today : null,
+        main_final_declaration: data.main_final_declaration,
+        main_final_signature: data.main_final_signature,
+        main_final_declaration_date: data.main_final_declaration ? today : null,
+      };
+
+      if (hasJointMember) {
+        updateData.joint_medical_consent = data.joint_medical_consent;
+        updateData.joint_medical_signature = data.joint_medical_signature;
+        updateData.joint_medical_consent_date = data.joint_medical_consent ? today : null;
+        updateData.joint_final_declaration = data.joint_final_declaration;
+        updateData.joint_final_signature = data.joint_final_signature;
+        updateData.joint_final_declaration_date = data.joint_final_declaration ? today : null;
+      }
+
+      const { error } = await supabase
+        .from('members')
+        .update(updateData)
+        .eq('id', memberId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+      onClose();
+    },
+  });
+
+  const validate = () => {
+    const newErrors: any = {};
+    
+    if (formData.main_medical_consent && !formData.main_medical_signature.trim()) {
+      newErrors.main_medical_signature = 'Signature is required when consent is given';
+    }
+    if (formData.main_final_declaration && !formData.main_final_signature.trim()) {
+      newErrors.main_final_signature = 'Signature is required for declaration';
+    }
+
+    if (hasJointMember) {
+      if (formData.joint_medical_consent && !formData.joint_medical_signature.trim()) {
+        newErrors.joint_medical_signature = 'Signature is required when consent is given';
+      }
+      if (formData.joint_final_declaration && !formData.joint_final_signature.trim()) {
+        newErrors.joint_final_signature = 'Signature is required for declaration';
+      }
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (validate()) {
+      saveMutation.mutate(formData);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+        <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-200 z-10">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">Sign Declarations</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Main Member */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-semibold text-gray-900 pb-2 border-b">Main Member ({member?.first_name} {member?.last_name})</h4>
+            
+            {/* Medical Consent */}
+            <div className="bg-blue-50 rounded-lg p-4 space-y-3">
+              <h5 className="text-sm font-semibold text-blue-900">Section 6: Medical Consent</h5>
+              
+              <label className="flex items-start space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.main_medical_consent}
+                  onChange={(e) => setFormData({ ...formData, main_medical_consent: e.target.checked })}
+                  className="mt-1 h-4 w-4 text-emerald-600 rounded focus:ring-emerald-500"
+                />
+                <span className="text-sm text-gray-700">
+                  I consent to my GP being contacted in the event of my death to obtain relevant medical information.
+                </span>
+              </label>
+
+              {formData.main_medical_consent && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Signature *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.main_medical_signature}
+                    onChange={(e) => setFormData({ ...formData, main_medical_signature: e.target.value })}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 font-serif italic ${
+                      errors.main_medical_signature ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    placeholder="Full name as signature"
+                  />
+                  {errors.main_medical_signature && <p className="text-xs text-red-600 mt-1">{errors.main_medical_signature}</p>}
+                </div>
+              )}
+            </div>
+
+            {/* Final Declaration */}
+            <div className="bg-purple-50 rounded-lg p-4 space-y-3">
+              <h5 className="text-sm font-semibold text-purple-900">Section 7: Final Declaration</h5>
+              
+              <label className="flex items-start space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.main_final_declaration}
+                  onChange={(e) => setFormData({ ...formData, main_final_declaration: e.target.checked })}
+                  className="mt-1 h-4 w-4 text-emerald-600 rounded focus:ring-emerald-500"
+                />
+                <span className="text-sm text-gray-700">
+                  I accept the terms and conditions, agree to contribute to the emergency fund, and confirm all information is accurate.
+                </span>
+              </label>
+
+              {formData.main_final_declaration && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Signature *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.main_final_signature}
+                    onChange={(e) => setFormData({ ...formData, main_final_signature: e.target.value })}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 font-serif italic ${
+                      errors.main_final_signature ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    placeholder="Full name as signature"
+                  />
+                  {errors.main_final_signature && <p className="text-xs text-red-600 mt-1">{errors.main_final_signature}</p>}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Joint Member */}
+          {hasJointMember && (
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-gray-900 pb-2 border-b">Joint Member</h4>
+              
+              {/* Medical Consent */}
+              <div className="bg-blue-50 rounded-lg p-4 space-y-3">
+                <h5 className="text-sm font-semibold text-blue-900">Section 6: Medical Consent</h5>
+                
+                <label className="flex items-start space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.joint_medical_consent}
+                    onChange={(e) => setFormData({ ...formData, joint_medical_consent: e.target.checked })}
+                    className="mt-1 h-4 w-4 text-emerald-600 rounded focus:ring-emerald-500"
+                  />
+                  <span className="text-sm text-gray-700">
+                    I consent to my GP being contacted in the event of my death to obtain relevant medical information.
+                  </span>
+                </label>
+
+                {formData.joint_medical_consent && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Signature *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.joint_medical_signature}
+                      onChange={(e) => setFormData({ ...formData, joint_medical_signature: e.target.value })}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 font-serif italic ${
+                        errors.joint_medical_signature ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                      placeholder="Full name as signature"
+                    />
+                    {errors.joint_medical_signature && <p className="text-xs text-red-600 mt-1">{errors.joint_medical_signature}</p>}
+                  </div>
+                )}
+              </div>
+
+              {/* Final Declaration */}
+              <div className="bg-purple-50 rounded-lg p-4 space-y-3">
+                <h5 className="text-sm font-semibold text-purple-900">Section 7: Final Declaration</h5>
+                
+                <label className="flex items-start space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.joint_final_declaration}
+                    onChange={(e) => setFormData({ ...formData, joint_final_declaration: e.target.checked })}
+                    className="mt-1 h-4 w-4 text-emerald-600 rounded focus:ring-emerald-500"
+                  />
+                  <span className="text-sm text-gray-700">
+                    I accept the terms and conditions, agree to contribute to the emergency fund, and confirm all information is accurate.
+                  </span>
+                </label>
+
+                {formData.joint_final_declaration && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Signature *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.joint_final_signature}
+                      onChange={(e) => setFormData({ ...formData, joint_final_signature: e.target.value })}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 font-serif italic ${
+                        errors.joint_final_signature ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                      placeholder="Full name as signature"
+                    />
+                    {errors.joint_final_signature && <p className="text-xs text-red-600 mt-1">{errors.joint_final_signature}</p>}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {saveMutation.isPending ? (
+                <span className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </span>
+              ) : (
+                'Sign & Save'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// DocumentUploadModal Component
+interface DocumentUploadModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  memberId: string;
+  member: any;
+}
+
+function DocumentUploadModal({ isOpen, onClose, memberId, member }: DocumentUploadModalProps) {
+  const queryClient = useQueryClient();
+  const hasJointMember = member?.app_type === 'joint';
+  
+  const [files, setFiles] = useState<{
+    main_photo_id?: File;
+    main_proof_address?: File;
+    joint_photo_id?: File;
+    joint_proof_address?: File;
+  }>({});
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState<string | null>(null);
+
+  const handleDrop = (e: React.DragEvent, field: string) => {
+    e.preventDefault();
+    setDragOver(null);
+    
+    const file = e.dataTransfer.files[0];
+    if (file && (file.type.startsWith('image/') || file.type === 'application/pdf')) {
+      setFiles(prev => ({ ...prev, [field]: file }));
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFiles(prev => ({ ...prev, [field]: file }));
+    }
+  };
+
+  const uploadFile = async (file: File, path: string) => {
+    const { data, error } = await supabase.storage
+      .from('member-documents')
+      .upload(path, file, { upsert: true });
+    
+    if (error) throw error;
+    
+    const { data: { publicUrl } } = supabase.storage
+      .from('member-documents')
+      .getPublicUrl(path);
+    
+    return publicUrl;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUploading(true);
+
+    try {
+      const updates: any = {};
+
+      // Upload main member documents
+      if (files.main_photo_id) {
+        const url = await uploadFile(files.main_photo_id, `${memberId}/main_photo_id`);
+        updates.main_photo_id_url = url;
+      }
+      if (files.main_proof_address) {
+        const url = await uploadFile(files.main_proof_address, `${memberId}/main_proof_address`);
+        updates.main_proof_address_url = url;
+      }
+
+      // Upload joint member documents
+      if (hasJointMember) {
+        if (files.joint_photo_id) {
+          const url = await uploadFile(files.joint_photo_id, `${memberId}/joint_photo_id`);
+          updates.joint_photo_id_url = url;
+        }
+        if (files.joint_proof_address) {
+          const url = await uploadFile(files.joint_proof_address, `${memberId}/joint_proof_address`);
+          updates.joint_proof_address_url = url;
+        }
+      }
+
+      // Update member record
+      const { error } = await supabase
+        .from('members')
+        .update(updates)
+        .eq('id', memberId);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+      onClose();
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload documents. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const FileUploadBox = ({ field, label, currentUrl }: { field: string; label: string; currentUrl?: string }) => (
+    <div
+      onDrop={(e) => handleDrop(e, field)}
+      onDragOver={(e) => { e.preventDefault(); setDragOver(field); }}
+      onDragLeave={() => setDragOver(null)}
+      className={`border-2 border-dashed rounded-lg p-4 transition-colors ${
+        dragOver === field
+          ? 'border-emerald-500 bg-emerald-50'
+          : files[field as keyof typeof files]
+          ? 'border-emerald-300 bg-emerald-50'
+          : 'border-gray-300 hover:border-gray-400'
+      }`}
+    >
+      <div className="text-center">
+        <Upload className={`h-8 w-8 mx-auto mb-2 ${
+          files[field as keyof typeof files] ? 'text-emerald-600' : 'text-gray-400'
+        }`} />
+        <p className="text-sm font-medium text-gray-900 mb-1">{label}</p>
+        
+        {files[field as keyof typeof files] ? (
+          <p className="text-xs text-emerald-600 mb-2">
+            ✓ {files[field as keyof typeof files]!.name}
+          </p>
+        ) : currentUrl ? (
+          <p className="text-xs text-gray-500 mb-2">Current file uploaded</p>
+        ) : (
+          <p className="text-xs text-gray-500 mb-2">Drag & drop or click to browse</p>
+        )}
+        
+        <input
+          type="file"
+          accept="image/*,application/pdf"
+          onChange={(e) => handleFileSelect(e, field)}
+          className="hidden"
+          id={field}
+        />
+        <label
+          htmlFor={field}
+          className="inline-block px-3 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 cursor-pointer"
+        >
+          Browse Files
+        </label>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+        <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-200 z-10">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">Upload Documents</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Main Member Documents */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+              <User className="h-4 w-4 mr-2 text-emerald-600" />
+              Main Member Documents
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FileUploadBox 
+                field="main_photo_id" 
+                label="Photo ID *" 
+                currentUrl={member?.main_photo_id_url}
+              />
+              <FileUploadBox 
+                field="main_proof_address" 
+                label="Proof of Address *" 
+                currentUrl={member?.main_proof_address_url}
+              />
+            </div>
+          </div>
+
+          {/* Joint Member Documents */}
+          {hasJointMember && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+                <Users className="h-4 w-4 mr-2 text-emerald-600" />
+                Joint Member Documents
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FileUploadBox 
+                  field="joint_photo_id" 
+                  label="Photo ID *" 
+                  currentUrl={member?.joint_photo_id_url}
+                />
+                <FileUploadBox 
+                  field="joint_proof_address" 
+                  label="Proof of Address *" 
+                  currentUrl={member?.joint_proof_address_url}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-xs text-blue-800">
+              <strong>Accepted formats:</strong> Images (JPG, PNG) or PDF files
+            </p>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={uploading}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={uploading || Object.keys(files).length === 0}
+              className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {uploading ? (
+                <span className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Uploading...
+                </span>
+              ) : (
+                'Upload Documents'
               )}
             </button>
           </div>
