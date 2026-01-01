@@ -2599,7 +2599,12 @@ function DocumentsTab({ member }: any) {
   );
 }
 
-function PaymentsTab({ payments }: any) {
+function PaymentsTab({ payments, memberId }: any) {
+  const queryClient = useQueryClient();
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<any>(null);
+  const [showPaymentMenu, setShowPaymentMenu] = useState<string | null>(null);
+
   const totalPaid = payments
     .filter((p: any) => p.payment_status === 'completed')
     .reduce((sum: number, p: any) => sum + Number(p.total_amount), 0);
@@ -2607,6 +2612,97 @@ function PaymentsTab({ payments }: any) {
   const pendingAmount = payments
     .filter((p: any) => p.payment_status === 'pending')
     .reduce((sum: number, p: any) => sum + Number(p.total_amount), 0);
+
+  const exportPayment = (payment: any) => {
+    const dataStr = JSON.stringify(payment, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `payment-${payment.id}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const printPayment = (payment: any) => {
+    const printWindow = window.open('', '', 'width=800,height=600');
+    if (!printWindow) return;
+
+    const hasJointFees = payment.joint_joining_fee || payment.joint_membership_fee;
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Payment Receipt - ${payment.id}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; }
+            h1 { color: #065f46; margin-bottom: 30px; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+            th { background-color: #f3f4f6; font-weight: 600; }
+            .total { font-size: 18px; font-weight: bold; background-color: #ecfdf5; }
+            .header { margin-bottom: 30px; }
+            .status { 
+              display: inline-block; 
+              padding: 4px 12px; 
+              border-radius: 4px; 
+              font-size: 12px; 
+              font-weight: 600;
+              ${payment.payment_status === 'completed' ? 'background-color: #d1fae5; color: #065f46;' : 'background-color: #fef3c7; color: #92400e;'}
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Falkirk Central Mosque - Payment Receipt</h1>
+            <p><strong>Payment ID:</strong> ${payment.id}</p>
+            <p><strong>Date:</strong> ${new Date(payment.payment_date || payment.created_at).toLocaleDateString()}</p>
+            <p><strong>Status:</strong> <span class="status">${payment.payment_status.toUpperCase()}</span></p>
+            <p><strong>Payment Method:</strong> ${payment.payment_method?.replace('_', ' ')}</p>
+            ${payment.reference_no ? `<p><strong>Reference:</strong> ${payment.reference_no}</p>` : ''}
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th style="text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${payment.main_joining_fee ? `<tr><td>Main Member - Joining Fee</td><td style="text-align: right;">£${Number(payment.main_joining_fee).toFixed(2)}</td></tr>` : ''}
+              ${payment.main_membership_fee ? `<tr><td>Main Member - Membership Fee</td><td style="text-align: right;">£${Number(payment.main_membership_fee).toFixed(2)}</td></tr>` : ''}
+              ${payment.main_misc ? `<tr><td>Main Member - Miscellaneous</td><td style="text-align: right;">£${Number(payment.main_misc).toFixed(2)}</td></tr>` : ''}
+              ${payment.joint_joining_fee ? `<tr><td>Joint Member - Joining Fee</td><td style="text-align: right;">£${Number(payment.joint_joining_fee).toFixed(2)}</td></tr>` : ''}
+              ${payment.joint_membership_fee ? `<tr><td>Joint Member - Membership Fee</td><td style="text-align: right;">£${Number(payment.joint_membership_fee).toFixed(2)}</td></tr>` : ''}
+              ${payment.joint_misc ? `<tr><td>Joint Member - Miscellaneous</td><td style="text-align: right;">£${Number(payment.joint_misc).toFixed(2)}</td></tr>` : ''}
+              ${payment.late_fee ? `<tr><td>Late Fee</td><td style="text-align: right;">£${Number(payment.late_fee).toFixed(2)}</td></tr>` : ''}
+              <tr class="total">
+                <td><strong>TOTAL</strong></td>
+                <td style="text-align: right;"><strong>£${Number(payment.total_amount).toFixed(2)}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+          
+          ${payment.notes ? `<p><strong>Notes:</strong> ${payment.notes}</p>` : ''}
+          
+          <p style="margin-top: 40px; font-size: 12px; color: #6b7280;">
+            This is a computer-generated receipt. For queries, contact Falkirk Central Mosque.
+          </p>
+        </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
 
   if (payments.length === 0) {
     return (
@@ -2657,44 +2753,193 @@ function PaymentsTab({ payments }: any) {
           <h3 className="text-sm font-semibold text-gray-900">Payment History</h3>
         </div>
         <div className="divide-y divide-gray-200">
-          {payments.map((payment: any) => (
-            <div key={payment.id} className="p-4 hover:bg-gray-50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <span className="text-sm font-semibold text-gray-900">
-                      £{Number(payment.total_amount).toFixed(2)}
-                    </span>
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                        payment.payment_status === 'completed'
-                          ? 'bg-mosque-gold-100 text-mosque-gold-800'
-                          : payment.payment_status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}
+          {payments.map((payment: any) => {
+            const hasJointFees = payment.joint_joining_fee || payment.joint_membership_fee || payment.joint_misc;
+            
+            return (
+              <div key={payment.id} className="p-4 hover:bg-gray-50 transition-colors">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    {/* Header */}
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-lg font-bold text-gray-900">
+                        £{Number(payment.total_amount).toFixed(2)}
+                      </span>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${
+                          payment.payment_status === 'completed'
+                            ? 'bg-mosque-gold-100 text-mosque-gold-800'
+                            : payment.payment_status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {payment.payment_status}
+                      </span>
+                    </div>
+
+                    {/* Payment Info */}
+                    <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
+                      <span className="capitalize">{payment.payment_type?.replace('_', ' ')}</span>
+                      <span>•</span>
+                      <span className="capitalize">{payment.payment_method?.replace('_', ' ')}</span>
+                      <span>•</span>
+                      <span>
+                        {payment.payment_date 
+                          ? new Date(payment.payment_date).toLocaleDateString()
+                          : new Date(payment.created_at).toLocaleDateString()}
+                      </span>
+                      {payment.reference_no && (
+                        <>
+                          <span>•</span>
+                          <span>Ref: {payment.reference_no}</span>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Breakdown */}
+                    <div className="bg-gray-50 rounded-lg p-3 space-y-1.5">
+                      <p className="text-xs font-semibold text-gray-700 mb-2">Payment Breakdown:</p>
+                      
+                      {payment.main_joining_fee && Number(payment.main_joining_fee) > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-600">Main Member - Joining Fee:</span>
+                          <span className="text-gray-900 font-medium">£{Number(payment.main_joining_fee).toFixed(2)}</span>
+                        </div>
+                      )}
+                      
+                      {payment.main_membership_fee && Number(payment.main_membership_fee) > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-600">Main Member - Membership Fee:</span>
+                          <span className="text-gray-900 font-medium">£{Number(payment.main_membership_fee).toFixed(2)}</span>
+                        </div>
+                      )}
+                      
+                      {payment.main_misc && Number(payment.main_misc) > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-600">Main Member - Miscellaneous:</span>
+                          <span className="text-gray-900 font-medium">£{Number(payment.main_misc).toFixed(2)}</span>
+                        </div>
+                      )}
+                      
+                      {payment.joint_joining_fee && Number(payment.joint_joining_fee) > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-600">Joint Member - Joining Fee:</span>
+                          <span className="text-gray-900 font-medium">£{Number(payment.joint_joining_fee).toFixed(2)}</span>
+                        </div>
+                      )}
+                      
+                      {payment.joint_membership_fee && Number(payment.joint_membership_fee) > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-600">Joint Member - Membership Fee:</span>
+                          <span className="text-gray-900 font-medium">£{Number(payment.joint_membership_fee).toFixed(2)}</span>
+                        </div>
+                      )}
+                      
+                      {payment.joint_misc && Number(payment.joint_misc) > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-600">Joint Member - Miscellaneous:</span>
+                          <span className="text-gray-900 font-medium">£{Number(payment.joint_misc).toFixed(2)}</span>
+                        </div>
+                      )}
+                      
+                      {payment.late_fee && Number(payment.late_fee) > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-600 text-red-600">Late Fee:</span>
+                          <span className="text-red-600 font-medium">£{Number(payment.late_fee).toFixed(2)}</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between text-xs pt-2 mt-2 border-t border-gray-200">
+                        <span className="text-gray-900 font-semibold">Total:</span>
+                        <span className="text-gray-900 font-bold">£{Number(payment.total_amount).toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    {payment.notes && (
+                      <p className="text-xs text-gray-600 mt-2 italic">Note: {payment.notes}</p>
+                    )}
+                  </div>
+
+                  {/* 3-Dot Menu */}
+                  <div className="relative ml-4">
+                    <button
+                      onClick={() => setShowPaymentMenu(showPaymentMenu === payment.id ? null : payment.id)}
+                      className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
                     >
-                      {payment.payment_status}
-                    </span>
+                      <MoreVertical className="h-4 w-4 text-gray-500" />
+                    </button>
+
+                    {showPaymentMenu === payment.id && (
+                      <>
+                        {/* Backdrop */}
+                        <div 
+                          className="fixed inset-0 z-10" 
+                          onClick={() => setShowPaymentMenu(null)}
+                        />
+                        
+                        {/* Dropdown */}
+                        <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                          <button
+                            onClick={() => {
+                              setEditingPayment(payment);
+                              setShowAdjustModal(true);
+                              setShowPaymentMenu(null);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                          >
+                            <Edit className="h-4 w-4 mr-3 text-gray-400" />
+                            Adjust Payment
+                          </button>
+                          
+                          <button
+                            onClick={() => {
+                              exportPayment(payment);
+                              setShowPaymentMenu(null);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                          >
+                            <Download className="h-4 w-4 mr-3 text-gray-400" />
+                            Export Payment
+                          </button>
+                          
+                          <button
+                            onClick={() => {
+                              printPayment(payment);
+                              setShowPaymentMenu(null);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                          >
+                            <FileText className="h-4 w-4 mr-3 text-gray-400" />
+                            Print Invoice/Receipt
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
-                  <div className="flex items-center space-x-4 text-sm text-gray-500">
-                    <span className="capitalize">{payment.payment_type}</span>
-                    <span>•</span>
-                    <span className="capitalize">{payment.payment_method}</span>
-                    <span>•</span>
-                    <span>
-                      {new Date(payment.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                  {payment.notes && (
-                    <p className="text-xs text-gray-500 mt-1">{payment.notes}</p>
-                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
+
+      {/* Adjust Payment Modal */}
+      {showAdjustModal && editingPayment && (
+        <AdjustPaymentModal
+          payment={editingPayment}
+          onClose={() => {
+            setShowAdjustModal(false);
+            setEditingPayment(null);
+          }}
+          memberId={memberId}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+            setShowAdjustModal(false);
+            setEditingPayment(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -3353,6 +3598,308 @@ function MedicalInfoModal({ isOpen, onClose, memberId, info }: MedicalInfoModalP
                 </span>
               ) : (
                 info ? 'Update Information' : 'Add Information'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Adjust Payment Modal Component
+function AdjustPaymentModal({ payment, onClose, memberId, onSuccess }: any) {
+  const queryClient = useQueryClient();
+  const [formData, setFormData] = useState({
+    main_joining_fee: payment.main_joining_fee || 0,
+    main_membership_fee: payment.main_membership_fee || 0,
+    main_misc: payment.main_misc || 0,
+    joint_joining_fee: payment.joint_joining_fee || 0,
+    joint_membership_fee: payment.joint_membership_fee || 0,
+    joint_misc: payment.joint_misc || 0,
+    late_fee: payment.late_fee || 0,
+    payment_method: payment.payment_method || '',
+    payment_status: payment.payment_status || '',
+    reference_no: payment.reference_no || '',
+    notes: payment.notes || '',
+  });
+
+  const calculateTotal = () => {
+    return (
+      Number(formData.main_joining_fee || 0) +
+      Number(formData.main_membership_fee || 0) +
+      Number(formData.main_misc || 0) +
+      Number(formData.joint_joining_fee || 0) +
+      Number(formData.joint_membership_fee || 0) +
+      Number(formData.joint_misc || 0) +
+      Number(formData.late_fee || 0)
+    );
+  };
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const { error } = await supabase
+        .from('payments')
+        .update({
+          ...data,
+          total_amount: calculateTotal(),
+        })
+        .eq('id', payment.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      onSuccess();
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateMutation.mutate(formData);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+        <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-200 z-10">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">Adjust Payment</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Main Member Fees */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900 mb-3">Main Member Fees</h4>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Joining Fee
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500">£</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.main_joining_fee}
+                    onChange={(e) => setFormData({ ...formData, main_joining_fee: Number(e.target.value) })}
+                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Membership Fee
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500">£</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.main_membership_fee}
+                    onChange={(e) => setFormData({ ...formData, main_membership_fee: Number(e.target.value) })}
+                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Miscellaneous
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500">£</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.main_misc}
+                    onChange={(e) => setFormData({ ...formData, main_misc: Number(e.target.value) })}
+                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Joint Member Fees */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900 mb-3">Joint Member Fees</h4>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Joining Fee
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500">£</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.joint_joining_fee}
+                    onChange={(e) => setFormData({ ...formData, joint_joining_fee: Number(e.target.value) })}
+                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Membership Fee
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500">£</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.joint_membership_fee}
+                    onChange={(e) => setFormData({ ...formData, joint_membership_fee: Number(e.target.value) })}
+                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Miscellaneous
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500">£</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.joint_misc}
+                    onChange={(e) => setFormData({ ...formData, joint_misc: Number(e.target.value) })}
+                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Late Fee */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900 mb-3">Additional Fees</h4>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Late Fee
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500">£</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.late_fee}
+                    onChange={(e) => setFormData({ ...formData, late_fee: Number(e.target.value) })}
+                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Total (Read-only) */}
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-semibold text-gray-900">Total Amount:</span>
+              <span className="text-2xl font-bold text-emerald-600">£{calculateTotal().toFixed(2)}</span>
+            </div>
+          </div>
+
+          {/* Payment Details */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Payment Method
+              </label>
+              <select
+                value={formData.payment_method}
+                onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="">Select method</option>
+                <option value="cash">Cash</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="card">Card</option>
+                <option value="cheque">Cheque</option>
+                <option value="standing_order">Standing Order</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Payment Status
+              </label>
+              <select
+                value={formData.payment_status}
+                onChange={(e) => setFormData({ ...formData, payment_status: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="">Select status</option>
+                <option value="completed">Completed</option>
+                <option value="pending">Pending</option>
+                <option value="failed">Failed</option>
+                <option value="refunded">Refunded</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Reference Number
+            </label>
+            <input
+              type="text"
+              value={formData.reference_no}
+              onChange={(e) => setFormData({ ...formData, reference_no: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              placeholder="Optional reference number"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Notes
+            </label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              rows={3}
+              placeholder="Additional notes about this payment..."
+            />
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={updateMutation.isPending}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={updateMutation.isPending}
+              className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {updateMutation.isPending ? (
+                <span className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </span>
+              ) : (
+                'Save Changes'
               )}
             </button>
           </div>
