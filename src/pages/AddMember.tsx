@@ -60,6 +60,7 @@ interface FormData {
   joint_home_phone: string;
   joint_work_phone: string;
   joint_email: string;
+  joint_relation: string;
   children: Child[];
   nok_title: string;
   nok_first_name: string;
@@ -186,6 +187,7 @@ export default function AddMember() {
     joint_home_phone: '',
     joint_work_phone: '',
     joint_email: '',
+    joint_relation: 'Spouse',
     children: [],
     nok_title: '',
     nok_first_name: '',
@@ -458,7 +460,8 @@ export default function AddMember() {
       if (formData.app_type === 'joint') {
         await supabase.from('joint_members').insert({
           member_id: memberId, title: formData.joint_title, first_name: formData.joint_first_name,
-          last_name: formData.joint_last_name, dob: formData.joint_dob, address_line_1: formData.joint_address_line_1,
+          last_name: formData.joint_last_name, dob: formData.joint_dob, relation: formData.joint_relation,
+          address_line_1: formData.joint_address_line_1,
           town: formData.joint_town, city: formData.joint_city, postcode: formData.joint_postcode,
           mobile: formData.joint_mobile, home_phone: formData.joint_home_phone, work_phone: formData.joint_work_phone, email: formData.joint_email,
         });
@@ -668,6 +671,7 @@ export default function AddMember() {
     const errors: Record<string, string> = {};
 
     if (!formData.joint_title) errors.joint_title = 'Title is required';
+    if (!formData.joint_relation) errors.joint_relation = 'Relationship is required';
     if (!formData.joint_first_name) errors.joint_first_name = 'First name is required';
     if (!formData.joint_last_name) errors.joint_last_name = 'Last name is required';
     if (!formData.joint_dob) errors.joint_dob = 'Date of birth is required';
@@ -1240,6 +1244,19 @@ function StepJointMember({ formData, updateFormData, validationErrors }: any) {
             <option value="Prof">Prof</option>
           </select>
           {validationErrors.joint_title && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_title}</p>}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Relationship to Main Member <span className="text-red-500">*</span></label>
+          <select value={formData.joint_relation} onChange={(e) => updateFormData('joint_relation', e.target.value)} required
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_relation ? 'border-red-500' : 'border-gray-300'}`}>
+            <option value="Spouse">Spouse</option>
+            <option value="Partner">Partner</option>
+            <option value="Sibling">Sibling</option>
+            <option value="Parent">Parent</option>
+            <option value="Child">Child</option>
+            <option value="Other">Other</option>
+          </select>
+          {validationErrors.joint_relation && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_relation}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
