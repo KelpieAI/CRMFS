@@ -1,17 +1,21 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase, Member } from '../lib/supabase';
 import { TableSkeleton } from '../components/SkeletonComponents';
 import { BulkActionsBar } from '../components/BulkActionsBar';
-import { Search, Filter, Plus, Eye, Mail, Phone, Users, RefreshCw, Check } from 'lucide-react';
+import { Search, Filter, Plus, Eye, Mail, Phone, Users, RefreshCw, Check, MoreVertical, Edit, Pause, Trash2, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function MemberList() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showMemberMenu, setShowMemberMenu] = useState<string | null>(null);
 
   const { data: members, isLoading, refetch } = useQuery({
     queryKey: ['members'],
@@ -40,6 +44,18 @@ export default function MemberList() {
 
     return matchesSearch && matchesStatus;
   });
+
+  // Pagination calculations
+  const totalMembers = filteredMembers?.length || 0;
+  const totalPages = Math.ceil(totalMembers / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedMembers = filteredMembers?.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, pageSize]);
 
   const allIds = useMemo(() => filteredMembers?.map((m) => m.id) || [], [filteredMembers]);
 
@@ -120,7 +136,12 @@ export default function MemberList() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Members</h1>
+          <div className="flex items-center space-x-3">
+            <h1 className="text-3xl font-bold text-gray-900">Members</h1>
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-emerald-100 text-emerald-800">
+              {members?.length || 0} Total
+            </span>
+          </div>
           <p className="mt-1 text-sm text-gray-600">
             Manage funeral service memberships
           </p>
@@ -239,13 +260,33 @@ export default function MemberList() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredMembers && filteredMembers.length > 0 ? (
-                filteredMembers.map((member) => (
+              {paginatedMembers && paginatedMembers.length > 0 ? (
+                paginatedMembers.map((member) => (
                   <tr
                     key={member.id}
-                    className="hover:bg-emerald-50 transition-colors"
+                    className="hover:bg-emerald-50 transition-colors cursor-pointer"
+                    onClick={(e) => {
+                      // Only select if not clicking on checkbox, menu, or interactive elements
+                      if (
+                        !(e.target as HTMLElement).closest('input') &&
+                        !(e.target as HTMLElement).closest('button') &&
+                        !(e.target as HTMLElement).closest('a')
+                      ) {
+                        toggleSelection(member.id);
+                      }
+                    }}
+                    onDoubleClick={(e) => {
+                      // Navigate to member detail on double click
+                      if (
+                        !(e.target as HTMLElement).closest('input') &&
+                        !(e.target as HTMLElement).closest('button') &&
+                        !(e.target as HTMLElement).closest('a')
+                      ) {
+                        navigate(`/members/${member.id}`);
+                      }
+                    }}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={selectedIds.has(member.id)}
@@ -304,14 +345,111 @@ export default function MemberList() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(member.member_since || member.created_at).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link
-                        to={`/members/${member.id}`}
-                        className="inline-flex items-center px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </Link>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowMemberMenu(showMemberMenu === member.id ? null : member.id)}
+                          className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          <MoreVertical className="h-4 w-4 text-gray-500" />
+                        </button>
+
+                        {showMemberMenu === member.id && (
+                          <>
+                            {/* Backdrop */}
+                            <div 
+                              className="fixed inset-0 z-10" 
+                              onClick={() => setShowMemberMenu(null)}
+                            />
+                            
+                            {/* Dropdown */}
+                            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                              <button
+                                onClick={() => {
+                                  navigate(`/members/${member.id}`);
+                                  setShowMemberMenu(null);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                              >
+                                <Eye className="h-4 w-4 mr-3 text-gray-400" />
+                                View Member
+                              </button>
+                              
+                              <button
+                                onClick={() => {
+                                  navigate(`/members/${member.id}?tab=personal&edit=true`);
+                                  setShowMemberMenu(null);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                              >
+                                <Edit className="h-4 w-4 mr-3 text-gray-400" />
+                                Edit Member
+                              </button>
+                              
+                              {member.status !== 'paused' && (
+                                <button
+                                  onClick={() => {
+                                    navigate(`/members/${member.id}?action=pause`);
+                                    setShowMemberMenu(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                                >
+                                  <Pause className="h-4 w-4 mr-3 text-gray-400" />
+                                  Pause Membership
+                                </button>
+                              )}
+                              
+                              <button
+                                onClick={async () => {
+                                  // Export member data
+                                  const { data: memberData } = await supabase
+                                    .from('members')
+                                    .select(`
+                                      *,
+                                      children (*),
+                                      next_of_kin (*),
+                                      medical_info (*),
+                                      payments (*)
+                                    `)
+                                    .eq('id', member.id)
+                                    .single();
+
+                                  const dataStr = JSON.stringify(memberData, null, 2);
+                                  const blob = new Blob([dataStr], { type: 'application/json' });
+                                  const url = URL.createObjectURL(blob);
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.download = `member-${member.id}-${new Date().toISOString().split('T')[0]}.json`;
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                  URL.revokeObjectURL(url);
+                                  setShowMemberMenu(null);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                              >
+                                <Download className="h-4 w-4 mr-3 text-gray-400" />
+                                Export Data
+                              </button>
+                              
+                              <div className="border-t border-gray-200 my-1"></div>
+                              
+                              <button
+                                onClick={() => {
+                                  if (confirm('Are you sure you want to delete this member? This action cannot be undone.')) {
+                                    navigate(`/members/${member.id}?action=delete`);
+                                  }
+                                  setShowMemberMenu(null);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center"
+                              >
+                                <Trash2 className="h-4 w-4 mr-3 text-red-400" />
+                                Delete Member
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -334,14 +472,55 @@ export default function MemberList() {
           </table>
         </div>
 
-        {/* Footer with count */}
-        {filteredMembers && filteredMembers.length > 0 && (
-          <div className="bg-gray-50 px-6 py-3 border-t border-gray-200">
-            <p className="text-sm text-gray-700">
-              Showing{' '}
-              <span className="font-medium">{filteredMembers.length}</span> of{' '}
-              <span className="font-medium">{members?.length}</span> members
-            </p>
+        {/* Footer with pagination */}
+        {paginatedMembers && paginatedMembers.length > 0 && (
+          <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <p className="text-sm text-gray-700">
+                Showing{' '}
+                <span className="font-medium">{startIndex + 1}</span>-
+                <span className="font-medium">{Math.min(endIndex, totalMembers)}</span> of{' '}
+                <span className="font-medium">{totalMembers}</span> members
+              </p>
+              
+              <div className="flex items-center space-x-2">
+                <label className="text-sm text-gray-700">Show:</label>
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Previous
+              </button>
+              
+              <span className="text-sm text-gray-700">
+                Page <span className="font-medium">{currentPage}</span> of{' '}
+                <span className="font-medium">{totalPages}</span>
+              </span>
+              
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </button>
+            </div>
           </div>
         )}
       </div>
