@@ -3,7 +3,7 @@
 > A comprehensive member and payment management system built for Falkirk Central Mosque's death committee (Central Region Muslim Funeral Service).
 
 **Built by:** [Kelpie AI](https://kelpieai.co.uk)  
-**Version:** 0.7.0.0  
+**Version:** 0.7.1.0  
 **Status:** Active Development  
 **Tech Stack:** React + TypeScript + Supabase + Tailwind CSS
 
@@ -89,11 +89,11 @@ This CRM serves the death committee's operational needs by:
   - Joint Member tab (partner details)
   - Children tab (add/edit/delete with premium modals)
   - Next of Kin tab (mandatory emergency contacts with CRUD)
-  - GP Details tab (mandatory medical practitioner info)
+  - GP Details tab (add/edit GP practice info with modal)
   - Medical Info tab (conditional based on health questions)
-  - Documents tab (view, preview, download all uploaded files)
-  - Declarations tab (legal compliance with signatures)
-  - Payments tab (transaction history with summary cards)
+  - Documents tab (upload/manage documents with drag & drop modal)
+  - Declarations tab (sign declarations digitally with signature modal)
+  - Payments tab (transaction history with summary cards, collapsible breakdown)
   - Activity Log tab (complete audit trail with timeline)
   - **GDPR Data Rights section (committee actions)**
 - **Member Actions:**
@@ -122,9 +122,13 @@ This CRM serves the death committee's operational needs by:
   - File validation (JPG, PNG, PDF only, max 5MB)
   - Upload progress indicators
   - Delete functionality with confirmation
-- **Document Viewing in Member Detail:**
+- **Document Management in Member Detail:**
+  - Upload/manage documents modal with drag & drop interface
+  - Browse files button for traditional file selection
+  - Visual feedback (green border when selected, blue when dragging)
   - Preview documents in new tab (eye icon)
   - Download documents locally (download icon)
+  - Replace existing documents (upsert functionality)
   - Status indicators (uploaded/missing)
   - Organized by member type (main/joint/children)
   - Empty state guidance for missing documents
@@ -216,16 +220,29 @@ This CRM serves the death committee's operational needs by:
 - Document management for certificates
 
 ### 📝 Legal Compliance & Declarations
-- **Medical Disclosure Declaration:**
-  - Electronic signature capture
+- **Digital Signature Modal (Member Detail Page):**
+  - Sign declarations directly from Declarations tab
+  - Professional modal interface with checkbox + signature fields
+  - Italic signature fields matching AddMember form style
+  - Color-coded sections (blue for medical consent, purple for final declaration)
+  - Separate sections for main and joint members
+  - Auto-date stamping on signature submission
+  - Smart validation (signature required if consent checkbox checked)
+- **Medical Disclosure Declaration (Section 6):**
+  - Electronic signature capture with italic font
   - Timestamp recording
   - Statement: "I confirm that I have no known medical conditions or illnesses, other than those I have already disclosed in Section 14 (Medical History) of this application, that could invalidate my application"
-- **Posthumous Medical Authorization:**
-  - Electronic signature capture
+- **Posthumous Medical Authorization (Section 6):**
+  - Electronic signature capture with italic font
   - Timestamp recording
   - Statement: "In the event of my death, I authorise CRMFS to request information from my medical records relevant to my application for funeral cover"
-- Both declarations required for main and joint members
+- **Final Declaration (Section 7):**
+  - T&Cs acceptance with signature
+  - Emergency fund contribution agreement
+  - Information accuracy confirmation
+- Both medical and final declarations required for main and joint members
 - Stored permanently for audit and compliance
+- Can be signed during registration OR retroactively from Member Detail page
 
 ### 📝 Activity Logging & Audit Trail
 - Automatic activity tracking on all database operations
@@ -559,17 +576,18 @@ See `STYLING_GUIDE.md` for detailed instructions.
 
 ## 📊 Project Metrics
 
-- **Total Components:** 50+
+- **Total Components:** 53+ (3 new modals added)
 - **Database Tables:** 22 (including GDPR compliance tables)
 - **Storage Buckets:** 1 (member-documents)
-- **Lines of Code:** ~32,000
+- **Lines of Code:** ~36,000
 - **Pages:** 18
 - **API Endpoints:** 110+ (via Supabase)
 - **Member Detail Tabs:** 10
 - **Deceased Detail Tabs:** 7
 - **Registration Steps:** 10
 - **Document Types:** 5 (Photo ID, Proof of Address x2, Children x multiple)
-- **Premium Features:** 10 (Skeletons, Cmd+K, Caching, Optimistic, Bulk, Documents, Pause, GDPR Tools, Access Logging, Profile Menu)
+- **Premium Modals:** 7 (Children, Next of Kin, Medical Info, GP Details, Declarations, Documents, Adjust Payment)
+- **Premium Features:** 13 (Skeletons, Cmd+K, Caching, Optimistic, Bulk, Drag & Drop Upload, Pause/Unpause, GDPR Tools, Access Logging, Profile Menu, Collapsible Payments, Digital Signatures, Modal System)
 
 ---
 
@@ -633,7 +651,45 @@ This system handles sensitive personal data. Security measures include:
 
 ## 📈 Version History
 
-### v0.7.0.0 (Current - 30 December 2025)
+### v0.7.1.0 (Current - 1 January 2026)
+🎉 **Happy New Year!** This New Year's Day release completes the modal functionality across all Member Detail tabs, ensuring every section has full CRUD capabilities. The focus is on empowering committee members to manage all member information directly from the detail page without needing to navigate elsewhere. Three professional modals were added with modern UX patterns including drag-and-drop file uploads and digital signature capture.
+
+- **GP Details Modal:**
+  - Add/Edit GP practice information from GP Details tab
+  - 7 fields: practice name, address, town, city, postcode, phone, email
+  - Required field validation (practice name, postcode)
+  - Auto-uppercase postcode formatting
+  - Pre-fills existing data when editing
+  - Empty state button to add GP details for first time
+- **Declarations Signature Modal:**
+  - Sign medical consent + final declaration digitally from Declarations tab
+  - Checkbox-based consent capture (Section 6 & 7)
+  - Text signature fields with italic font (matching AddMember style)
+  - Color-coded sections (blue for medical, purple for final declaration)
+  - Separate sections for main and joint members
+  - Auto-date stamping on signature submission
+  - Smart validation (signature required if checkbox checked)
+  - Enables retroactive signing for members missing declarations
+- **Document Upload Modal:**
+  - Upload/manage member documents from Documents tab
+  - Professional drag & drop interface with visual feedback
+  - Browse files button for traditional file selection
+  - Green border when file selected, blue when dragging over
+  - Shows current filename and upload status
+  - Supports JPG, PNG, and PDF files
+  - Upload multiple documents at once
+  - Replace existing documents (upsert functionality)
+  - Uploads to Supabase Storage with organized file structure
+  - Main member: Photo ID + Proof of Address
+  - Joint member: Photo ID + Proof of Address (if applicable)
+- **Payment Tab Enhancement:**
+  - Collapsible payment breakdown (clean, compact list by default)
+  - Click payment header to expand/collapse details
+  - Chevron icons show state (up/down)
+  - Each payment remembered independently
+  - Much cleaner UI for scanning multiple payments
+
+### v0.7.0.0 (30 December 2025)
 This release focuses on GDPR compliance and data protection, implementing the final administrative tools needed for handling member data requests. The system now provides complete transparency around data access and gives committee members the ability to respond to member requests efficiently while maintaining full audit trails.
 
 - **GDPR Admin Tools:**
