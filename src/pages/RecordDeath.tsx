@@ -141,7 +141,12 @@ export default function RecordDeath() {
         .select()
         .single();
 
-      if (recordError) throw recordError;
+      if (recordError) {
+        console.error('❌ Error creating deceased record:', recordError);
+        throw recordError;
+      }
+
+      console.log('✅ Deceased record created:', deceasedRecord);
 
       // 2. Update member status to deceased
       const { error: memberError } = await supabase
@@ -151,7 +156,12 @@ export default function RecordDeath() {
         })
         .eq('id', data.member_id);
 
-      if (memberError) throw memberError;
+      if (memberError) {
+        console.error('❌ Error updating member status:', memberError);
+        throw memberError;
+      }
+
+      console.log('✅ Member status updated to deceased');
 
       return deceasedRecord;
     },
@@ -160,7 +170,13 @@ export default function RecordDeath() {
       queryClient.invalidateQueries({ queryKey: ['members'] });
       queryClient.invalidateQueries({ queryKey: ['member-detail', formData.member_id] });
 
-      navigate(`/members/${formData.member_id}`);
+      console.log('✅ Navigating to deceased detail page');
+      // Navigate to deceased detail page instead of member page
+      navigate(`/deceased/${formData.member_id}`);
+    },
+    onError: (error) => {
+      console.error('❌ Mutation failed:', error);
+      alert(`Failed to record death: ${error.message}\n\nPlease check if you've run the database migration.`);
     },
   });
 
