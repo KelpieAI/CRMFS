@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { TableSkeleton } from '../components/SkeletonComponents';
 import {
@@ -17,14 +17,25 @@ import {
   Check,
   MapPin,
   User,
+  MoreVertical,
+  Edit,
+  Printer,
+  Download,
+  Archive,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 export default function DeceasedMembers() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showDeceasedMenu, setShowDeceasedMenu] = useState<string | null>(null);
 
   // Fetch deceased members with their records
   const { data: deceasedData, isLoading, refetch } = useQuery({
@@ -44,13 +55,6 @@ export default function DeceasedMembers() {
           )
         `)
         .order('created_at', { ascending: false });
-
-      console.log('📊 Deceased query:', {
-        success: !error,
-        count: data?.length || 0,
-        data: data,
-        error: error
-      });
 
       return data || [];
     },
@@ -104,6 +108,18 @@ export default function DeceasedMembers() {
     return matchesSearch && matchesStatus && matchesDate;
   });
 
+  // Pagination calculations
+  const totalDeceased = filteredMembers?.length || 0;
+  const totalPages = Math.ceil(totalDeceased / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedMembers = filteredMembers?.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, dateFilter, pageSize]);
+
   const getStatusBadge = (status?: string) => {
     const styles = {
       reported: { bg: 'bg-red-100', text: 'text-red-800', icon: AlertCircle, label: 'Reported' },
@@ -146,7 +162,12 @@ export default function DeceasedMembers() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Deceased Members</h1>
+          <div className="flex items-center space-x-3">
+            <h1 className="text-3xl font-bold text-gray-900">Deceased Members</h1>
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gray-100 text-gray-800">
+              {deceasedData?.length || 0} Total
+            </span>
+          </div>
           <p className="mt-1 text-sm text-gray-600">
             إِنَّا لِلَّٰهِ وَإِنَّا إِلَيْهِ رَاجِعُونَ - Surely we belong to Allah and to Him we shall return
           </p>
@@ -352,11 +373,22 @@ export default function DeceasedMembers() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredMembers && filteredMembers.length > 0 ? (
-                filteredMembers.map((record: any) => {
+              {paginatedMembers && paginatedMembers.length > 0 ? (
+                paginatedMembers.map((record: any) => {
                   const member = record.members;
                   return (
-                    <tr key={record.id} className="hover:bg-gray-50 transition-colors">
+                    <tr 
+                      key={record.id} 
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      onDoubleClick={(e) => {
+                        if (
+                          !(e.target as HTMLElement).closest('button') &&
+                          !(e.target as HTMLElement).closest('a')
+                        ) {
+                          navigate(`/deceased/${member?.id || record.member_id}`);
+                        }
+                      }}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10">
@@ -414,14 +446,109 @@ export default function DeceasedMembers() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {record.handled_by || 'Not assigned'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <Link
-                          to={`/deceased/${member?.id || record.member_id}`}
-                          className="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View Details
-                        </Link>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
+                        <div className="relative">
+                          <button
+                            onClick={() => setShowDeceasedMenu(showDeceasedMenu === record.id ? null : record.id)}
+                            className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
+                          >
+                            <MoreVertical className="h-4 w-4 text-gray-500" />
+                          </button>
+
+                          {showDeceasedMenu === record.id && (
+                            <>
+                              {/* Backdrop */}
+                              <div 
+                                className="fixed inset-0 z-10" 
+                                onClick={() => setShowDeceasedMenu(null)}
+                              />
+                              
+                              {/* Dropdown */}
+                              <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                                <button
+                                  onClick={() => {
+                                    navigate(`/deceased/${member?.id || record.member_id}`);
+                                    setShowDeceasedMenu(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                                >
+                                  <Eye className="h-4 w-4 mr-3 text-gray-400" />
+                                  View Details
+                                </button>
+                                
+                                <button
+                                  onClick={() => {
+                                    navigate(`/deceased/${member?.id || record.member_id}?edit=true`);
+                                    setShowDeceasedMenu(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                                >
+                                  <Edit className="h-4 w-4 mr-3 text-gray-400" />
+                                  Edit Death Record
+                                </button>
+                                
+                                <button
+                                  onClick={() => {
+                                    window.print();
+                                    setShowDeceasedMenu(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                                >
+                                  <Printer className="h-4 w-4 mr-3 text-gray-400" />
+                                  Print Funeral Report
+                                </button>
+                                
+                                <button
+                                  onClick={async () => {
+                                    // Export deceased data
+                                    const { data: deceasedRecord } = await supabase
+                                      .from('deceased')
+                                      .select(`
+                                        *,
+                                        members (*),
+                                        funeral_expenses (*),
+                                        funeral_payments (*),
+                                        funeral_contacts (*)
+                                      `)
+                                      .eq('id', record.id)
+                                      .single();
+
+                                    const dataStr = JSON.stringify(deceasedRecord, null, 2);
+                                    const blob = new Blob([dataStr], { type: 'application/json' });
+                                    const url = URL.createObjectURL(blob);
+                                    const link = document.createElement('a');
+                                    link.href = url;
+                                    link.download = `deceased-${record.id}-${new Date().toISOString().split('T')[0]}.json`;
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                    URL.revokeObjectURL(url);
+                                    setShowDeceasedMenu(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                                >
+                                  <Download className="h-4 w-4 mr-3 text-gray-400" />
+                                  Export Data
+                                </button>
+                                
+                                <div className="border-t border-gray-200 my-1"></div>
+                                
+                                <button
+                                  onClick={() => {
+                                    if (confirm('Archive this funeral record? This will mark it as closed.')) {
+                                      // Archive logic here
+                                    }
+                                    setShowDeceasedMenu(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-600 hover:bg-gray-50 flex items-center"
+                                >
+                                  <Archive className="h-4 w-4 mr-3 text-gray-400" />
+                                  Archive Record
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -455,10 +582,14 @@ export default function DeceasedMembers() {
 
         {/* Mobile Card View */}
         <div className="lg:hidden space-y-4 p-4">
-          {filteredMembers && filteredMembers.length > 0 ? (
-            filteredMembers.map((record: any) => {
+          {paginatedMembers && paginatedMembers.length > 0 ? (
+            paginatedMembers.map((record: any) => {
               return (
-                <div key={record.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+                <div 
+                  key={record.id} 
+                  className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm"
+                  onDoubleClick={() => navigate(`/deceased/${record.members?.id || record.member_id}`)}
+                >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center">
                       <div className="h-12 w-12 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center text-white font-semibold text-lg">
@@ -473,7 +604,60 @@ export default function DeceasedMembers() {
                         </p>
                       </div>
                     </div>
-                    {getStatusBadge(record.status)}
+                    <div className="flex items-center space-x-2">
+                      {getStatusBadge(record.status)}
+                      
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowDeceasedMenu(showDeceasedMenu === record.id ? null : record.id)}
+                          className="p-1 hover:bg-gray-200 rounded-lg"
+                        >
+                          <MoreVertical className="h-4 w-4 text-gray-500" />
+                        </button>
+
+                        {showDeceasedMenu === record.id && (
+                          <>
+                            <div 
+                              className="fixed inset-0 z-10" 
+                              onClick={() => setShowDeceasedMenu(null)}
+                            />
+                            
+                            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                              <button
+                                onClick={() => {
+                                  navigate(`/deceased/${record.members?.id || record.member_id}`);
+                                  setShowDeceasedMenu(null);
+                                }}
+                                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                View
+                              </button>
+                              <button
+                                onClick={() => {
+                                  navigate(`/deceased/${record.members?.id || record.member_id}?edit=true`);
+                                  setShowDeceasedMenu(null);
+                                }}
+                                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                              >
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => {
+                                  window.print();
+                                  setShowDeceasedMenu(null);
+                                }}
+                                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                              >
+                                <Printer className="h-4 w-4 mr-2" />
+                                Print
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="space-y-2 text-sm">
@@ -490,15 +674,6 @@ export default function DeceasedMembers() {
                       </div>
                     )}
                   </div>
-
-                  <div className="mt-4 pt-3 border-t border-gray-100">
-                    <Link
-                      to={`/deceased/${record.members?.id || record.member_id}`}
-                      className="block w-full text-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-                    >
-                      View Details
-                    </Link>
-                  </div>
                 </div>
               );
             })
@@ -510,13 +685,55 @@ export default function DeceasedMembers() {
           )}
         </div>
 
-        {/* Footer with count */}
-        {filteredMembers && filteredMembers.length > 0 && (
-          <div className="bg-gray-50 px-6 py-3 border-t border-gray-200">
-            <p className="text-sm text-gray-700">
-              Showing <span className="font-medium">{filteredMembers.length}</span> of{' '}
-              <span className="font-medium">{deceasedData?.length}</span> deceased members
-            </p>
+        {/* Footer with pagination */}
+        {paginatedMembers && paginatedMembers.length > 0 && (
+          <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <p className="text-sm text-gray-700">
+                Showing{' '}
+                <span className="font-medium">{startIndex + 1}</span>-
+                <span className="font-medium">{Math.min(endIndex, totalDeceased)}</span> of{' '}
+                <span className="font-medium">{totalDeceased}</span> deceased members
+              </p>
+              
+              <div className="flex items-center space-x-2">
+                <label className="text-sm text-gray-700">Show:</label>
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Previous
+              </button>
+              
+              <span className="text-sm text-gray-700">
+                Page <span className="font-medium">{currentPage}</span> of{' '}
+                <span className="font-medium">{totalPages}</span>
+              </span>
+              
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </button>
+            </div>
           </div>
         )}
       </div>
