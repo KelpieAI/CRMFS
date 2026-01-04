@@ -1,15 +1,19 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { LogIn, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Get the page they were trying to access (or default to dashboard)
+  const from = (location.state as any)?.from?.pathname || '/';
 
   const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -30,8 +34,8 @@ export default function Login() {
         await supabase.rpc('update_last_login');
       }
 
-      // Navigate to dashboard
-      navigate('/');
+      // Navigate to the page they were trying to access (or dashboard)
+      navigate(from, { replace: true });
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err.message || 'Invalid email or password');
@@ -59,8 +63,8 @@ export default function Login() {
         await supabase.rpc('update_last_login');
       }
 
-      // Navigate to dashboard
-      navigate('/');
+      // Navigate to the page they were trying to access (or dashboard)
+      navigate(from, { replace: true });
     } catch (err: any) {
       console.error('Dev bypass error:', err);
       setError('Dev bypass failed. User may not exist.');
@@ -189,7 +193,7 @@ export default function Login() {
         <div className="text-center mt-6">
           <p className="text-sm text-gray-600">
             Powered by{' '}
-            <a
+            
               href="https://kelpieai.co.uk"
               target="_blank"
               rel="noopener noreferrer"
