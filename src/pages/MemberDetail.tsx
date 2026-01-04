@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { logActivity, ActivityTypes } from '../lib/activityLogger';
 import CompactLayout from '../components/CompactLayout';
 import MemberSubNav from '../components/MemberSubNav';
 import { ProfileHeaderSkeleton, FormSkeleton } from '../components/SkeletonComponents';
@@ -116,6 +118,16 @@ export default function MemberDetail() {
         .update(data)
         .eq('id', id);
       if (error) throw error;
+      
+      // Log the update
+      await logActivity(
+        id!,
+        ActivityTypes.MEMBER_UPDATED,
+        {
+          fields_updated: Object.keys(data),
+          member_name: `${memberData?.member?.first_name} ${memberData?.member?.last_name}`,
+        }
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['member-detail', id] });
@@ -126,6 +138,17 @@ export default function MemberDetail() {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
+      // Log the deletion BEFORE deleting (so we still have the member ID in activity_log)
+      await logActivity(
+        id!,
+        ActivityTypes.MEMBER_DELETED,
+        {
+          member_name: `${memberData?.member?.first_name} ${memberData?.member?.last_name}`,
+          member_email: memberData?.member?.email,
+          deletion_reason: 'Manual deletion by committee member',
+        }
+      );
+
       // Delete all related records first
       await Promise.all([
         supabase.from('payments').delete().eq('member_id', id),
