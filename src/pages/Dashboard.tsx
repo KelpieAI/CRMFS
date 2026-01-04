@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 
 export default function Dashboard() {
+  const { profile } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   // Fetch dashboard stats
