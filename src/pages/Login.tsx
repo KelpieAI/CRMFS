@@ -192,15 +192,7 @@ export default function Login() {
         {/* Footer */}
         <div className="text-center mt-6">
           <p className="text-sm text-gray-600">
-            Powered by{' '}
-            
-              href="https://kelpieai.co.uk"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-emerald-600 hover:text-emerald-700 font-semibold"
-            >
-              Kelpie AI
-            </a>
+            Powered by <a href="https://kelpieai.co.uk" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-700 font-semibold">Kelpie AI</a>
           </p>
           <p className="text-xs text-gray-500 mt-1">
             Version 0.7.2.315 | Built for Falkirk Central Mosque
