@@ -1,8 +1,8 @@
-import { useAuth } from '../contexts/AuthContext';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import ApplicationsInProgress from '../components/ApplicationsInProgress';
 import { StatsGridSkeleton } from '../components/SkeletonComponents';
 import {
@@ -177,21 +177,11 @@ export default function Dashboard() {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good morning';
     if (hour < 18) return 'Good afternoon';
-     return 'Good evening';
+    return 'Good evening';
   };
 
-const userName = profile?.full_name?.split(' ')[0] || 'there';
+  const userName = profile?.full_name?.split(' ')[0] || 'there';
 
-return (
-  <div className="space-y-6">
-    {/* Header */}
-    <div className="flex justify-between items-center">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          {getGreeting()}, {userName}! Here's what's happening today.
-        </p>
-      </div>
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -199,7 +189,7 @@ return (
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Welcome back! Here's what's happening today.
+            {getGreeting()}, {userName}! Here's what's happening today.
           </p>
         </div>
         <div className="flex items-center gap-3">
