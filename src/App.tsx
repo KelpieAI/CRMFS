@@ -4,7 +4,9 @@ import { supabase } from '../lib/supabase';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from './contexts/ToastContext';
+import { AuthProvider } from './contexts/AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
+import ProtectedRoute from './components/ProtectedRoute';
 import CompactLayout from './components/CompactLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -40,35 +42,41 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <ToastProvider>
-            {/* Command Palette - OUTSIDE Routes */}
-            <CommandPalette />
-            
-            <Routes>
-              {/* Login Route */}
-              <Route path="/login" element={<Login />} />
+          <AuthProvider>
+            <ToastProvider>
+              {/* Command Palette - OUTSIDE Routes */}
+              <CommandPalette />
+              
+              <Routes>
+                {/* Public Route - Login Only */}
+                <Route path="/login" element={<Login />} />
 
-              {/* All Routes - No Auth */}
-              <Route path="/" element={<CompactLayout />}>
-                <Route index element={<Dashboard />} />
-                <Route path="members" element={<MemberList />} />
-                <Route path="members/new" element={<AddMember />} />
-                <Route path="members/:id" element={<MemberDetail />} />
-                <Route path="payments" element={<Payments />} />
-                <Route path="reports" element={<Reports />} />
-                <Route path="deceased" element={<DeceasedMembers />} />
-                <Route path="deceased/:id" element={<DeceasedDetail />} />
-                <Route path="deceased/record/:memberId?" element={<RecordDeath />} />
-                <Route path="settings" element={<Settings />} />
-                <Route path="deletion-requests" element={<DeletionRequests />} />
-                <Route path="registration-success" element={<RegistrationSuccess />} />
-              </Route>
+                {/* Protected Routes - Require Authentication */}
+                <Route path="/" element={
+                  <ProtectedRoute>
+                    <CompactLayout />
+                  </ProtectedRoute>
+                }>
+                  <Route index element={<Dashboard />} />
+                  <Route path="members" element={<MemberList />} />
+                  <Route path="members/new" element={<AddMember />} />
+                  <Route path="members/:id" element={<MemberDetail />} />
+                  <Route path="payments" element={<Payments />} />
+                  <Route path="reports" element={<Reports />} />
+                  <Route path="deceased" element={<DeceasedMembers />} />
+                  <Route path="deceased/:id" element={<DeceasedDetail />} />
+                  <Route path="deceased/record/:memberId?" element={<RecordDeath />} />
+                  <Route path="settings" element={<Settings />} />
+                  <Route path="deletion-requests" element={<DeletionRequests />} />
+                  <Route path="registration-success" element={<RegistrationSuccess />} />
+                </Route>
 
-              {/* 404 Not Found */}
-              <Route path="/404" element={<NotFound />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </ToastProvider>
+                {/* 404 Not Found */}
+                <Route path="/404" element={<NotFound />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </ToastProvider>
+          </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>
     </ErrorBoundary>
