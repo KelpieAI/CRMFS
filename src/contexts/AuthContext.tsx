@@ -30,11 +30,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = async (userId: string) => {
     try {
+      // Set a timeout for profile fetch
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
+        .abortSignal(controller.signal)
         .maybeSingle();
+
+      clearTimeout(timeoutId);
 
       if (error) {
         console.error('Error fetching profile:', error);
@@ -45,10 +52,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data) {
         setProfile(data);
       } else {
+        console.warn('No profile found for user:', userId);
         setProfile(null);
       }
-    } catch (error) {
-      console.error('Exception fetching profile:', error);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.error('Profile fetch timed out');
+      } else {
+        console.error('Exception fetching profile:', error);
+      }
       setProfile(null);
     }
   };
@@ -64,7 +76,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const checkSession = async () => {
       try {
+        // Set a timeout to prevent infinite loading
+        const timeoutId = setTimeout(() => {
+          if (isMounted) {
+            console.warn('Auth check timed out, proceeding without auth');
+            setUser(null);
+            setProfile(null);
+            setLoading(false);
+          }
+        }, 5000); // 5 second timeout
+
         const { data: { session }, error } = await supabase.auth.getSession();
+        
+        clearTimeout(timeoutId);
         
         if (!isMounted) return;
 
