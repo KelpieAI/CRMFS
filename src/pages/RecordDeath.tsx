@@ -114,25 +114,15 @@ export default function RecordDeath() {
           date_of_death: data.date_of_death,
           time_of_death: data.time_of_death,
           place_of_death: data.place_of_death,
-          hospital_mortuary: data.hospital_mortuary,
           cause_of_death: data.cause_of_death,
-          death_certificate_number: data.death_certificate_number,
           death_certificate_obtained: data.death_certificate_obtained,
           next_of_kin_notified: data.next_of_kin_notified,
-          handled_by: data.assigned_committee_member,
           
           // Funeral Arrangements
           burial_location: data.burial_location,
-          burial_plot_number: data.burial_plot_number,
           burial_date: data.burial_date,
           burial_time: data.burial_time,
           imam_name: data.imam_name,
-          funeral_director: data.funeral_director,
-          funeral_director_phone: data.funeral_director_phone,
-          estimated_attendees: data.estimated_attendees,
-          
-          // Costs (stored in notes for now - can be separate table later)
-          estimated_total_cost: data.estimated_total_cost,
           
           // Status and Notes
           status: 'reported',
