@@ -22,24 +22,27 @@ export default function Login() {
     setError('');
 
     try {
+      console.log('🔐 Attempting login...');
+      
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (signInError) throw signInError;
-
-      // Update last login timestamp
-      if (data.user) {
-        await supabase.rpc('update_last_login');
+      if (signInError) {
+        console.error('❌ Sign in error:', signInError);
+        throw signInError;
       }
 
-      // Navigate to the page they were trying to access (or dashboard)
+      console.log('✅ Login successful!', data.user?.email);
+
+      // Skip the update_last_login RPC call - it might be hanging
+      // Navigate immediately
+      console.log('🚀 Navigating to:', from);
       navigate(from, { replace: true });
     } catch (err: any) {
-      console.error('Login error:', err);
+      console.error('💥 Login error:', err);
       setError(err.message || 'Invalid email or password');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -51,24 +54,27 @@ export default function Login() {
     setError('');
 
     try {
+      console.log('🐉 Dev bypass starting...');
+      
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: 'admin@test.com',
         password: 'Test123!',
       });
 
-      if (signInError) throw signInError;
-
-      // Update last login timestamp
-      if (data.user) {
-        await supabase.rpc('update_last_login');
+      if (signInError) {
+        console.error('❌ Dev bypass error:', signInError);
+        throw signInError;
       }
 
-      // Navigate to the page they were trying to access (or dashboard)
+      console.log('✅ Dev bypass successful!', data.user?.email);
+
+      // Skip the update_last_login RPC call - it might be hanging
+      // Navigate immediately
+      console.log('🚀 Navigating to:', from);
       navigate(from, { replace: true });
     } catch (err: any) {
-      console.error('Dev bypass error:', err);
+      console.error('💥 Dev bypass error:', err);
       setError('Dev bypass failed. User may not exist.');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -192,7 +198,15 @@ export default function Login() {
         {/* Footer */}
         <div className="text-center mt-6">
           <p className="text-sm text-gray-600">
-            Powered by <a href="https://kelpieai.co.uk" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-700 font-semibold">Kelpie AI</a>
+            Powered by{' '}
+            <a
+              href="https://kelpieai.co.uk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-600 hover:text-emerald-700 font-semibold"
+            >
+              Kelpie AI
+            </a>
           </p>
           <p className="text-xs text-gray-500 mt-1">
             Version 0.7.2.315 | Built for Falkirk Central Mosque
