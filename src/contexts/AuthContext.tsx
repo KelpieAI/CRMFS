@@ -30,37 +30,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = async (userId: string) => {
     try {
-      // Set a timeout for profile fetch
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-
+      console.log('📋 Fetching profile for:', userId);
+      
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
-        .abortSignal(controller.signal)
         .maybeSingle();
 
-      clearTimeout(timeoutId);
-
       if (error) {
-        console.error('Error fetching profile:', error);
+        console.error('❌ Error fetching profile:', error);
         setProfile(null);
         return;
       }
       
       if (data) {
+        console.log('✅ Profile loaded:', data.full_name);
         setProfile(data);
       } else {
-        console.warn('No profile found for user:', userId);
+        console.warn('⚠️ No profile found for user:', userId);
         setProfile(null);
       }
     } catch (error: any) {
-      if (error.name === 'AbortError') {
-        console.error('Profile fetch timed out');
-      } else {
-        console.error('Exception fetching profile:', error);
-      }
+      console.error('💥 Exception fetching profile:', error);
       setProfile(null);
     }
   };
@@ -76,39 +68,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const checkSession = async () => {
       try {
-        // Set a timeout to prevent infinite loading
-        const timeoutId = setTimeout(() => {
-          if (isMounted) {
-            console.warn('Auth check timed out, proceeding without auth');
-            setUser(null);
-            setProfile(null);
-            setLoading(false);
-          }
-        }, 5000); // 5 second timeout
-
-        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('🔍 Checking existing session...');
         
-        clearTimeout(timeoutId);
+        const { data: { session }, error } = await supabase.auth.getSession();
         
         if (!isMounted) return;
 
         if (error) {
-          console.error('Session error:', error);
+          console.error('❌ Session error:', error);
           setUser(null);
           setProfile(null);
           setLoading(false);
           return;
         }
 
-        setUser(session?.user ?? null);
-        
         if (session?.user) {
-          await fetchProfile(session.user.id);
+          console.log('✅ Found existing session:', session.user.email);
+          setUser(session.user);
+          setLoading(false);
+          // Fetch profile in background without blocking
+          fetchProfile(session.user.id);
+        } else {
+          console.log('ℹ️ No existing session');
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
         }
-        
-        setLoading(false);
       } catch (err) {
-        console.error('Session check failed:', err);
+        console.error('💥 Session check failed:', err);
         if (isMounted) {
           setUser(null);
           setProfile(null);
@@ -125,15 +112,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!isMounted) return;
 
+      console.log('🔔 Auth state changed:', _event, session?.user?.email);
+
       setUser(session?.user ?? null);
+      setLoading(false); // Set loading false IMMEDIATELY
       
+      // Fetch profile in background WITHOUT blocking
       if (session?.user) {
-        await fetchProfile(session.user.id);
+        fetchProfile(session.user.id); // Fire and forget - no await
       } else {
         setProfile(null);
       }
-      
-      setLoading(false);
     });
 
     return () => {
