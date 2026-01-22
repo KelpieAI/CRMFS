@@ -187,7 +187,7 @@ export default function Login() {
               className="w-full bg-gradient-to-r from-cyan-500 to-teal-500 text-white py-3 rounded-lg font-semibold hover:from-cyan-600 hover:to-teal-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-md"
             >
               <span className="mr-2">🐉</span>
-              Dev Bypass (Kelpie AI)
+              Dev Bypass
             </button>
             <p className="text-xs text-gray-500 text-center mt-2">
               Development access only
@@ -209,7 +209,7 @@ export default function Login() {
             </a>
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            Version 0.7.2.315 | Built for Falkirk Central Mosque
+            Version 0.8.0.346 | Built for Falkirk Central Mosque
           </p>
         </div>
       </div>
