@@ -187,7 +187,7 @@ export default function Login() {
               className="w-full bg-gradient-to-r from-cyan-500 to-teal-500 text-white py-3 rounded-lg font-semibold hover:from-cyan-600 hover:to-teal-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-md"
             >
               <span className="mr-2">🐉</span>
-              Dev Bypass
+              Developer Login
             </button>
             <p className="text-xs text-gray-500 text-center mt-2">
               Development access only
