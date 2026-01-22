@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+const SUPABASE_URL = Deno.env.get('VITE_SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 // Email template for late payment warnings
