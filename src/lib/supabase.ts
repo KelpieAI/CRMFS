@@ -1,19 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-// HARDCODED - Bolt can't fuck with this
+// Supabase configuration
 const supabaseUrl = 'https://fkpwibismkewrezgchbq.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrcHdpYmlzbWtld3JlemdjaGJxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NjYzMDM0NSwiZXhwIjoyMDgyMjA2MzQ1fQ.I8JiWEwrT9logY7rC9E3CbT4tBvY0n2qkizAQjTPeSg';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrcHdpYmlzbWtld3JlemdjaGJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MzAzNDUsImV4cCI6MjA4MjIwNjM0NX0.a384BlRYrH6cUznjjKwS689pdnqs-3MAh3VL8zPgU8A';
 
-// Validation check
+// Validate configuration
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('❌ CRITICAL: Supabase credentials missing! Check supabase.ts');
+  throw new Error('Missing Supabase credentials');
 }
 
-// Additional check to make sure we're using the RIGHT project
-if (!supabaseUrl.includes('fkpwibismkewrezgchbq')) {
-  throw new Error('❌ CRITICAL: Wrong Supabase project! URL should contain "fkpwibismkewrezgchbq"');
-}
-
+// Create Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
@@ -21,9 +17,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-console.log('✅ Supabase connected to:', supabaseUrl.substring(0, 30) + '...');
+console.log('✅ Supabase connected to:', supabaseUrl.substring(0, 40) + '...');
 
-// Database types (based on your schema)
+// Type definitions for database tables
 export interface Member {
   id: string;
   app_type: 'single' | 'joint';
@@ -174,7 +170,7 @@ export interface DeceasedRecord {
   id: string;
   member_id: string;
   
-  // Death Details
+  // Death details
   date_of_death: string;
   time_of_death?: string;
   place_of_death?: string;
@@ -187,12 +183,12 @@ export interface DeceasedRecord {
   notified_by_contact?: string;
   notification_date: string;
   
-  // Funeral Arrangements
+  // Funeral arrangements
   funeral_date?: string;
   funeral_time?: string;
   funeral_location?: string;
   
-  // Islamic Process
+  // Islamic process
   ghusl_performed_by?: string;
   ghusl_performed_date?: string;
   kafan_provided: boolean;
