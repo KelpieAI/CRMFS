@@ -3,9 +3,9 @@
 > A comprehensive member and payment management system built for Falkirk Central Mosque's death committee (Central Region Muslim Funeral Service).
 
 **Built by:** [Kelpie AI](https://kelpieai.co.uk)  
-**Version:** 0.8.0.0  
+**Version:** 0.9.0.0  
 **Status:** Production Ready  
-**Tech Stack:** React + TypeScript + Supabase + Tailwind CSS
+**Tech Stack:** React + TypeScript + Supabase + Tailwind CSS + Resend
 
 ---
 
@@ -18,6 +18,7 @@ The Central Region Muslim Funeral Service CRM is a modern web application design
 This CRM serves the death committee's operational needs by:
 - Digitising member registration and data management
 - Automating payment calculations with pro-rata and age-based fees
+- Automating email reminders and late payment warnings
 - Providing real-time insights into membership and finances
 - Centralising all member information in one secure location
 - Managing document uploads and storage securely
@@ -219,6 +220,50 @@ This CRM serves the death committee's operational needs by:
 - Payment processing for funeral costs
 - Document management for certificates
 
+### 📧 Automated Email System
+- **Professional Email Infrastructure:**
+  - Resend API integration for reliable delivery
+  - Custom domain sending (crmfs@kelpieai.co.uk)
+  - SPF, DKIM, and DMARC verification for deliverability
+  - Won't hit spam folders - proper authentication
+- **7 Email Types with Progressive Urgency:**
+  - 30-day renewal reminder (calm green branding)
+  - 14-day renewal reminder (increased urgency)
+  - 7-day renewal reminder (🔔 URGENT red badge)
+  - Day 0 overdue notification
+  - Late Payment Warning 1 - 30 days (orange badge, £10 fee)
+  - Late Payment Warning 2 - 60 days (deep red, £20 total fees)
+  - Late Payment Warning 3 - 90 days (⚠️ FINAL WARNING, £30 total fees)
+- **Automated Daily Execution:**
+  - Renewal reminders run at 9:00 AM UTC daily
+  - Late payment warnings run at 10:00 AM UTC daily
+  - Powered by Supabase pg_cron scheduled jobs
+  - Zero manual intervention required
+- **Smart Email Features:**
+  - Personalized with member names and amounts
+  - Clear payment breakdowns showing late fees
+  - Direct payment portal links
+  - Unsubscribe options for non-critical emails
+  - GDPR compliant with opt-out preferences
+- **Activity Logging & Audit Trail:**
+  - Every email logged to email_activity table
+  - Tracks sent/failed/bounced status
+  - Resend email ID for delivery tracking
+  - Metadata stored (amounts, dates, sequence)
+  - Duplicate prevention (won't spam members)
+- **Member Preferences:**
+  - Email preferences stored per member
+  - Can opt out of newsletters
+  - Renewal reminders can be disabled
+  - Late payment warnings are mandatory
+  - Unsubscribe tokens with 90-day expiry
+- **Beautiful Branded Design:**
+  - Islamic green header (CRMFS branding)
+  - Mobile-responsive HTML templates
+  - Professional typography and spacing
+  - Color-coded urgency levels
+  - Clear call-to-action buttons
+
 ### 📝 Legal Compliance & Declarations
 - **Digital Signature Modal (Member Detail Page):**
   - Sign declarations directly from Declarations tab
@@ -321,7 +366,7 @@ This CRM serves the death committee's operational needs by:
 Built on Supabase PostgreSQL with the following tables:
 
 ### Core Tables
-- **members** - Primary member records with age-based fees, document URLs, pause status, GDPR consents
+- **members** - Primary member records with age-based fees, document URLs, pause status, GDPR consents, email preferences
 - **joint_members** - Joint membership details
 - **children** - Dependent information
 - **next_of_kin** - Mandatory emergency contacts
@@ -339,6 +384,11 @@ Built on Supabase PostgreSQL with the following tables:
 - **funeral_expenses** - Itemised costs
 - **funeral_payments** - Contributions
 
+### Email Automation Tables
+- **email_activity** - Complete log of all sent emails with status tracking
+- **email_queue** - Scheduled emails with retry logic
+- **unsubscribe_tokens** - Secure unsubscribe link management
+
 ### GDPR & Compliance Tables
 - **deletion_requests** - Member data deletion requests with committee review workflow
 - **access_log** - Automatic audit trail of all data access (GDPR Article 30)
@@ -353,6 +403,10 @@ Built on Supabase PostgreSQL with the following tables:
 
 **Storage:**
 - **member-documents** - Supabase Storage bucket for uploaded files
+
+**Edge Functions:**
+- **send-renewal-reminders** - Daily automated renewal reminder emails
+- **send-late-payment-warnings** - Daily automated late payment escalation emails
 
 All tables include Row Level Security (RLS) policies for data protection.
 
@@ -378,6 +432,16 @@ All tables include Row Level Security (RLS) policies for data protection.
   - Real-time subscriptions
   - Database triggers for activity logging
   - RESTful API
+  - Edge Functions (Deno runtime)
+  - pg_cron (scheduled jobs)
+
+### Email Infrastructure
+- **Resend** - Transactional email API
+  - 3,000 emails/month free tier
+  - React Email template support
+  - Delivery tracking and analytics
+  - Domain verification (SPF/DKIM/DMARC)
+  - Bounce and complaint handling
 
 ### Developer Tools
 - **ESLint** - Code linting
@@ -468,15 +532,39 @@ All tables include Row Level Security (RLS) policies for data protection.
 6. Upload required documents
 7. View complete audit trail
 
+### Email Automation Workflow
+1. **Daily at 9:00 AM UTC:** Renewal reminder cron job runs
+2. Database function checks for members with renewals in 30/14/7/0 days
+3. Edge Function generates personalized emails using HTML templates
+4. Resend API sends emails from crmfs@kelpieai.co.uk
+5. Email activity logged to database with status
+6. Members receive professional branded emails in inbox
+7. **Daily at 10:00 AM UTC:** Late payment warning cron job runs
+8. Database function identifies members 30/60/90+ days overdue
+9. Escalating warning emails sent with color-coded urgency
+10. After 90 days: Manual or automated membership pause triggered
+
+**Example Email Journey:**
+- Dec 1: Member receives 30-day renewal reminder (calm green)
+- Dec 17: 14-day reminder (getting serious)
+- Dec 24: 7-day URGENT reminder (red badge)
+- Jan 2: Day 0 overdue notification
+- Jan 31: Warning 1 - £10 late fee (orange)
+- Mar 2: Warning 2 - £20 total late fees (deep red)
+- Apr 1: Warning 3 - £30 total, membership will pause (⚠️ FINAL)
+
 ---
 
 ## 🎯 Planned Features
 
 ### Phase 3 (Q1 2026)
+- [x] **Email automation system** ✅ (Completed Jan 2026)
+- [ ] Automated pause after Warning 3 (currently manual)
+- [ ] Welcome email for new member registrations
+- [ ] Membership paused notification email
+- [ ] Payment received confirmation emails
+- [ ] Newsletter/announcement manual send system
 - [ ] Children turn 18 automation (90-day tracking, auto-removal, notifications)
-- [ ] Late fee warning system (3-tier automated warnings)
-- [ ] Automated pause after 3 warnings (currently manual)
-- [ ] Email notifications for renewals and warnings
 - [ ] SMS reminders (via Twilio integration)
 - [ ] Advanced reporting and analytics
 - [ ] Export to CSV/Excel
@@ -552,7 +640,10 @@ All tables include Row Level Security (RLS) policies for data protection.
 5. Set up authentication provider  
 6. Run activity log trigger creation script
 7. Run GDPR compliance table creation script
-8. Update environment variables  
+8. Run email automation table creation script
+9. Deploy Edge Functions (send-renewal-reminders, send-late-payment-warnings)
+10. Configure pg_cron scheduled jobs
+11. Update environment variables  
 
 ---
 
@@ -576,18 +667,21 @@ See `STYLING_GUIDE.md` for detailed instructions.
 
 ## 📊 Project Metrics
 
-- **Total Components:** 53+ (3 new modals added)
-- **Database Tables:** 22 (including GDPR compliance tables)
+- **Total Components:** 53+
+- **Database Tables:** 25 (including email automation tables)
 - **Storage Buckets:** 1 (member-documents)
-- **Lines of Code:** ~36,000
+- **Edge Functions:** 2 (send-renewal-reminders, send-late-payment-warnings)
+- **Cron Jobs:** 2 (9 AM & 10 AM UTC daily)
+- **Email Templates:** 7 (with progressive urgency design)
+- **Lines of Code:** ~38,000
 - **Pages:** 18
-- **API Endpoints:** 110+ (via Supabase)
+- **API Endpoints:** 115+ (via Supabase + Resend)
 - **Member Detail Tabs:** 10
 - **Deceased Detail Tabs:** 7
 - **Registration Steps:** 10
-- **Document Types:** 5 (Photo ID, Proof of Address x2, Children x multiple)
-- **Premium Modals:** 7 (Children, Next of Kin, Medical Info, GP Details, Declarations, Documents, Adjust Payment)
-- **Premium Features:** 13 (Skeletons, Cmd+K, Caching, Optimistic, Bulk, Drag & Drop Upload, Pause/Unpause, GDPR Tools, Access Logging, Profile Menu, Collapsible Payments, Digital Signatures, Modal System)
+- **Document Types:** 5
+- **Premium Modals:** 7
+- **Premium Features:** 14 (including email automation)
 
 ---
 
@@ -616,6 +710,7 @@ Unauthorised copying, modification, distribution, or use of this software is str
 - **Central Region Muslim Funeral Service** - For subject matter expertise  
 - **Supabase** - For the excellent backend platform  
 - **React Community** - For the robust ecosystem  
+- **Resend** - For reliable email infrastructure
 
 ---
 
@@ -651,7 +746,61 @@ This system handles sensitive personal data. Security measures include:
 
 ## 📈 Version History
 
-### v0.8.0.0 (Current - 22 January 2026)
+### v0.9.0.0 (Current - 22 January 2026)
+🎉 **Email Automation Complete!** This release introduces a fully automated email communication system that eliminates the need for manual renewal reminders and late payment follow-ups. The committee can now focus on serving members rather than chasing paperwork, with the system automatically handling all routine communications through professional branded emails.
+
+- **Email Infrastructure:**
+  - Resend API integration with crmfs@kelpieai.co.uk domain
+  - SPF, DKIM, and DMARC verification for deliverability
+  - DNS configuration via Netlify (after Fasthosts propagation issues)
+  - Professional HTML email templates with Islamic branding
+  - Mobile-responsive design that works across all email clients
+- **7 Automated Email Types:**
+  - Renewal reminders (30/14/7 days before + day 0 overdue)
+  - Late payment warnings (30/60/90 days with escalating urgency)
+  - Color-coded badges (green → orange → red)
+  - Personalized with member names and amounts
+  - Clear payment breakdowns and call-to-action buttons
+- **Automation System:**
+  - Two Supabase Edge Functions (Deno runtime)
+  - Daily cron jobs at 9:00 AM and 10:00 AM UTC
+  - Database helper functions for member identification
+  - Duplicate prevention (won't send same email twice in 24 hours)
+  - Activity logging to email_activity table
+  - Unsubscribe token generation and management
+- **Member Preferences:**
+  - Email preferences JSONB column in members table
+  - Opt-out capabilities for non-critical emails
+  - Renewal reminders can be disabled
+  - Late payment warnings are mandatory (business requirement)
+  - 90-day expiring unsubscribe tokens
+- **GDPR Compliance:**
+  - Email activity logged for audit trail
+  - Unsubscribe links in all non-critical emails
+  - Member preferences respected automatically
+  - Complete transparency on email communications
+- **Testing & Deployment:**
+  - 7 test emails sent to committee for review
+  - Domain verification completed via Netlify DNS
+  - Cron jobs scheduled and verified working
+  - Email templates tested across Gmail, Outlook, Apple Mail
+  - Delivered to inbox (not spam) with proper authentication
+
+**Technical Details:**
+- Edge Functions: send-renewal-reminders, send-late-payment-warnings
+- Database Tables: email_activity, email_queue, unsubscribe_tokens
+- Helper Functions: get_members_needing_renewal_reminders, get_members_with_late_payments
+- Cron Schedule: 0 9 * * * (renewals), 0 10 * * * (late payments)
+- Email Service: Resend API (3,000/month free tier)
+
+**Committee Impact:**
+- Saves ~10 hours/month on manual reminder calls and emails
+- Reduces payment delays through timely automated reminders
+- Provides professional consistent communication to all members
+- Complete audit trail of all member communications
+- Zero ongoing maintenance required (fully automated)
+
+### v0.8.0.0 (22 January 2026)
 🔐 **Production Ready!** After two weeks of intensive debugging, the authentication system is now fully operational and battle-tested. This release marks a critical milestone as the system transitions from development to production-ready status with proper security, GDPR compliance, and reliable authentication flows. The auth issues that plagued earlier versions have been completely resolved through systematic debugging of Supabase integration, RLS policies, and session management.
 
 - **Authentication System Overhaul:**
