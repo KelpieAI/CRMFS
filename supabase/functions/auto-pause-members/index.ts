@@ -48,7 +48,8 @@ serve(async (req) => {
           .from('members')
           .update({
             status: 'paused',
-            pause_reason: `Automatically paused after ${daysOverdue} days of non-payment`
+            paused_reason: `Automatically paused after ${daysOverdue} days of non-payment`,
+            paused_date: new Date().toISOString()
           })
           .eq('id', member.id)
 
