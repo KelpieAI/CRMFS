@@ -12,7 +12,7 @@ serve(async (req) => {
     // Find members who are 90+ days overdue and still active
     const { data: members, error: fetchError } = await supabase
       .from('members')
-      .select('id, first_name, last_name, email, next_renewal_date, late_warnings')
+      .select('id, first_name, last_name, email, next_renewal_date')
       .eq('status', 'active')
       .lte('next_renewal_date', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
 
@@ -48,8 +48,7 @@ serve(async (req) => {
           .from('members')
           .update({
             status: 'paused',
-            pause_reason: `Automatically paused after ${daysOverdue} days of non-payment`,
-            late_warnings: 3 // Ensure it's set to 3
+            pause_reason: `Automatically paused after ${daysOverdue} days of non-payment`
           })
           .eq('id', member.id)
 
