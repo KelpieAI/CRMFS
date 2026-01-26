@@ -3,8 +3,8 @@
 > A comprehensive member and payment management system built for Falkirk Central Mosque's death committee (Central Region Muslim Funeral Service).
 
 **Built by:** [Kelpie AI](https://kelpieai.co.uk)  
-**Version:** 0.9.0.0  
-**Status:** Production Ready  
+**Version:** 0.9.1.0  
+**Status:** Active Development  
 **Tech Stack:** React + TypeScript + Supabase + Tailwind CSS + Resend
 
 ---
@@ -234,11 +234,17 @@ This CRM serves the death committee's operational needs by:
   - Late Payment Warning 1 - 30 days (orange badge, £10 fee)
   - Late Payment Warning 2 - 60 days (deep red, £20 total fees)
   - Late Payment Warning 3 - 90 days (⚠️ FINAL WARNING, £30 total fees)
-- **Automated Daily Execution:**
+- **Automated Daily Execution (Cron Jobs):**
   - Renewal reminders run at 9:00 AM UTC daily
   - Late payment warnings run at 10:00 AM UTC daily
+  - Auto-pause members run at 10:30 AM UTC daily
   - Powered by Supabase pg_cron scheduled jobs
   - Zero manual intervention required
+- **Instant Trigger Emails (Database Triggers):**
+  - Welcome email sent immediately on new member registration (🎉 green badge)
+  - Payment confirmation sent instantly when payment recorded (✓ receipt)
+  - Reactivation success email when paused member returns (🎊 celebration)
+  - Membership paused notification with reactivation instructions
 - **Smart Email Features:**
   - Personalized with member names and amounts
   - Clear payment breakdowns showing late fees
@@ -261,7 +267,7 @@ This CRM serves the death committee's operational needs by:
   - Islamic green header (CRMFS branding)
   - Mobile-responsive HTML templates
   - Professional typography and spacing
-  - Color-coded urgency levels
+  - Color-coded urgency levels (green → orange → red)
   - Clear call-to-action buttons
 
 ### 📝 Legal Compliance & Declarations
@@ -670,10 +676,11 @@ See `STYLING_GUIDE.md` for detailed instructions.
 - **Total Components:** 53+
 - **Database Tables:** 25 (including email automation tables)
 - **Storage Buckets:** 1 (member-documents)
-- **Edge Functions:** 2 (send-renewal-reminders, send-late-payment-warnings)
-- **Cron Jobs:** 2 (9 AM & 10 AM UTC daily)
-- **Email Templates:** 7 (with progressive urgency design)
-- **Lines of Code:** ~38,000
+- **Edge Functions:** 3 (send-renewal-reminders, send-late-payment-warnings, auto-pause-members)
+- **Cron Jobs:** 3 (9:00 AM, 10:00 AM, 10:30 AM UTC daily)
+- **Database Triggers:** 3 (welcome email, payment confirmation, reactivation success)
+- **Email Templates:** 11 (8 cron-based + 3 instant trigger-based)
+- **Lines of Code:** ~40,000
 - **Pages:** 18
 - **API Endpoints:** 115+ (via Supabase + Resend)
 - **Member Detail Tabs:** 10
@@ -681,7 +688,7 @@ See `STYLING_GUIDE.md` for detailed instructions.
 - **Registration Steps:** 10
 - **Document Types:** 5
 - **Premium Modals:** 7
-- **Premium Features:** 14 (including email automation)
+- **Premium Features:** 15 (including complete email automation)
 
 ---
 
@@ -746,7 +753,48 @@ This system handles sensitive personal data. Security measures include:
 
 ## 📈 Version History
 
-### v0.9.0.0 (Current - 22 January 2026)
+### v0.9.1.0 (Current - 26 January 2026)
+🎊 **Instant Email Triggers Complete!** This release completes the email automation system with three instant-trigger emails that fire immediately when key events occur. Combined with the cron-based system from v0.9.0.0, the mosque now has complete automated communication for the entire member lifecycle. The system now handles 11 different email scenarios without any manual intervention.
+
+- **Instant Trigger Emails (Database Triggers):**
+  - Welcome email sent immediately on new member registration
+  - Payment confirmation email sent instantly when payment recorded
+  - Reactivation success email when paused member returns to active status
+  - All three use PostgreSQL triggers with HTTP extension for instant delivery
+- **Auto-Pause System:**
+  - Third Edge Function (auto-pause-members) deployed
+  - Runs daily at 10:30 AM UTC via cron job
+  - Automatically pauses members 90+ days overdue
+  - Sends membership paused notification with reactivation instructions
+  - Waives late fees message included as courtesy
+- **Technical Implementation:**
+  - PostgreSQL http extension enabled for database triggers
+  - Three new trigger functions: send_welcome_email, send_payment_confirmation, send_reactivation_email
+  - Triggers fire on INSERT (members, payments) and UPDATE (member status changes)
+  - All emails logged to email_activity table with full audit trail
+  - Error handling ensures trigger failures don't block database operations
+- **Complete Email Suite (11 Total):**
+  - 4 renewal reminders (30/14/7/0 days)
+  - 3 late payment warnings (30/60/90 days)
+  - 1 auto-pause notification
+  - 1 welcome email
+  - 1 payment confirmation
+  - 1 reactivation success
+- **System Status:**
+  - Email automation: 100% complete
+  - Member lifecycle: Fully automated
+  - Committee intervention: Only for edge cases
+  - Time saved: 10-15 hours/month estimated
+
+**Technical Details:**
+- Edge Functions: send-renewal-reminders, send-late-payment-warnings, auto-pause-members
+- Database Triggers: welcome_email_trigger, payment_confirmation_trigger, reactivation_email_trigger
+- Cron Jobs: 3 (9:00 AM, 10:00 AM, 10:30 AM UTC)
+- Email Types: 11 (8 scheduled + 3 instant)
+
+**Note:** Member detail interface redesign scheduled for v0.9.2.0
+
+### v0.9.0.0 (22 January 2026)
 🎉 **Email Automation Complete!** This release introduces a fully automated email communication system that eliminates the need for manual renewal reminders and late payment follow-ups. The committee can now focus on serving members rather than chasing paperwork, with the system automatically handling all routine communications through professional branded emails.
 
 - **Email Infrastructure:**
