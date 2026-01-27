@@ -1691,6 +1691,19 @@ function calculateTotalPaid(member: any): number {
   return 0;
 }
 
+// Helper function for calculating age from DOB
+function calculateAge(dob: string): number | null {
+  if (!dob) return null;
+  const birthDate = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+}
+
 // Helper Components
 function InfoRow({ label, value, displayValue, isEditing, type = 'text', options, onChange }: any) {
   // Helper to capitalize first letter (for status display)
