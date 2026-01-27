@@ -432,184 +432,226 @@ export default function MemberDetail() {
         />
       }
     >
-      <div className="space-y-4">
-        {/* Compact Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
+      <div className="space-y-6">
+        {/* Hero Section with Green Gradient */}
+        <div className="bg-gradient-to-r from-[#2d5016] to-[#3d6622] rounded-lg shadow-lg p-8 text-white">
+          {/* Top Bar */}
+          <div className="flex items-center justify-between mb-6">
             <Link
               to="/members"
-              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              className="inline-flex items-center gap-2 text-white/90 hover:text-white transition-colors text-sm font-medium"
             >
-              <ArrowLeft className="h-5 w-5 text-gray-600" />
+              <ArrowLeft className="h-4 w-4" />
+              Back to Members
             </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 truncate">
-                {member.title} {member.first_name} {member.last_name}
-              </h1>
-              <p className="text-sm text-gray-500">#{id?.slice(0, 8)}</p>
+
+            {/* Actions Menu */}
+            <div className="relative">
+              {isEditing ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCancel}
+                    disabled={updateMutation.isPending}
+                    className="inline-flex items-center px-4 py-2 text-sm bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={updateMutation.isPending}
+                    className="inline-flex items-center px-4 py-2 text-sm bg-white text-[#2d5016] rounded-lg hover:bg-white/90 transition-colors font-semibold"
+                  >
+                    {updateMutation.isPending ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#2d5016] mr-2"></div>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Save
+                      </>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setShowActionsMenu(!showActionsMenu)}
+                    className="inline-flex items-center px-4 py-2 text-sm bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
+                  >
+                    <MoreVertical className="h-4 w-4 mr-1" />
+                    Actions
+                  </button>
+
+                  {showActionsMenu && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-10"
+                        onClick={() => setShowActionsMenu(false)}
+                      />
+                      <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                        <button
+                          onClick={() => {
+                            handleEdit();
+                            setShowActionsMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                        >
+                          <Edit className="h-4 w-4 mr-3 text-gray-400" />
+                          Edit Member
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setActiveTab('payments');
+                            setShowActionsMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                        >
+                          <CreditCard className="h-4 w-4 mr-3 text-gray-400" />
+                          Record Payment
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            window.print();
+                            setShowActionsMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                        >
+                          <FileText className="h-4 w-4 mr-3 text-gray-400" />
+                          Print Summary
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            window.location.href = `mailto:${member.email}`;
+                            setShowActionsMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                        >
+                          <Upload className="h-4 w-4 mr-3 text-gray-400" />
+                          Send Email
+                        </button>
+
+                        <div className="border-t border-gray-100 my-1"></div>
+
+                        {member.status === 'paused' ? (
+                          <button
+                            onClick={() => {
+                              calculateUnpauseFees();
+                              setShowUnpauseModal(true);
+                              setShowActionsMenu(false);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-emerald-600 hover:bg-emerald-50 flex items-center"
+                          >
+                            <PlayCircle className="h-4 w-4 mr-3" />
+                            Unpause Member
+                          </button>
+                        ) : member.status === 'active' ? (
+                          <button
+                            onClick={() => {
+                              updateStatus.mutate({
+                                memberId: id!,
+                                newStatus: 'inactive',
+                              });
+                              setShowActionsMenu(false);
+                            }}
+                            disabled={updateStatus.isPending}
+                            className="w-full px-4 py-2 text-left text-sm text-yellow-600 hover:bg-yellow-50 flex items-center disabled:opacity-50"
+                          >
+                            <Pause className="h-4 w-4 mr-3" />
+                            {updateStatus.isPending ? 'Pausing...' : 'Pause Member'}
+                          </button>
+                        ) : member.status === 'inactive' && (
+                          <button
+                            onClick={() => {
+                              updateStatus.mutate({
+                                memberId: id!,
+                                newStatus: 'active',
+                              });
+                              setShowActionsMenu(false);
+                            }}
+                            disabled={updateStatus.isPending}
+                            className="w-full px-4 py-2 text-left text-sm text-green-600 hover:bg-green-50 flex items-center disabled:opacity-50"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-3" />
+                            {updateStatus.isPending ? 'Activating...' : 'Activate Member'}
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => {
+                            setShowDeleteConfirm(true);
+                            setShowActionsMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center"
+                        >
+                          <Trash2 className="h-4 w-4 mr-3" />
+                          Delete Member
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2">
-            {isEditing ? (
-              <>
-                <button
-                  onClick={handleCancel}
-                  disabled={updateMutation.isPending}
-                  className="inline-flex items-center px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={updateMutation.isPending}
-                  className="inline-flex items-center px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-                >
-                  {updateMutation.isPending ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4 mr-1" />
-                      Save
-                    </>
-                  )}
-                </button>
-              </>
-            ) : (
-              <div className="relative">
-                <button
-                  onClick={() => setShowActionsMenu(!showActionsMenu)}
-                  className="inline-flex items-center px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </button>
-                
-                {showActionsMenu && (
-                  <>
-                    {/* Backdrop to close menu */}
-                    <div 
-                      className="fixed inset-0 z-10" 
-                      onClick={() => setShowActionsMenu(false)}
-                    />
-                    
-                    {/* Dropdown Menu */}
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
-                      <button
-                        onClick={() => {
-                          handleEdit();
-                          setShowActionsMenu(false);
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
-                      >
-                        <Edit className="h-4 w-4 mr-3 text-gray-400" />
-                        Edit Member
-                      </button>
-                      
-                      <button
-                        onClick={() => {
-                          setActiveTab('payments');
-                          setShowActionsMenu(false);
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
-                      >
-                        <CreditCard className="h-4 w-4 mr-3 text-gray-400" />
-                        Record Payment
-                      </button>
-                      
-                      <button
-                        onClick={() => {
-                          window.print();
-                          setShowActionsMenu(false);
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
-                      >
-                        <FileText className="h-4 w-4 mr-3 text-gray-400" />
-                        Print Summary
-                      </button>
-                      
-                      <button
-                        onClick={() => {
-                          window.location.href = `mailto:${member.email}`;
-                          setShowActionsMenu(false);
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
-                      >
-                        <Upload className="h-4 w-4 mr-3 text-gray-400" />
-                        Send Email
-                      </button>
-                      
-                      <div className="border-t border-gray-100 my-1"></div>
-                      
-                      {member.status === 'paused' ? (
-                        <button
-                          onClick={() => {
-                            calculateUnpauseFees();
-                            setShowUnpauseModal(true);
-                            setShowActionsMenu(false);
-                          }}
-                          className="w-full px-4 py-2 text-left text-sm text-emerald-600 hover:bg-emerald-50 flex items-center"
-                        >
-                          <PlayCircle className="h-4 w-4 mr-3" />
-                          Unpause Member
-                        </button>
-                      ) : member.status === 'active' ? (
-                        <button
-                          onClick={() => {
-                            updateStatus.mutate({
-                              memberId: id!,
-                              newStatus: 'inactive',
-                            });
-                            setShowActionsMenu(false);
-                          }}
-                          disabled={updateStatus.isPending}
-                          className="w-full px-4 py-2 text-left text-sm text-yellow-600 hover:bg-yellow-50 flex items-center disabled:opacity-50"
-                        >
-                          <Pause className="h-4 w-4 mr-3" />
-                          {updateStatus.isPending ? 'Pausing...' : 'Pause Member'}
-                        </button>
-                      ) : member.status === 'inactive' && (
-                        <button
-                          onClick={() => {
-                            updateStatus.mutate({
-                              memberId: id!,
-                              newStatus: 'active',
-                            });
-                            setShowActionsMenu(false);
-                          }}
-                          disabled={updateStatus.isPending}
-                          className="w-full px-4 py-2 text-left text-sm text-green-600 hover:bg-green-50 flex items-center disabled:opacity-50"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-3" />
-                          {updateStatus.isPending ? 'Activating...' : 'Activate Member'}
-                        </button>
-                      )}
-                      
-                      <button
-                        onClick={() => {
-                          setShowDeleteConfirm(true);
-                          setShowActionsMenu(false);
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center"
-                      >
-                        <Trash2 className="h-4 w-4 mr-3" />
-                        Delete Member
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+          {/* Member Name & Status */}
+          <div className="flex items-center gap-4 mb-5">
+            <h1 className="text-3xl font-bold text-white">
+              {member.title} {member.first_name} {member.last_name}
+            </h1>
+            <span
+              className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide ${
+                member.status === 'active'
+                  ? 'bg-emerald-500 text-white'
+                  : member.status === 'paused'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-yellow-500 text-white'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-white"></span>
+              {member.status}
+            </span>
+          </div>
+
+          {/* Member ID */}
+          <p className="text-[#D4AF37] text-sm font-medium mb-6">
+            #{id?.slice(0, 8)}
+          </p>
+
+          {/* Quick Info Strip */}
+          <div className="flex flex-wrap gap-6 text-sm text-white/90">
+            <div className="flex items-center gap-2">
+              <Phone className="h-4 w-4" />
+              <span>{member.mobile}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              <span>{member.email}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              <span>{age ? `${age} years old` : 'N/A'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <PoundSterling className="h-4 w-4" />
+              <span>£{totalPaid.toFixed(2)} Total Paid</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              <span>{member.city}, {member.postcode}</span>
+            </div>
           </div>
         </div>
 
         {/* Paused Member Warning */}
         {member.status === 'paused' && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4">
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
             <div className="flex items-start">
               <AlertCircle className="h-5 w-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
               <div className="flex-1">
@@ -632,57 +674,13 @@ export default function MemberDetail() {
           </div>
         )}
 
-        {/* Quick Info Bar */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-white rounded-lg border border-gray-200 p-3">
-            <div className="flex items-center space-x-2">
-              <Users className="h-4 w-4 text-gray-400" />
-              <div>
-                <p className="text-xs text-gray-500">Member Type</p>
-                <p className="text-sm font-semibold text-gray-900 capitalize">{member.app_type}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-3">
-            <div className="flex items-center space-x-2">
-              <Calendar className="h-4 w-4 text-gray-400" />
-              <div>
-                <p className="text-xs text-gray-500">Age</p>
-                <p className="text-sm font-semibold text-gray-900">{age ? `${age} years` : 'N/A'}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-3">
-            <div className="flex items-center space-x-2">
-              <Calendar className="h-4 w-4 text-gray-400" />
-              <div>
-                <p className="text-xs text-gray-500">Member Since</p>
-                <p className="text-sm font-semibold text-gray-900">
-                  {member.join_date ? new Date(member.join_date).toLocaleDateString() : 'N/A'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-3">
-            <div className="flex items-center space-x-2">
-              <PoundSterling className="h-4 w-4 text-gray-400" />
-              <div>
-                <p className="text-xs text-gray-500">Total Paid</p>
-                <p className="text-sm font-semibold text-gray-900">£{totalPaid.toFixed(2)}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Content Area */}
         {activeTab === 'personal' && (
           <PersonalInfoTab
             member={isEditing ? editedData : member}
             isEditing={isEditing}
             updateField={updateField}
+            setActiveTab={setActiveTab}
           />
         )}
 
@@ -1235,146 +1233,462 @@ export default function MemberDetail() {
 }
 
 // Personal Info Tab Component
-function PersonalInfoTab({ member, isEditing, updateField }: any) {
+function PersonalInfoTab({ member, isEditing, updateField, setActiveTab }: any) {
   return (
-    <div className="space-y-4">
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Personal Details Card */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-            <User className="h-4 w-4 mr-2 text-gray-400" />
-            Personal Details
-          </h3>
-          <dl className="space-y-2">
-            <InfoRow
-              label="Title"
-              value={member?.title}
-              isEditing={isEditing}
-              type="select"
-              options={['Mr', 'Mrs', 'Miss', 'Ms', 'Dr']}
-              onChange={(val: any) => updateField?.('title', val)}
-            />
-            <InfoRow
-              label="First Name"
-              value={member?.first_name}
-              isEditing={isEditing}
-              onChange={(val: any) => updateField?.('first_name', val)}
-            />
-            <InfoRow
-              label="Last Name"
-              value={member?.last_name}
-              isEditing={isEditing}
-              onChange={(val: any) => updateField?.('last_name', val)}
-            />
-            <InfoRow
-              label="Date of Birth"
-              value={member?.dob}
-              displayValue={member?.dob ? new Date(member.dob).toLocaleDateString() : 'N/A'}
-              isEditing={isEditing}
-              type="date"
-              onChange={(val: any) => updateField?.('dob', val)}
-            />
-            <InfoRow
-              label="Status"
-              value={member?.status}
-              isEditing={isEditing}
-              type="select"
-              options={['pending', 'active', 'inactive']}
-              onChange={(val: any) => updateField?.('status', val)}
-            />
-          </dl>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Personal Details Card - Featured */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300 border-l-4 border-l-[#D4AF37]">
+        <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-emerald-50">
+          <div className="p-2 bg-emerald-50 rounded-lg">
+            <User className="h-5 w-5 text-[#2d5016]" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900">Personal Details</h3>
         </div>
 
-        {/* Contact Information Card */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-            <Phone className="h-4 w-4 mr-2 text-gray-400" />
-            Contact Information
-          </h3>
-          <dl className="space-y-2">
-            <InfoRow
-              label="Mobile"
-              value={member?.mobile}
-              isEditing={isEditing}
-              onChange={(val: any) => updateField?.('mobile', val)}
-            />
-            <InfoRow
-              label="Home Phone"
-              value={member?.home_phone}
-              isEditing={isEditing}
-              onChange={(val: any) => updateField?.('home_phone', val)}
-            />
-            <InfoRow
-              label="Work Phone"
-              value={member?.work_phone}
-              isEditing={isEditing}
-              onChange={(val: any) => updateField?.('work_phone', val)}
-            />
-            <InfoRow
-              label="Email"
-              value={member?.email}
-              isEditing={isEditing}
-              type="email"
-              onChange={(val: any) => updateField?.('email', val)}
-            />
-          </dl>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                Title
+              </label>
+              {isEditing ? (
+                <select
+                  value={member?.title || ''}
+                  onChange={(e) => updateField?.('title', e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                >
+                  <option value="">Select...</option>
+                  <option value="Mr">Mr</option>
+                  <option value="Mrs">Mrs</option>
+                  <option value="Miss">Miss</option>
+                  <option value="Ms">Ms</option>
+                  <option value="Dr">Dr</option>
+                </select>
+              ) : (
+                <p className="text-base font-medium text-gray-900">{member?.title || 'N/A'}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                Member Type
+              </label>
+              <p className="text-base font-semibold text-[#2d5016] capitalize">
+                {member?.app_type}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                First Name
+              </label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={member?.first_name || ''}
+                  onChange={(e) => updateField?.('first_name', e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              ) : (
+                <p className="text-base font-medium text-gray-900">{member?.first_name}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                Last Name
+              </label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={member?.last_name || ''}
+                  onChange={(e) => updateField?.('last_name', e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              ) : (
+                <p className="text-base font-medium text-gray-900">{member?.last_name}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                Date of Birth
+              </label>
+              {isEditing ? (
+                <input
+                  type="date"
+                  value={member?.dob || ''}
+                  onChange={(e) => updateField?.('dob', e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              ) : (
+                <p className="text-base font-medium text-gray-900">
+                  {member?.dob ? (
+                    <>
+                      {new Date(member.dob).toLocaleDateString()}{' '}
+                      <span className="text-gray-500 text-sm">
+                        ({calculateAge(member.dob)} years)
+                      </span>
+                    </>
+                  ) : (
+                    'N/A'
+                  )}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                Status
+              </label>
+              {isEditing ? (
+                <select
+                  value={member?.status || ''}
+                  onChange={(e) => updateField?.('status', e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="paused">Paused</option>
+                </select>
+              ) : (
+                <span
+                  className={`inline-flex items-center gap-1.5 text-sm font-semibold ${
+                    member?.status === 'active'
+                      ? 'text-emerald-600'
+                      : member?.status === 'paused'
+                      ? 'text-red-600'
+                      : 'text-yellow-600'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-current"></span>
+                  {member?.status?.charAt(0).toUpperCase() + member?.status?.slice(1)}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
+
+        {!isEditing && (
+          <div className="mt-6 pt-5 border-t border-gray-100">
+            <button
+              onClick={() => {}}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2d5016] text-white rounded-lg hover:bg-[#1f3810] transition-all duration-200 font-semibold text-sm hover:shadow-md hover:-translate-y-0.5"
+            >
+              <Edit className="h-4 w-4" />
+              Edit Details
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Contact Information Card */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
+        <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-emerald-50">
+          <div className="p-2 bg-emerald-50 rounded-lg">
+            <Phone className="h-5 w-5 text-[#2d5016]" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900">Contact Information</h3>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-3 bg-emerald-50/30 rounded-lg border border-emerald-100">
+            <Phone className="h-5 w-5 text-[#2d5016] mt-0.5" />
+            <div className="flex-1">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                Mobile
+              </label>
+              {isEditing ? (
+                <input
+                  type="tel"
+                  value={member?.mobile || ''}
+                  onChange={(e) => updateField?.('mobile', e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              ) : (
+                <p className="text-base font-medium text-gray-900">{member?.mobile}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 p-3 bg-emerald-50/30 rounded-lg border border-emerald-100">
+            <Upload className="h-5 w-5 text-[#2d5016] mt-0.5" />
+            <div className="flex-1">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                Email
+              </label>
+              {isEditing ? (
+                <input
+                  type="email"
+                  value={member?.email || ''}
+                  onChange={(e) => updateField?.('email', e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              ) : (
+                <p className="text-base font-medium text-gray-900">{member?.email}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                Home Phone
+              </label>
+              {isEditing ? (
+                <input
+                  type="tel"
+                  value={member?.home_phone || ''}
+                  onChange={(e) => updateField?.('home_phone', e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              ) : (
+                <p className="text-base font-medium text-gray-400">{member?.home_phone || 'N/A'}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                Work Phone
+              </label>
+              {isEditing ? (
+                <input
+                  type="tel"
+                  value={member?.work_phone || ''}
+                  onChange={(e) => updateField?.('work_phone', e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              ) : (
+                <p className="text-base font-medium text-gray-400">{member?.work_phone || 'N/A'}</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {!isEditing && (
+          <div className="mt-6 pt-5 border-t border-gray-100 flex gap-3">
+            <button
+              onClick={() => window.location.href = `mailto:${member?.email}`}
+              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
+            >
+              <Upload className="h-4 w-4" />
+              Send Email
+            </button>
+            <button
+              onClick={() => window.location.href = `tel:${member?.mobile}`}
+              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
+            >
+              <Phone className="h-4 w-4" />
+              Call Member
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Address Card - Full Width */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-          <MapPin className="h-4 w-4 mr-2 text-gray-400" />
-          Address
-        </h3>
-        <dl className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          <InfoRow
-            label="Address Line 1"
-            value={member?.address_line_1}
-            isEditing={isEditing}
-            onChange={(val: any) => updateField?.('address_line_1', val)}
-          />
-          <InfoRow
-            label="Town"
-            value={member?.town}
-            isEditing={isEditing}
-            onChange={(val: any) => updateField?.('town', val)}
-          />
-          <InfoRow
-            label="City"
-            value={member?.city}
-            isEditing={isEditing}
-            onChange={(val: any) => updateField?.('city', val)}
-          />
-          <InfoRow
-            label="Postcode"
-            value={member?.postcode}
-            isEditing={isEditing}
-            onChange={(val: any) => updateField?.('postcode', val)}
-          />
-        </dl>
+      <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
+        <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-emerald-50">
+          <div className="p-2 bg-emerald-50 rounded-lg">
+            <MapPin className="h-5 w-5 text-[#2d5016]" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900">Address</h3>
+        </div>
+
+        {!isEditing && (
+          <div className="flex items-start gap-4 p-4 bg-emerald-50/30 rounded-lg border-l-4 border-l-[#D4AF37] mb-5">
+            <MapPin className="h-8 w-8 text-[#2d5016] flex-shrink-0" />
+            <div>
+              <p className="text-base font-medium text-gray-900 leading-relaxed">
+                {member?.address_line_1}
+              </p>
+              <p className="text-base font-medium text-gray-900 leading-relaxed">
+                {member?.town}{member?.town && member?.city && ', '}{member?.city}
+              </p>
+              <p className="text-base font-semibold text-[#2d5016] leading-relaxed">
+                {member?.postcode}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {isEditing && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                Address Line 1
+              </label>
+              <input
+                type="text"
+                value={member?.address_line_1 || ''}
+                onChange={(e) => updateField?.('address_line_1', e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                Town
+              </label>
+              <input
+                type="text"
+                value={member?.town || ''}
+                onChange={(e) => updateField?.('town', e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                City
+              </label>
+              <input
+                type="text"
+                value={member?.city || ''}
+                onChange={(e) => updateField?.('city', e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                Postcode
+              </label>
+              <input
+                type="text"
+                value={member?.postcode || ''}
+                onChange={(e) => updateField?.('postcode', e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            </div>
+          </div>
+        )}
+
+        {!isEditing && (
+          <div className="pt-5 border-t border-gray-100 flex gap-3">
+            <button
+              onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${member?.address_line_1}, ${member?.city}, ${member?.postcode}`)}`)}
+              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
+            >
+              <MapPin className="h-4 w-4" />
+              View on Map
+            </button>
+            <button
+              onClick={() => {}}
+              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
+            >
+              <Edit className="h-4 w-4" />
+              Edit Address
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Notes Card */}
+      {/* Membership Info Card - Full Width */}
+      <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300 border-l-4 border-l-[#D4AF37]">
+        <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-emerald-50">
+          <div className="p-2 bg-emerald-50 rounded-lg">
+            <Shield className="h-5 w-5 text-[#2d5016]" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900">Membership Information</h3>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              Member ID
+            </label>
+            <p className="text-base font-bold text-[#D4AF37]">#{member?.id?.slice(0, 8)}</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              Member Since
+            </label>
+            <p className="text-base font-medium text-gray-900">
+              {member?.join_date ? new Date(member.join_date).toLocaleDateString() : 'N/A'}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              Next Renewal
+            </label>
+            <p className="text-base font-semibold text-[#2d5016]">
+              {member?.next_renewal_date ? new Date(member.next_renewal_date).toLocaleDateString() : 'N/A'}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              Total Paid
+            </label>
+            <p className="text-xl font-bold text-[#2d5016]">
+              £{calculateTotalPaid(member).toFixed(2)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 pt-5 border-t border-gray-100 flex gap-3">
+          <button
+            onClick={() => setActiveTab('payments')}
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2d5016] text-white rounded-lg hover:bg-[#1f3810] transition-all duration-200 font-semibold text-sm hover:shadow-md hover:-translate-y-0.5"
+          >
+            <CreditCard className="h-4 w-4" />
+            View Payments
+          </button>
+          <button
+            onClick={() => setActiveTab('payments')}
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
+          >
+            <PoundSterling className="h-4 w-4" />
+            Add Payment
+          </button>
+        </div>
+      </div>
+
+      {/* Notes Card (if exists) */}
       {(member?.notes || isEditing) && (
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Notes</h3>
+        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-emerald-50">
+            <div className="p-2 bg-emerald-50 rounded-lg">
+              <FileText className="h-5 w-5 text-[#2d5016]" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900">Notes</h3>
+          </div>
+
           {isEditing ? (
             <textarea
               value={member?.notes || ''}
               onChange={(e) => updateField?.('notes', e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               rows={4}
-              placeholder="Add any additional notes..."
+              placeholder="Add any additional notes about this member..."
             />
           ) : (
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{member?.notes || 'No notes'}</p>
+            <p className="text-base text-gray-700 leading-relaxed whitespace-pre-wrap">
+              {member?.notes || 'No notes'}
+            </p>
           )}
         </div>
       )}
     </div>
   );
+}
+
+// Helper function for calculating total paid
+function calculateTotalPaid(member: any): number {
+  // Use existing payments data from member if available
+  if (member?.payments && Array.isArray(member.payments)) {
+    return member.payments.reduce((sum: number, payment: any) =>
+      sum + (payment.total_amount || 0), 0
+    );
+  }
+  return 0;
 }
 
 // Helper Components
