@@ -17,7 +17,7 @@ export default function CompactLayout({ children, showSubNav = false, subNav }: 
 
       {/* Sub-navigation (for member details, etc.) */}
       {showSubNav && subNav && (
-        <div className="hidden lg:block flex-shrink-0 fixed top-0 left-16 h-screen z-40">
+        <div className="hidden lg:block flex-shrink-0 fixed top-0 left-16 h-screen z-30">
           {subNav}
         </div>
       )}
