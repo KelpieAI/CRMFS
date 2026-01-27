@@ -57,13 +57,16 @@ export default function MemberSubNav({
   ].filter(item => item.show);
 
   return (
-    <div className="w-72 bg-white border-r border-gray-200 h-full overflow-y-auto">
-      {/* Header */}
-      <div className="sticky top-0 bg-white px-5 py-6 z-10 border-b-2 border-[#2d5016]">
+    <div className="w-72 bg-white border-r border-gray-200 h-screen flex flex-col">
+      {/* Header - flush to top */}
+      <div className="flex-shrink-0 bg-white px-5 py-4 border-b-2 border-[#2d5016]">
         <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
           Member Details
         </h2>
       </div>
+
+      {/* Scrollable content area */}
+      <div className="flex-1 overflow-y-auto">
 
       {/* Navigation Items */}
       <nav className="p-4 space-y-1">
@@ -150,6 +153,7 @@ export default function MemberSubNav({
             Delete Request
           </button>
         </div>
+      </div>
       </div>
     </div>
   );
