@@ -71,6 +71,12 @@ export default function MemberDetail() {
   // Actions menu dropdown
   const [showActionsMenu, setShowActionsMenu] = useState(false);
 
+  // Tabs that support inline editing via the Edit Member button
+  // Other tabs (children, nok, medical, gp, declarations) use their own modals
+  // Non-editable tabs: documents (upload only), payments (audit trail), activity (read-only)
+  const EDITABLE_TABS = ['personal'];
+  const isEditableTab = EDITABLE_TABS.includes(activeTab);
+
   // Fetch member with all related data
   const { data: memberData, isLoading } = useQuery({
     queryKey: ['member-detail', id],
@@ -199,6 +205,14 @@ export default function MemberDetail() {
     setIsEditing(false);
     setEditedData(null);
   };
+
+  // Cancel editing when switching away from editable tabs
+  React.useEffect(() => {
+    if (isEditing && !EDITABLE_TABS.includes(activeTab)) {
+      setIsEditing(false);
+      setEditedData(null);
+    }
+  }, [activeTab, isEditing]);
 
   const updateField = (field: string, value: any) => {
     setEditedData((prev: any) => ({ ...prev, [field]: value }));
@@ -447,7 +461,7 @@ export default function MemberDetail() {
 
             {/* Actions Menu */}
             <div className="relative">
-              {isEditing ? (
+              {isEditing && isEditableTab ? (
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleCancel}
@@ -492,16 +506,29 @@ export default function MemberDetail() {
                         onClick={() => setShowActionsMenu(false)}
                       />
                       <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
-                        <button
-                          onClick={() => {
-                            handleEdit();
-                            setShowActionsMenu(false);
-                          }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
-                        >
-                          <Edit className="h-4 w-4 mr-3 text-gray-400" />
-                          Edit Member
-                        </button>
+                        {isEditableTab ? (
+                          <button
+                            onClick={() => {
+                              handleEdit();
+                              setShowActionsMenu(false);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                          >
+                            <Edit className="h-4 w-4 mr-3 text-gray-400" />
+                            Edit Member
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setActiveTab('personal');
+                              setShowActionsMenu(false);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-500 hover:bg-gray-50 flex items-center"
+                          >
+                            <Edit className="h-4 w-4 mr-3 text-gray-300" />
+                            Edit Personal Info
+                          </button>
+                        )}
 
                         <button
                           onClick={() => {
