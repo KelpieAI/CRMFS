@@ -2445,58 +2445,105 @@ function NextOfKinTab({ nextOfKin, memberId }: any) {
       </div>
 
       {/* Contacts List */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         {nextOfKin.map((contact: any, index: number) => (
           <div
             key={contact.id}
-            className="bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors"
+            className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300"
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <div className="flex items-center space-x-2 mb-2">
-                  <h4 className="text-base font-semibold text-gray-900">
-                    {contact.name}
-                  </h4>
-                  {index === 0 && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">
-                      Primary
-                    </span>
-                  )}
-                </div>
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                  <div>
-                    <dt className="text-xs text-gray-500">Relationship</dt>
-                    <dd className="text-gray-900 capitalize">
-                      {contact.relationship || 'N/A'}
-                    </dd>
+                {/* Name and Badge */}
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-emerald-50 rounded-lg">
+                    <Heart className="h-5 w-5 text-[#2d5016]" />
                   </div>
                   <div>
-                    <dt className="text-xs text-gray-500">Phone</dt>
-                    <dd className="text-gray-900">{contact.phone || 'N/A'}</dd>
-                  </div>
-                  <div className="col-span-2">
-                    <dt className="text-xs text-gray-500">Email</dt>
-                    <dd className="text-gray-900">{contact.email || 'N/A'}</dd>
-                  </div>
-                  {contact.address && (
-                    <div className="col-span-2">
-                      <dt className="text-xs text-gray-500">Address</dt>
-                      <dd className="text-gray-900">{contact.address}</dd>
+                    <h4 className="text-lg font-semibold text-gray-900">
+                      {contact.title} {contact.first_name} {contact.last_name}
+                    </h4>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-sm text-[#2d5016] font-medium capitalize">
+                        {contact.relationship || 'N/A'}
+                      </span>
+                      {index === 0 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-[#D4AF37] text-white">
+                          Primary
+                        </span>
+                      )}
                     </div>
-                  )}
-                </dl>
+                  </div>
+                </div>
+
+                {/* Contact Details Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Mobile */}
+                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                    <Phone className="h-4 w-4 text-[#2d5016] mt-0.5" />
+                    <div>
+                      <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Mobile</dt>
+                      <dd className="text-sm font-medium text-gray-900 mt-0.5">{contact.mobile || 'N/A'}</dd>
+                    </div>
+                  </div>
+
+                  {/* Home Phone */}
+                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                    <Phone className="h-4 w-4 text-gray-400 mt-0.5" />
+                    <div>
+                      <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Home Phone</dt>
+                      <dd className="text-sm font-medium text-gray-900 mt-0.5">{contact.phone || 'N/A'}</dd>
+                    </div>
+                  </div>
+
+                  {/* Email */}
+                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg md:col-span-2">
+                    <Upload className="h-4 w-4 text-[#2d5016] mt-0.5" />
+                    <div>
+                      <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Email</dt>
+                      <dd className="text-sm font-medium text-gray-900 mt-0.5">{contact.email || 'N/A'}</dd>
+                    </div>
+                  </div>
+
+                  {/* Address */}
+                  <div className="flex items-start gap-3 p-3 bg-emerald-50/50 rounded-lg border-l-4 border-l-[#D4AF37] md:col-span-2">
+                    <MapPin className="h-4 w-4 text-[#2d5016] mt-0.5" />
+                    <div>
+                      <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Address</dt>
+                      <dd className="text-sm font-medium text-gray-900 mt-0.5">
+                        {contact.address_line_1 && (
+                          <>
+                            {contact.address_line_1}
+                            <br />
+                          </>
+                        )}
+                        {(contact.town || contact.city) && (
+                          <>
+                            {contact.town}{contact.town && contact.city && ', '}{contact.city}
+                            <br />
+                          </>
+                        )}
+                        {contact.postcode && (
+                          <span className="font-semibold text-[#2d5016]">{contact.postcode}</span>
+                        )}
+                        {!contact.address_line_1 && !contact.town && !contact.city && !contact.postcode && 'N/A'}
+                      </dd>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center space-x-2 ml-4">
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-2 ml-4">
                 <button
                   onClick={() => setEditingContact(contact)}
-                  className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                  className="p-2 text-gray-400 hover:text-[#2d5016] hover:bg-emerald-50 rounded-lg transition-colors"
                   title="Edit"
                 >
                   <Edit className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(contact.id)}
-                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   title="Delete"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -3783,11 +3830,17 @@ interface NextOfKinModalProps {
 function NextOfKinModal({ isOpen, onClose, memberId, contact }: NextOfKinModalProps) {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
-    name: contact?.name || '',
+    title: contact?.title || '',
+    first_name: contact?.first_name || '',
+    last_name: contact?.last_name || '',
     relationship: contact?.relationship || '',
+    mobile: contact?.mobile || '',
     phone: contact?.phone || '',
     email: contact?.email || '',
-    address: contact?.address || '',
+    address_line_1: contact?.address_line_1 || '',
+    town: contact?.town || '',
+    city: contact?.city || '',
+    postcode: contact?.postcode || '',
   });
   const [errors, setErrors] = useState<any>({});
 
@@ -3814,10 +3867,11 @@ function NextOfKinModal({ isOpen, onClose, memberId, contact }: NextOfKinModalPr
 
   const validate = () => {
     const newErrors: any = {};
-    if (!formData.name.trim()) newErrors.name = 'Name is required';
+    if (!formData.first_name.trim()) newErrors.first_name = 'First name is required';
+    if (!formData.last_name.trim()) newErrors.last_name = 'Last name is required';
     if (!formData.relationship.trim()) newErrors.relationship = 'Relationship is required';
-    if (!formData.phone.trim()) newErrors.phone = 'Phone is required';
-    
+    if (!formData.mobile.trim()) newErrors.mobile = 'Mobile is required';
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -3833,8 +3887,8 @@ function NextOfKinModal({ isOpen, onClose, memberId, contact }: NextOfKinModalPr
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-in zoom-in-95 duration-200">
-        <div className="px-6 py-4 border-b border-gray-200">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+        <div className="px-6 py-4 border-b border-gray-200 sticky top-0 bg-white">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900">
               {contact ? 'Edit Emergency Contact' : 'Add Emergency Contact'}
@@ -3845,85 +3899,185 @@ function NextOfKinModal({ isOpen, onClose, memberId, contact }: NextOfKinModalPr
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Personal Details Section */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Name *
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${
-                errors.name ? 'border-red-300' : 'border-gray-300'
-              }`}
-              autoFocus
-            />
-            {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
+            <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <User className="h-4 w-4 text-[#2d5016]" />
+              Personal Details
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Title
+                </label>
+                <select
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                >
+                  <option value="">Select...</option>
+                  <option value="Mr">Mr</option>
+                  <option value="Mrs">Mrs</option>
+                  <option value="Miss">Miss</option>
+                  <option value="Ms">Ms</option>
+                  <option value="Dr">Dr</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  First Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.first_name}
+                  onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                  className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                    errors.first_name ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                />
+                {errors.first_name && <p className="text-xs text-red-600 mt-1">{errors.first_name}</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Last Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.last_name}
+                  onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                  className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                    errors.last_name ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                />
+                {errors.last_name && <p className="text-xs text-red-600 mt-1">{errors.last_name}</p>}
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                Relationship *
+              </label>
+              <select
+                value={formData.relationship}
+                onChange={(e) => setFormData({ ...formData, relationship: e.target.value })}
+                className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                  errors.relationship ? 'border-red-300' : 'border-gray-300'
+                }`}
+              >
+                <option value="">Select relationship</option>
+                <option value="spouse">Spouse</option>
+                <option value="parent">Parent</option>
+                <option value="child">Child</option>
+                <option value="sibling">Sibling</option>
+                <option value="friend">Friend</option>
+                <option value="other">Other</option>
+              </select>
+              {errors.relationship && <p className="text-xs text-red-600 mt-1">{errors.relationship}</p>}
+            </div>
           </div>
 
+          {/* Contact Details Section */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Relationship *
-            </label>
-            <select
-              value={formData.relationship}
-              onChange={(e) => setFormData({ ...formData, relationship: e.target.value })}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${
-                errors.relationship ? 'border-red-300' : 'border-gray-300'
-              }`}
-            >
-              <option value="">Select relationship</option>
-              <option value="spouse">Spouse</option>
-              <option value="parent">Parent</option>
-              <option value="child">Child</option>
-              <option value="sibling">Sibling</option>
-              <option value="friend">Friend</option>
-              <option value="other">Other</option>
-            </select>
-            {errors.relationship && <p className="text-xs text-red-600 mt-1">{errors.relationship}</p>}
+            <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <Phone className="h-4 w-4 text-[#2d5016]" />
+              Contact Details
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Mobile *
+                </label>
+                <input
+                  type="tel"
+                  value={formData.mobile}
+                  onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
+                  className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                    errors.mobile ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="07xxxxxxxxx"
+                />
+                {errors.mobile && <p className="text-xs text-red-600 mt-1">{errors.mobile}</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Home Phone
+                </label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+            </div>
           </div>
 
+          {/* Address Section */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Phone *
-            </label>
-            <input
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${
-                errors.phone ? 'border-red-300' : 'border-gray-300'
-              }`}
-            />
-            {errors.phone && <p className="text-xs text-red-600 mt-1">{errors.phone}</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-[#2d5016]" />
               Address
-            </label>
-            <textarea
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-              rows={3}
-            />
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Address Line 1
+                </label>
+                <input
+                  type="text"
+                  value={formData.address_line_1}
+                  onChange={(e) => setFormData({ ...formData, address_line_1: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Town
+                </label>
+                <input
+                  type="text"
+                  value={formData.town}
+                  onChange={(e) => setFormData({ ...formData, town: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  City
+                </label>
+                <input
+                  type="text"
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Postcode
+                </label>
+                <input
+                  type="text"
+                  value={formData.postcode}
+                  onChange={(e) => setFormData({ ...formData, postcode: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
@@ -3935,7 +4089,7 @@ function NextOfKinModal({ isOpen, onClose, memberId, contact }: NextOfKinModalPr
             <button
               type="submit"
               disabled={saveMutation.isPending}
-              className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+              className="px-4 py-2 text-sm bg-[#2d5016] text-white rounded-lg hover:bg-[#1f3810] disabled:opacity-50"
             >
               {saveMutation.isPending ? (
                 <span className="flex items-center">
