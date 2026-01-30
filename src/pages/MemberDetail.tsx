@@ -237,12 +237,14 @@ export default function MemberDetail() {
     setEditedData(null);
   };
 
-  // Cancel editing when switching away from editable tabs
+  // Cancel editing when switching away from editable tabs + scroll to top
   useEffect(() => {
     if (isEditing && !EDITABLE_TABS.includes(activeTab)) {
       setIsEditing(false);
       setEditedData(null);
     }
+    // Scroll to top when tab changes
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeTab, isEditing]);
 
   const updateField = (field: string, value: any) => {

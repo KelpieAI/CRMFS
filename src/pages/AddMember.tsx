@@ -386,6 +386,11 @@ export default function AddMember() {
     setFormData((prev) => ({ ...prev, total_amount: total }));
   }, [formData.main_joining_fee, formData.main_membership_fee, formData.joint_joining_fee, formData.joint_membership_fee, formData.app_type]);
 
+  // Scroll to top when step changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentStep]);
+
   const mainJoiningFee = calculateJoiningFee(mainDob, membershipType === 'legacy');
   const jointJoiningFee = formData.app_type === 'joint' && formData.joint_dob
     ? calculateJoiningFee(formData.joint_dob, membershipType === 'legacy')
