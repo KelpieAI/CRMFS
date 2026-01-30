@@ -207,7 +207,7 @@ export default function MemberDetail() {
   };
 
   // Cancel editing when switching away from editable tabs
-  React.useEffect(() => {
+  useEffect(() => {
     if (isEditing && !EDITABLE_TABS.includes(activeTab)) {
       setIsEditing(false);
       setEditedData(null);
