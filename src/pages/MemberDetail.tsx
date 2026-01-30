@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { logActivity, ActivityTypes } from '../lib/activityLogger';
+import { logActivity, ActivityTypes, getCurrentUserInfo } from '../lib/activityLogger';
 import CompactLayout from '../components/CompactLayout';
 import MemberSubNav from '../components/MemberSubNav';
 import { ProfileHeaderSkeleton, FormSkeleton } from '../components/SkeletonComponents';
@@ -115,6 +115,37 @@ export default function MemberDetail() {
         payments: payments || [],
       };
     },
+  });
+
+  // Fetch last update info for audit display
+  const { data: lastUpdateInfo } = useQuery({
+    queryKey: ['member-last-update', id],
+    queryFn: async () => {
+      // Get the most recent update activity
+      const { data: lastActivity } = await supabase
+        .from('activity_log')
+        .select('*')
+        .eq('member_id', id)
+        .in('action_type', ['updated', 'member_edited', 'Member updated'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!lastActivity?.performed_by) return null;
+
+      // Get user info for the performer
+      const { data: user } = await supabase
+        .from('users')
+        .select('full_name, email')
+        .eq('id', lastActivity.performed_by)
+        .single();
+
+      return {
+        updated_at: lastActivity.created_at,
+        updated_by: user?.full_name || user?.email?.split('@')[0] || 'Unknown User',
+      };
+    },
+    enabled: !!id,
   });
 
   const updateMutation = useMutation({
@@ -262,14 +293,28 @@ export default function MemberDetail() {
 
     const logAccess = async () => {
       try {
+        // Get current user info
+        const userInfo = await getCurrentUserInfo();
+        const userName = userInfo?.full_name || userInfo?.email || 'Unknown User';
+
+        // Log to access_log table (GDPR compliance)
         await supabase.from('access_log').insert({
           member_id: memberData.member.id,
-          accessed_by: 'Committee Member',
+          accessed_by: userName,
           access_type: 'view',
           accessed_data: ['personal_data', 'contact_info'],
           accessed_at: new Date().toISOString(),
         });
-        console.log('Access logged');
+
+        // Log to activity_log for audit trail
+        await logActivity(
+          memberData.member.id,
+          ActivityTypes.DATA_ACCESSED,
+          {
+            accessed_by: userName,
+            member_name: `${memberData.member.first_name} ${memberData.member.last_name}`,
+          }
+        );
       } catch (error) {
         console.error('Failed to log access:', error);
       }
@@ -674,6 +719,24 @@ export default function MemberDetail() {
               <span>{member.city}, {member.postcode}</span>
             </div>
           </div>
+
+          {/* Last Updated Info */}
+          {lastUpdateInfo && (
+            <div className="mt-4 pt-4 border-t border-white/20 text-xs text-white/70">
+              <span>Last updated: </span>
+              <span className="text-[#D4AF37] font-medium">
+                {new Date(lastUpdateInfo.updated_at).toLocaleDateString('en-GB', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </span>
+              <span> by </span>
+              <span className="text-white font-medium">{lastUpdateInfo.updated_by}</span>
+            </div>
+          )}
         </div>
 
         {/* Paused Member Warning */}
@@ -3517,14 +3580,40 @@ function ActivityLogTab({ memberId }: any) {
   const { data: activityLog, isLoading } = useQuery({
     queryKey: ['activity-log', memberId],
     queryFn: async () => {
-      const { data } = await supabase
+      // Fetch activity logs
+      const { data: logs } = await supabase
         .from('activity_log')
         .select('*')
         .eq('member_id', memberId)
         .order('created_at', { ascending: false })
         .limit(50);
-      
-      return data || [];
+
+      if (!logs || logs.length === 0) return [];
+
+      // Get unique user IDs from logs
+      const userIds = [...new Set(logs.map((log: any) => log.performed_by).filter(Boolean))];
+
+      // Fetch user details for all users
+      let userMap: Record<string, any> = {};
+      if (userIds.length > 0) {
+        const { data: users } = await supabase
+          .from('users')
+          .select('id, full_name, email')
+          .in('id', userIds);
+
+        if (users) {
+          userMap = users.reduce((acc: any, user: any) => {
+            acc[user.id] = user;
+            return acc;
+          }, {});
+        }
+      }
+
+      // Attach user info to each log
+      return logs.map((log: any) => ({
+        ...log,
+        performed_by_user: userMap[log.performed_by] || null,
+      }));
     },
   });
 
@@ -3644,7 +3733,10 @@ function ActivityLogTab({ memberId }: any) {
         <div className="space-y-3">
           {activityLog.map((activity: any) => {
             const Icon = getActionIcon(activity.action_type);
-            
+            const performedByName = activity.performed_by_user?.full_name ||
+                                    activity.performed_by_user?.email?.split('@')[0] ||
+                                    'System';
+
             return (
               <div key={activity.id} className="flex items-start space-x-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${getActionColor(activity.action_type)}`}>
@@ -3652,9 +3744,15 @@ function ActivityLogTab({ memberId }: any) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-900">{activity.description}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {formatRelativeTime(activity.created_at)}
-                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs text-gray-500">
+                      {formatRelativeTime(activity.created_at)}
+                    </span>
+                    <span className="text-xs text-gray-400">•</span>
+                    <span className="text-xs font-medium text-[#2d5016]">
+                      by {performedByName}
+                    </span>
+                  </div>
                 </div>
               </div>
             );
