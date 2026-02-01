@@ -2917,7 +2917,7 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Tip: Add £100 to prepay for 2026
+                Tip: Add £100 to prepay for 2027
               </p>
             </div>
             <div>
@@ -2928,7 +2928,7 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
                 type="text"
                 value={adjustmentReason}
                 onChange={(e) => setAdjustmentReason(e.target.value)}
-                placeholder="e.g., Prepay 2026"
+                placeholder="e.g., Prepay 2027"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
               />
             </div>
