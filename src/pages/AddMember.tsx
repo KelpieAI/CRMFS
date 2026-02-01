@@ -2869,7 +2869,7 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
                 <li>• All memberships renew on <strong>January 1st</strong> each year</li>
                 <li>• Annual fee is pro-rated from signup date to December 31st</li>
                 <li>• Use adjustments to prepay for following year (saves time in January!)</li>
-                <li>• Example: Add £100 adjustment = coverage through Dec 31, 2026</li>
+                <li>• Example: Add £100 adjustment = coverage through Dec 31, 2027</li>
               </ul>
             </InfoTooltip>
           </div>
