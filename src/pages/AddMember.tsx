@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { logActivity, ActivityTypes } from '../lib/activityLogger';
 import DateInput from '../components/DateInput';
+import RegistrationSidebar from '../components/RegistrationSidebar';
 import {
   ArrowLeft,
   ArrowRight,
@@ -956,71 +957,68 @@ export default function AddMember() {
 
   const currentVisibleStepIndex = stepIndexMap.indexOf(currentStep);
 
+  // Map sidebar step IDs (1-9) to internal step indices
+  const sidebarStepToIndex: Record<number, number> = {
+    1: 0,  // Membership Type
+    2: 1,  // Main Member
+    3: 3,  // Children (skip joint member step 2)
+    4: 4,  // Next of Kin
+    5: 5,  // Medical Info
+    6: 6,  // Documents
+    7: 7,  // Declarations
+    8: 8,  // GDPR Compliance (Paper Form)
+    9: 9,  // Payment
+  };
+
+  // Get completed steps for sidebar (convert internal indices to sidebar IDs)
+  const getCompletedSteps = (): number[] => {
+    const completed: number[] = [];
+    Object.entries(sidebarStepToIndex).forEach(([sidebarId, internalIndex]) => {
+      if (internalIndex < currentStep) {
+        completed.push(parseInt(sidebarId));
+      }
+    });
+    return completed;
+  };
+
+  // Get current sidebar step ID from internal step index
+  const getCurrentSidebarStep = (): number => {
+    const entry = Object.entries(sidebarStepToIndex).find(([_, idx]) => idx === currentStep);
+    return entry ? parseInt(entry[0]) : 1;
+  };
+
+  // Handle sidebar step change
+  const handleSidebarStepChange = (sidebarStepId: number) => {
+    const internalIndex = sidebarStepToIndex[sidebarStepId];
+    if (internalIndex !== undefined && internalIndex <= highestStepReached) {
+      setValidationErrors({});
+      setChildValidationErrors({});
+      setCurrentStep(internalIndex);
+    }
+  };
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">New Member Registration</h1>
-        <p className="mt-1 text-sm text-gray-600">Complete all steps to register a new funeral service member</p>
+    <div className="flex min-h-screen -m-6">
+      {/* Sidebar */}
+      <div className="fixed top-16 left-16 h-[calc(100vh-4rem)] z-30">
+        <RegistrationSidebar
+          currentStep={getCurrentSidebarStep()}
+          completedSteps={getCompletedSteps()}
+          onStepChange={handleSidebarStepChange}
+          onSaveProgress={handleSaveProgress}
+          onBack={() => navigate('/members')}
+        />
       </div>
 
-      <div className="relative">
-        {/* Connecting lines layer */}
-        <div className="absolute top-5 left-0 right-0 flex items-center px-12">
-          {visibleSteps.slice(0, -1).map((_, i) => {
-            const actualIndex = stepIndexMap[i];
-            const isCompleted = actualIndex < currentStep;
-            return (
-              <div key={i} className={`h-0.5 flex-1 ${isCompleted ? 'bg-emerald-600' : 'bg-gray-300'}`} />
-            );
-          })}
-        </div>
+      {/* Main Content */}
+      <div className="flex-1 ml-72 p-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">New Member Registration</h1>
+            <p className="mt-1 text-sm text-gray-600">Complete all steps to register a new funeral service member</p>
+          </div>
 
-        {/* Steps layer */}
-        <div className="relative flex justify-between">
-          {visibleSteps.map((step, visualIndex) => {
-            const actualIndex = stepIndexMap[visualIndex];
-            const Icon = visibleStepIcons[visualIndex];
-            const isActive = actualIndex === currentStep;
-            const isCompleted = actualIndex < currentStep;
-            const isReachable = actualIndex <= highestStepReached;
-            const isClickable = isReachable && !isActive;
-
-            const handleStepClick = () => {
-              if (isClickable) {
-                setValidationErrors({});
-                setChildValidationErrors({});
-                setCurrentStep(actualIndex);
-              }
-            };
-
-            return (
-              <div
-                key={step}
-                className={`flex flex-col items-center ${isClickable ? 'cursor-pointer group' : ''}`}
-                onClick={handleStepClick}
-              >
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all bg-white ${
-                    isActive ? 'border-emerald-600 !bg-emerald-600 text-white' :
-                    isCompleted ? 'border-emerald-600 !bg-emerald-600 text-white group-hover:!bg-emerald-700 group-hover:border-emerald-700 group-hover:scale-110' :
-                    isReachable ? 'border-emerald-600 text-emerald-600 group-hover:bg-emerald-50' :
-                    'border-gray-300 text-gray-400'
-                  }`}>
-                  {isCompleted ? <Check className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
-                </div>
-                <span className={`mt-1.5 text-[11px] font-medium text-center transition-colors whitespace-nowrap ${
-                  isActive ? 'text-emerald-600' :
-                  isClickable ? 'text-gray-500 group-hover:text-emerald-600' :
-                  'text-gray-400'
-                }`}>
-                  {step}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-8">
+          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-8">
         {currentStep === 0 && <StepMembershipType formData={formData} updateFormData={updateFormData} />}
         {currentStep === 1 && <StepMainMember formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
         {currentStep === 2 && <StepJointMember formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
@@ -1074,61 +1072,43 @@ export default function AddMember() {
         {currentStep === 9 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} signupDate={signupDate} setSignupDate={setSignupDate} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} mainJoiningFee={mainJoiningFee} jointJoiningFee={jointJoiningFee} proRataAnnualFee={proRataAnnualFee} mainProRataFee={mainProRataFee} jointProRataFee={jointProRataFee} adjustmentValue={adjustmentValue} totalDue={totalDue} coverageEndDate={coverageEndDate} />}
       </div>
 
-      <div className="flex justify-between items-center bg-white rounded-xl shadow-md border border-gray-200 p-6">
-        <div className="flex items-center gap-4">
-          <button onClick={handleBack} disabled={currentStep === 0}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-            <ArrowLeft className="h-4 w-4 mr-2" /> Back
-          </button>
-          
-          <button
-            onClick={handleSaveProgress}
-            disabled={isSaving || !formData.first_name || !formData.last_name}
-            className="inline-flex items-center px-4 py-2 border-2 border-emerald-600 text-emerald-600 rounded-lg text-sm font-medium hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                </svg>
-                Save Progress
-              </>
-            )}
-          </button>
-        </div>
+          <div className="flex justify-between items-center bg-white rounded-xl shadow-md border border-gray-200 p-6">
+            <div className="flex items-center gap-4">
+              <button onClick={handleBack} disabled={currentStep === 0}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <ArrowLeft className="h-4 w-4 mr-2" /> Back
+              </button>
+            </div>
 
-        <div className="flex flex-col items-center">
-          <span className="text-sm text-gray-600">Step {currentVisibleStepIndex + 1} of {visibleSteps.length}</span>
-          {saveMessage && (
-            <span className={`text-xs mt-1 ${saveMessage.includes('✓') ? 'text-green-600' : 'text-red-600'}`}>
-              {saveMessage}
-            </span>
-          )}
-          {applicationReference && (
-            <span className="text-xs text-gray-500 mt-1">Ref: {applicationReference}</span>
-          )}
-        </div>
+            <div className="flex flex-col items-center">
+              <span className="text-sm text-gray-600">Step {currentVisibleStepIndex + 1} of {visibleSteps.length}</span>
+              {saveMessage && (
+                <span className={`text-xs mt-1 ${saveMessage.includes('✓') ? 'text-green-600' : 'text-red-600'}`}>
+                  {saveMessage}
+                </span>
+              )}
+              {applicationReference && (
+                <span className="text-xs text-gray-500 mt-1">Ref: {applicationReference}</span>
+              )}
+            </div>
 
-        {currentStep < steps.length - 1 ? (
-          <button onClick={handleNext}
-            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md">
-            Next <ArrowRight className="h-4 w-4 ml-2" />
-          </button>
-        ) : (
-          <button onClick={() => submitMutation.mutate()} disabled={submitMutation.isPending}
-            className="inline-flex items-center px-6 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
-            {submitMutation.isPending ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting...</>
+            {currentStep < steps.length - 1 ? (
+              <button onClick={handleNext}
+                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md">
+                Next <ArrowRight className="h-4 w-4 ml-2" />
+              </button>
             ) : (
-              <><Check className="h-4 w-4 mr-2" /> Submit Registration</>
+              <button onClick={() => submitMutation.mutate()} disabled={submitMutation.isPending}
+                className="inline-flex items-center px-6 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                {submitMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting...</>
+                ) : (
+                  <><Check className="h-4 w-4 mr-2" /> Submit Registration</>
+                )}
+              </button>
             )}
-          </button>
-        )}
+          </div>
+        </div>
       </div>
     </div>
   );
