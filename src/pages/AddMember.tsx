@@ -986,7 +986,7 @@ export default function AddMember() {
   return (
     <div className="flex min-h-screen -m-6">
       {/* Sidebar */}
-      <div className="fixed top-0 left-0 h-screen z-30">
+      <div className="fixed top-0 left-16 h-screen z-30">
         <RegistrationSidebar
           currentStep={getCurrentSidebarStep()}
           completedSteps={getCompletedSteps()}
@@ -997,7 +997,7 @@ export default function AddMember() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 ml-72 p-6">
+      <div className="flex-1 ml-[352px] p-6">
         <div className="max-w-4xl mx-auto space-y-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">New Member Registration</h1>
