@@ -25,9 +25,40 @@ import {
   Clock,
   Copy,
   Shield,
+  Info,
 } from 'lucide-react';
 
 const stepIcons = [Users, User, Users, Baby, Heart, Stethoscope, FileText, Upload, CheckSquare, FileText, CreditCard];
+
+// Reusable Info Tooltip Component
+function InfoTooltip({ title, children }: { title: string; children: React.ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative inline-flex items-center">
+      <button
+        type="button"
+        onMouseEnter={() => setIsOpen(true)}
+        onMouseLeave={() => setIsOpen(false)}
+        onClick={() => setIsOpen(!isOpen)}
+        className="p-1 text-gray-400 hover:text-[#2d5016] hover:bg-emerald-50 rounded-full transition-colors"
+        aria-label={`Info: ${title}`}
+      >
+        <Info className="h-4 w-4" />
+      </button>
+      {isOpen && (
+        <div className="absolute z-50 left-6 top-0 w-72 bg-white border border-gray-200 rounded-lg shadow-lg p-4 text-left">
+          <div className="absolute -left-2 top-2 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-r-8 border-r-white"></div>
+          <div className="absolute -left-[9px] top-2 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-r-8 border-r-gray-200"></div>
+          <h5 className="text-sm font-semibold text-gray-900 mb-2">{title}</h5>
+          <div className="text-xs text-gray-600 space-y-1">
+            {children}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface Child {
   first_name: string;
@@ -1703,7 +1734,19 @@ function StepDocuments({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Documents</h2>
+        <div className="flex items-center gap-2 mb-2">
+          <h2 className="text-2xl font-bold text-gray-900">Documents</h2>
+          <InfoTooltip title="Upload Requirements">
+            <ul className="space-y-1">
+              <li>• Accepted formats: JPG, PNG, PDF</li>
+              <li>• Maximum file size: 5MB per file</li>
+              <li>• Documents must be clear and readable</li>
+              <li>• Photo ID: Passport or Driving Licence</li>
+              <li>• Proof of Address: Utility bill, Council tax, Bank statement (within last 3 months)</li>
+              <li>• Children: Birth certificate or Passport required</li>
+            </ul>
+          </InfoTooltip>
+        </div>
         <p className="text-sm text-gray-600">
           Please upload the required documents. Accepted formats: JPG, PNG, PDF (Max 5MB per file)
         </p>
@@ -2121,18 +2164,6 @@ function StepDocuments({
           </div>
         </div>
       )}
-
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h5 className="text-sm font-semibold text-blue-900 mb-2">Upload Requirements:</h5>
-        <ul className="text-xs text-blue-800 space-y-1">
-          <li>• Accepted formats: JPG, PNG, PDF</li>
-          <li>• Maximum file size: 5MB per file</li>
-          <li>• Documents must be clear and readable</li>
-          <li>• Photo ID: Passport or Driving Licence</li>
-          <li>• Proof of Address: Utility bill, Council tax, Bank statement (within last 3 months)</li>
-          <li>• Children: Birth certificate or Passport required</li>
-        </ul>
-      </div>
     </div>
   );
 }
@@ -2167,19 +2198,19 @@ function StepDeclarations({
       {/* SECTION 6: MEDICAL CONSENT */}
       {/* ============================================ */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6">
-          Section 6: Medical Consent
-        </h3>
-
-        {/* Medical Consent Statement */}
-        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-          <p className="text-sm text-blue-900 leading-relaxed">
-            I do not have any medical condition or illness other than those disclosed in the medical
-            history section of this form that may invalidate my application (see section 14). In the
-            event of my death, I authorise CRMFS to request information from my medical records
-            relevant to my application for funeral cover. I give consent for this information to be
-            sourced from my GP or other medical specialists that I may have received treatment from.
-          </p>
+        <div className="flex items-center gap-2 mb-6">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Section 6: Medical Consent
+          </h3>
+          <InfoTooltip title="Medical Consent Statement">
+            <p className="leading-relaxed">
+              I do not have any medical condition or illness other than those disclosed in the medical
+              history section of this form that may invalidate my application (see section 14). In the
+              event of my death, I authorise CRMFS to request information from my medical records
+              relevant to my application for funeral cover. I give consent for this information to be
+              sourced from my GP or other medical specialists that I may have received treatment from.
+            </p>
+          </InfoTooltip>
         </div>
 
         {/* GP Details */}
@@ -2519,31 +2550,24 @@ function StepPaperForm({
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Paper Application Form Record
-        </h3>
-
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <div className="flex items-start">
-            <FileText className="h-5 w-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
-            <div>
-              <h4 className="text-sm font-semibold text-blue-900 mb-2">
-                GDPR Compliance via Paper Form
-              </h4>
-              <p className="text-sm text-blue-800 mb-2">
-                The member has completed and signed the official paper application form which includes:
-              </p>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Section 6: Medical Consent (explicit consent for special category data)</li>
-                <li>• Section 7: Declaration (T&Cs acceptance, emergency fund contribution)</li>
-                <li>• All required GDPR consents (personal data, medical data, GP access, data sharing, retention)</li>
-              </ul>
-              <p className="text-xs text-blue-700 mt-3">
-                <strong>Record Keeping:</strong> The signed paper form must be filed and retained for 7 years
-                after membership ends (GDPR Article 30 - Record of Processing Activities).
-              </p>
-            </div>
-          </div>
+        <div className="flex items-center gap-2 mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Paper Application Form Record
+          </h3>
+          <InfoTooltip title="GDPR Compliance via Paper Form">
+            <p className="mb-2">
+              The member has completed and signed the official paper application form which includes:
+            </p>
+            <ul className="space-y-1 mb-2">
+              <li>• Section 6: Medical Consent (explicit consent for special category data)</li>
+              <li>• Section 7: Declaration (T&Cs acceptance, emergency fund contribution)</li>
+              <li>• All required GDPR consents (personal data, medical data, GP access, data sharing, retention)</li>
+            </ul>
+            <p className="text-[10px] text-gray-500 border-t border-gray-200 pt-2 mt-2">
+              <strong>Record Keeping:</strong> The signed paper form must be filed and retained for 7 years
+              after membership ends (GDPR Article 30 - Record of Processing Activities).
+            </p>
+          </InfoTooltip>
         </div>
 
         <div className="space-y-4">
@@ -2758,25 +2782,6 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
           </p>
         </div>
 
-        {/* Age-Based Fee Information */}
-        {mainDob && membershipType === 'new' && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="text-sm font-semibold text-blue-900 mb-2">
-              Age-Based Joining Fee
-            </h4>
-            <p className="text-sm text-blue-800 mb-3">
-              Applicant age: <span className="font-semibold">{calculateAge(mainDob)} years</span>
-            </p>
-            <div className="text-xs text-blue-700 space-y-1">
-              <p>• Ages 18-25: £75</p>
-              <p>• Ages 26-35: £100</p>
-              <p>• Ages 36-45: £200</p>
-              <p>• Ages 46-55: £300</p>
-              <p>• Ages 56-65+: £500</p>
-            </div>
-          </div>
-        )}
-
         {/* Fee Breakdown */}
         <div className="bg-gray-50 rounded-lg p-4 mb-6">
           <h4 className="text-sm font-semibold text-gray-900 mb-3">Fee Breakdown</h4>
@@ -2785,7 +2790,19 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
             {/* Main Member - Joining Fee */}
             <div>
               <div className="flex justify-between mb-1">
-                <span className="text-gray-600">Joining Fee (one-time):</span>
+                <span className="text-gray-600 flex items-center gap-1">
+                  Joining Fee (one-time):
+                  <InfoTooltip title="Age-Based Joining Fee">
+                    <ul className="space-y-1">
+                      <li>• Ages 18-25: £75</li>
+                      <li>• Ages 26-35: £100</li>
+                      <li>• Ages 36-45: £200</li>
+                      <li>• Ages 46-55: £300</li>
+                      <li>• Ages 56-65+: £500</li>
+                    </ul>
+                    <p className="mt-2 pt-2 border-t border-gray-200">Children under 18 are free.</p>
+                  </InfoTooltip>
+                </span>
                 <span className="font-medium">
                   {membershipType === 'legacy' ? (
                     <span className="text-yellow-600">£0.00 (Waived - Legacy)</span>
@@ -2866,26 +2883,21 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
           </div>
         </div>
 
-        {/* Pro-rata Information Box */}
-        {signupDate && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="text-sm font-semibold text-blue-900 mb-2">
-              Pro-rata Payment Information
-            </h4>
-            <div className="text-xs text-blue-700 space-y-1">
-              <p>• All memberships renew on <strong>January 1st</strong> each year</p>
-              <p>• Annual fee is pro-rated from signup date to December 31st</p>
-              <p>• Use adjustments to prepay for following year (saves time in January!)</p>
-              <p>• Example: Add £100 adjustment = coverage through Dec 31, 2026</p>
-            </div>
-          </div>
-        )}
-
         {/* Adjustments Section */}
         <div className="mb-6">
-          <h4 className="text-sm font-semibold text-gray-900 mb-3">
-            Adjustments (Optional)
-          </h4>
+          <div className="flex items-center gap-2 mb-3">
+            <h4 className="text-sm font-semibold text-gray-900">
+              Adjustments (Optional)
+            </h4>
+            <InfoTooltip title="Pro-rata Payment Information">
+              <ul className="space-y-1">
+                <li>• All memberships renew on <strong>January 1st</strong> each year</li>
+                <li>• Annual fee is pro-rated from signup date to December 31st</li>
+                <li>• Use adjustments to prepay for following year (saves time in January!)</li>
+                <li>• Example: Add £100 adjustment = coverage through Dec 31, 2026</li>
+              </ul>
+            </InfoTooltip>
+          </div>
           <p className="text-xs text-gray-500 mb-3">
             Add additional amount to prepay for following year or make advance payment
           </p>
