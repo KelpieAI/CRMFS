@@ -85,6 +85,7 @@ export default function RecordDeath() {
         .eq('status', 'active')
         .order('last_name');
 
+      if (error) throw error;
       return data || [];
     },
   });

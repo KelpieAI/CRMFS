@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
 import { logActivity, ActivityTypes, getCurrentUserInfo } from '../lib/activityLogger';
 import CompactLayout from '../components/CompactLayout';
 import MemberSubNav from '../components/MemberSubNav';
@@ -328,7 +327,6 @@ export default function MemberDetail() {
   // GDPR: Export member data
   const exportMemberData = async () => {
     const { member, jointMember, children, nextOfKin, gpDetails, medicalInfo, payments } = memberData || {};
-    const activities = memberData?.activities || [];
     if (!member) return;
 
     try {
@@ -381,7 +379,6 @@ export default function MemberDetail() {
           joint_signature: member.joint_signature,
         },
         payments: payments || [],
-        activity_log: activities || [],
       };
 
       const jsonString = JSON.stringify(exportData, null, 2);
@@ -793,7 +790,7 @@ export default function MemberDetail() {
         )}
 
         {activeTab === 'gp' && (
-          <GPDetailsTab gpDetails={memberData?.gpDetails} memberId={id!} member={memberData?.member} />
+          <GPDetailsTab gpDetails={memberData?.gpDetails} memberId={id!} />
         )}
 
         {activeTab === 'declarations' && (
@@ -1797,57 +1794,6 @@ function calculateAge(dob: string): number | null {
 }
 
 // Helper Components
-function InfoRow({ label, value, displayValue, isEditing, type = 'text', options, onChange }: any) {
-  // Helper to capitalize first letter (for status display)
-  const capitalizeValue = (val: string) => {
-    if (!val) return val;
-    return val.charAt(0).toUpperCase() + val.slice(1);
-  };
-
-  if (!isEditing) {
-    return (
-      <div className="py-1">
-        <span className="text-xs text-gray-500 font-medium">{label}: </span>
-        <span className="text-sm text-gray-900">
-          {label === 'Status' ? capitalizeValue(displayValue || value) : (displayValue || value || 'N/A')}
-        </span>
-      </div>
-    );
-  }
-
-  if (type === 'select') {
-    return (
-      <div className="flex justify-between items-center py-1">
-        <dt className="text-xs text-gray-500 font-medium">{label}</dt>
-        <select
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value)}
-          className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-        >
-          <option value="">Select</option>
-          {options?.map((opt: string) => (
-            <option key={opt} value={opt}>
-              {opt.charAt(0).toUpperCase() + opt.slice(1)}
-            </option>
-          ))}
-        </select>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex justify-between items-center py-1">
-      <dt className="text-xs text-gray-500 font-medium">{label}</dt>
-      <input
-        type={type}
-        value={value || ''}
-        onChange={(e) => onChange(e.target.value)}
-        className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 w-48"
-      />
-    </div>
-  );
-}
-
 function ConfirmModal({ title, message, confirmText, confirmColor, onConfirm, onCancel, isLoading }: any) {
   const colorClasses = {
     red: 'bg-red-600 hover:bg-red-700',
@@ -1983,7 +1929,7 @@ function JointMemberTab({ jointMember }: any) {
 }
 
 // GP Details Tab Component
-function GPDetailsTab({ gpDetails, memberId, member }: any) {
+function GPDetailsTab({ gpDetails, memberId }: any) {
   const [showGPModal, setShowGPModal] = useState(false);
   
   if (!gpDetails) {
@@ -2122,7 +2068,6 @@ function DeclarationsTab({ declarations, memberId, member }: any) {
   }
 
   const hasMainSignatures = declarations.main_medical_signature || declarations.main_final_signature;
-  const hasJointSignatures = declarations.joint_medical_signature || declarations.joint_final_signature;
   const isComplete = declarations.main_medical_signature && declarations.main_final_signature;
 
   return (
@@ -3251,8 +3196,6 @@ function PaymentsTab({ payments, memberId }: any) {
     const printWindow = window.open('', '', 'width=800,height=600');
     if (!printWindow) return;
 
-    const hasJointFees = payment.joint_joining_fee || payment.joint_membership_fee;
-    
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -3375,8 +3318,6 @@ function PaymentsTab({ payments, memberId }: any) {
         </div>
         <div className="divide-y divide-gray-200">
           {payments.map((payment: any) => {
-            const hasJointFees = payment.joint_joining_fee || payment.joint_membership_fee || payment.joint_misc;
-            
             return (
               <div key={payment.id} className="p-4 hover:bg-gray-50 transition-colors">
                 <div className="flex items-start justify-between">
@@ -3566,7 +3507,6 @@ function PaymentsTab({ payments, memberId }: any) {
             setShowAdjustModal(false);
             setEditingPayment(null);
           }}
-          memberId={memberId}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
             setShowAdjustModal(false);
@@ -4384,8 +4324,7 @@ function MedicalInfoModal({ isOpen, onClose, memberId, info }: MedicalInfoModalP
 }
 
 // Adjust Payment Modal Component
-function AdjustPaymentModal({ payment, onClose, memberId, onSuccess }: any) {
-  const queryClient = useQueryClient();
+function AdjustPaymentModal({ payment, onClose, onSuccess }: any) {
   const [formData, setFormData] = useState({
     main_joining_fee: payment.main_joining_fee || 0,
     main_membership_fee: payment.main_membership_fee || 0,
@@ -5233,16 +5172,16 @@ function DocumentUploadModal({ isOpen, onClose, memberId, member }: DocumentUplo
   };
 
   const uploadFile = async (file: File, path: string) => {
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('member-documents')
       .upload(path, file, { upsert: true });
-    
+
     if (error) throw error;
-    
-    const { data: { publicUrl } } = supabase.storage
+
+    const { publicUrl } = supabase.storage
       .from('member-documents')
-      .getPublicUrl(path);
-    
+      .getPublicUrl(path).data;
+
     return publicUrl;
   };
 

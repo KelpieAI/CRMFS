@@ -2,11 +2,9 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { Shield, FileText, Trash2, CheckCircle, XCircle, Clock, Download } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('gdpr');
-  const navigate = useNavigate();
 
   // Fetch deletion requests
   const { data: deletionRequests, refetch } = useQuery({

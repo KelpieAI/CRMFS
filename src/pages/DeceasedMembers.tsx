@@ -56,6 +56,7 @@ export default function DeceasedMembers() {
         `)
         .order('created_at', { ascending: false });
 
+      if (error) throw error;
       return data || [];
     },
   });

@@ -1,6 +1,5 @@
 import {
   User,
-  Users,
   Baby,
   Heart,
   Stethoscope,
@@ -65,7 +64,6 @@ export default function RegistrationSidebar({
         {/* Navigation Items */}
         <nav className="p-4 space-y-1">
           {steps.map((step) => {
-            const Icon = step.icon;
             const status = getStepStatus(step.id);
             const isActive = status === 'active';
             const isCompleted = status === 'completed';

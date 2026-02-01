@@ -386,7 +386,7 @@ export default function MemberList() {
                                 Edit Member
                               </button>
                               
-                              {member.status !== 'paused' && (
+                              {(member.status as string) !== 'paused' && (
                                 <button
                                   onClick={() => {
                                     navigate(`/members/${member.id}?action=pause`);

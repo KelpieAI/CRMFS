@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
 import { logActivity, ActivityTypes } from '../lib/activityLogger';
 import DateInput from '../components/DateInput';
 import RegistrationSidebar from '../components/RegistrationSidebar';
@@ -13,12 +12,8 @@ import {
   Users,
   User,
   Baby,
-  Heart,
-  Stethoscope,
   FileText,
   Upload,
-  CheckSquare,
-  CreditCard,
   Loader2,
   Plus,
   Trash2,
@@ -29,7 +24,6 @@ import {
   Info,
 } from 'lucide-react';
 
-const stepIcons = [Users, User, Users, Baby, Heart, Stethoscope, FileText, Upload, CheckSquare, FileText, CreditCard];
 
 // Reusable Info Tooltip Component
 function InfoTooltip({ title, children }: { title: string; children: React.ReactNode }) {
@@ -156,7 +150,6 @@ export default function AddMember() {
   const [highestStepReached, setHighestStepReached] = useState(savedApplication?.current_step || 0);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [childValidationErrors, setChildValidationErrors] = useState<Record<number, Record<string, string>>>({});
-  const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [applicationReference, setApplicationReference] = useState<string | null>(savedApplication?.application_reference || null);
   const [mainHasMedicalCondition, setMainHasMedicalCondition] = useState(false);
@@ -639,7 +632,6 @@ export default function AddMember() {
 
   const saveProgressMutation = useMutation({
     mutationFn: async () => {
-      setIsSaving(true);
 
       if (applicationReference) {
         const { error } = await supabase
@@ -686,7 +678,6 @@ export default function AddMember() {
     onSuccess: (reference) => {
       setApplicationReference(reference);
       setSaveMessage(`✓ Progress saved! Reference: ${reference}`);
-      setIsSaving(false);
       
       // Clear message after 3 seconds
       setTimeout(() => setSaveMessage(''), 3000);
@@ -694,7 +685,6 @@ export default function AddMember() {
     onError: (error) => {
       console.error('Save error:', error);
       setSaveMessage('✗ Failed to save progress');
-      setIsSaving(false);
       setTimeout(() => setSaveMessage(''), 3000);
     },
   });
@@ -947,10 +937,6 @@ export default function AddMember() {
     ? steps.filter((_, index) => index !== 2)
     : steps;
 
-  const visibleStepIcons = formData.app_type === 'single'
-    ? stepIcons.filter((_, index) => index !== 2)
-    : stepIcons;
-
   const stepIndexMap = formData.app_type === 'single'
     ? [0, 1, 3, 4, 5, 6, 7, 8, 9]
     : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -1000,7 +986,7 @@ export default function AddMember() {
   return (
     <div className="flex min-h-screen -m-6">
       {/* Sidebar */}
-      <div className="fixed top-16 left-16 h-[calc(100vh-4rem)] z-30">
+      <div className="fixed top-0 left-0 h-screen z-30">
         <RegistrationSidebar
           currentStep={getCurrentSidebarStep()}
           completedSteps={getCompletedSteps()}
