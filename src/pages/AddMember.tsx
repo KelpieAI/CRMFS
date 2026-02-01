@@ -963,53 +963,53 @@ export default function AddMember() {
         <p className="mt-1 text-sm text-gray-600">Complete all steps to register a new funeral service member</p>
       </div>
 
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 overflow-x-auto">
-        <div className="flex items-center justify-center gap-1 min-w-max mx-auto px-4">
-          {visibleSteps.map((step, visualIndex) => {
-            const actualIndex = stepIndexMap[visualIndex];
-            const Icon = visibleStepIcons[visualIndex];
-            const isActive = actualIndex === currentStep;
-            const isCompleted = actualIndex < currentStep;
-            const isReachable = actualIndex <= highestStepReached;
-            const isClickable = isReachable && !isActive;
+      <div className="flex items-center justify-between w-full">
+        {visibleSteps.map((step, visualIndex) => {
+          const actualIndex = stepIndexMap[visualIndex];
+          const Icon = visibleStepIcons[visualIndex];
+          const isActive = actualIndex === currentStep;
+          const isCompleted = actualIndex < currentStep;
+          const isReachable = actualIndex <= highestStepReached;
+          const isClickable = isReachable && !isActive;
 
-            const handleStepClick = () => {
-              if (isClickable) {
-                setValidationErrors({});
-                setChildValidationErrors({});
-                setCurrentStep(actualIndex);
-              }
-            };
+          const handleStepClick = () => {
+            if (isClickable) {
+              setValidationErrors({});
+              setChildValidationErrors({});
+              setCurrentStep(actualIndex);
+            }
+          };
 
-            return (
-              <div key={step} className="flex items-center">
-                <div 
-                  className={`flex flex-col items-center min-w-[80px] ${
-                    isClickable ? 'cursor-pointer group' : ''
-                  }`}
-                  onClick={handleStepClick}
-                >
-                  <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all ${
-                      isActive ? 'border-emerald-600 bg-emerald-600 text-white' :
-                      isCompleted ? 'border-emerald-600 bg-emerald-600 text-white group-hover:bg-emerald-700 group-hover:border-emerald-700 group-hover:scale-110' : 
-                      isReachable ? 'border-emerald-600 bg-white text-emerald-600 group-hover:bg-emerald-50' :
-                      'border-gray-300 bg-white text-gray-400'
-                    }`}>
-                    {isCompleted ? <Check className="h-6 w-6" /> : <Icon className="h-6 w-6" />}
-                  </div>
-                  <span className={`mt-2 text-xs font-medium text-center transition-colors ${
-                    isActive ? 'text-emerald-600' : 
-                    isClickable ? 'text-gray-500 group-hover:text-emerald-600' : 
-                    'text-gray-400'
+          return (
+            <div key={step} className="flex items-center flex-1 last:flex-none">
+              <div
+                className={`flex flex-col items-center ${
+                  isClickable ? 'cursor-pointer group' : ''
+                }`}
+                onClick={handleStepClick}
+              >
+                <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all ${
+                    isActive ? 'border-emerald-600 bg-emerald-600 text-white' :
+                    isCompleted ? 'border-emerald-600 bg-emerald-600 text-white group-hover:bg-emerald-700 group-hover:border-emerald-700 group-hover:scale-110' :
+                    isReachable ? 'border-emerald-600 bg-white text-emerald-600 group-hover:bg-emerald-50' :
+                    'border-gray-300 bg-white text-gray-400'
                   }`}>
-                    {step}
-                  </span>
+                  {isCompleted ? <Check className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
                 </div>
-                {visualIndex < visibleSteps.length - 1 && <div className={`h-0.5 w-4 flex-shrink-0 ${isCompleted ? 'bg-emerald-600' : 'bg-gray-300'}`} />}
+                <span className={`mt-1.5 text-[11px] font-medium text-center transition-colors whitespace-nowrap ${
+                  isActive ? 'text-emerald-600' :
+                  isClickable ? 'text-gray-500 group-hover:text-emerald-600' :
+                  'text-gray-400'
+                }`}>
+                  {step}
+                </span>
               </div>
-            );
-          })}
-        </div>
+              {visualIndex < visibleSteps.length - 1 && (
+                <div className={`h-0.5 flex-1 mx-1 ${isCompleted ? 'bg-emerald-600' : 'bg-gray-300'}`} />
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div className="bg-white rounded-xl shadow-md border border-gray-200 p-8">
