@@ -956,15 +956,16 @@ export default function AddMember() {
     9: 9,  // Payment
   };
 
-  // Get completed steps for sidebar (convert internal indices to sidebar IDs)
-  const getCompletedSteps = (): number[] => {
-    const completed: number[] = [];
+  // Get reachable steps for sidebar (convert internal indices to sidebar IDs)
+  // A step is reachable if it has been reached before (i.e., <= highestStepReached)
+  const getReachableSteps = (): number[] => {
+    const reachable: number[] = [];
     Object.entries(sidebarStepToIndex).forEach(([sidebarId, internalIndex]) => {
-      if (internalIndex < currentStep) {
-        completed.push(parseInt(sidebarId));
+      if (internalIndex <= highestStepReached && internalIndex !== currentStep) {
+        reachable.push(parseInt(sidebarId));
       }
     });
-    return completed;
+    return reachable;
   };
 
   // Get current sidebar step ID from internal step index
@@ -989,7 +990,7 @@ export default function AddMember() {
       <div className="fixed top-0 left-16 h-screen z-30">
         <RegistrationSidebar
           currentStep={getCurrentSidebarStep()}
-          completedSteps={getCompletedSteps()}
+          completedSteps={getReachableSteps()}
           onStepChange={handleSidebarStepChange}
           onSaveProgress={handleSaveProgress}
           onBack={() => navigate('/members')}
