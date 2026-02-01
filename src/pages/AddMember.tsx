@@ -963,36 +963,47 @@ export default function AddMember() {
         <p className="mt-1 text-sm text-gray-600">Complete all steps to register a new funeral service member</p>
       </div>
 
-      <div className="flex items-center justify-between w-full">
-        {visibleSteps.map((step, visualIndex) => {
-          const actualIndex = stepIndexMap[visualIndex];
-          const Icon = visibleStepIcons[visualIndex];
-          const isActive = actualIndex === currentStep;
-          const isCompleted = actualIndex < currentStep;
-          const isReachable = actualIndex <= highestStepReached;
-          const isClickable = isReachable && !isActive;
+      <div className="relative">
+        {/* Connecting lines layer */}
+        <div className="absolute top-5 left-0 right-0 flex items-center px-12">
+          {visibleSteps.slice(0, -1).map((_, i) => {
+            const actualIndex = stepIndexMap[i];
+            const isCompleted = actualIndex < currentStep;
+            return (
+              <div key={i} className={`h-0.5 flex-1 ${isCompleted ? 'bg-emerald-600' : 'bg-gray-300'}`} />
+            );
+          })}
+        </div>
 
-          const handleStepClick = () => {
-            if (isClickable) {
-              setValidationErrors({});
-              setChildValidationErrors({});
-              setCurrentStep(actualIndex);
-            }
-          };
+        {/* Steps layer */}
+        <div className="relative flex justify-between">
+          {visibleSteps.map((step, visualIndex) => {
+            const actualIndex = stepIndexMap[visualIndex];
+            const Icon = visibleStepIcons[visualIndex];
+            const isActive = actualIndex === currentStep;
+            const isCompleted = actualIndex < currentStep;
+            const isReachable = actualIndex <= highestStepReached;
+            const isClickable = isReachable && !isActive;
 
-          return (
-            <div key={step} className="flex items-center flex-1 last:flex-none">
+            const handleStepClick = () => {
+              if (isClickable) {
+                setValidationErrors({});
+                setChildValidationErrors({});
+                setCurrentStep(actualIndex);
+              }
+            };
+
+            return (
               <div
-                className={`flex flex-col items-center ${
-                  isClickable ? 'cursor-pointer group' : ''
-                }`}
+                key={step}
+                className={`flex flex-col items-center ${isClickable ? 'cursor-pointer group' : ''}`}
                 onClick={handleStepClick}
               >
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all ${
-                    isActive ? 'border-emerald-600 bg-emerald-600 text-white' :
-                    isCompleted ? 'border-emerald-600 bg-emerald-600 text-white group-hover:bg-emerald-700 group-hover:border-emerald-700 group-hover:scale-110' :
-                    isReachable ? 'border-emerald-600 bg-white text-emerald-600 group-hover:bg-emerald-50' :
-                    'border-gray-300 bg-white text-gray-400'
+                <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all bg-white ${
+                    isActive ? 'border-emerald-600 !bg-emerald-600 text-white' :
+                    isCompleted ? 'border-emerald-600 !bg-emerald-600 text-white group-hover:!bg-emerald-700 group-hover:border-emerald-700 group-hover:scale-110' :
+                    isReachable ? 'border-emerald-600 text-emerald-600 group-hover:bg-emerald-50' :
+                    'border-gray-300 text-gray-400'
                   }`}>
                   {isCompleted ? <Check className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
                 </div>
@@ -1004,12 +1015,9 @@ export default function AddMember() {
                   {step}
                 </span>
               </div>
-              {visualIndex < visibleSteps.length - 1 && (
-                <div className={`h-0.5 flex-1 mx-1 ${isCompleted ? 'bg-emerald-600' : 'bg-gray-300'}`} />
-              )}
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-md border border-gray-200 p-8">
