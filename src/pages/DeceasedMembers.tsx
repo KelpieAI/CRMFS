@@ -38,26 +38,55 @@ export default function DeceasedMembers() {
   const [showDeceasedMenu, setShowDeceasedMenu] = useState<string | null>(null);
 
   // Fetch deceased members with their records
+  // Query members with status='deceased' and left join with deceased_records
   const { data: deceasedData, isLoading, refetch } = useQuery({
     queryKey: ['deceased-members'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('deceased')
-        .select(`
-          *,
-          members (
-            id,
-            first_name,
-            last_name,
-            email,
-            mobile,
-            date_of_birth
-          )
-        `)
+      // First get all deceased members
+      const { data: deceasedMembers, error: membersError } = await supabase
+        .from('members')
+        .select('*')
+        .eq('status', 'deceased')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return data || [];
+      if (membersError) throw membersError;
+
+      // Then get all deceased records
+      const { data: deceasedRecords, error: recordsError } = await supabase
+        .from('deceased_records')
+        .select('*');
+
+      if (recordsError) throw recordsError;
+
+      // Combine the data - create a unified structure
+      const combined = deceasedMembers?.map((member: any) => {
+        const record = deceasedRecords?.find((r: any) => r.member_id === member.id);
+
+        // If there's a record, use it. Otherwise, create a pending record structure
+        if (record) {
+          return {
+            ...record,
+            members: member,
+          };
+        } else {
+          // Member is deceased but has no death record yet - show as pending
+          return {
+            id: `pending-${member.id}`,
+            member_id: member.id,
+            date_of_death: null,
+            time_of_death: null,
+            place_of_death: null,
+            burial_location: null,
+            burial_plot_number: null,
+            status: 'pending',
+            assigned_committee_member: null,
+            created_at: member.updated_at,
+            members: member,
+          };
+        }
+      }) || [];
+
+      return combined;
     },
   });
 
@@ -72,6 +101,7 @@ export default function DeceasedMembers() {
              deathDate.getFullYear() === now.getFullYear();
     }).length || 0,
     pendingArrangements: deceasedData?.filter((record: any) =>
+      record.status === 'pending' ||
       record.status === 'reported' ||
       record.status === 'arranged'
     ).length || 0,
@@ -82,9 +112,12 @@ export default function DeceasedMembers() {
 
   // Filter deceased members
   const filteredMembers = deceasedData?.filter((record: any) => {
+    const member = record.members;
+    const memberName = member ? `${member.first_name} ${member.last_name}` : '';
+
     const matchesSearch =
       searchTerm === '' ||
-      record.deceased_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      memberName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.burial_location?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus =
@@ -123,15 +156,15 @@ export default function DeceasedMembers() {
 
   const getStatusBadge = (status?: string) => {
     const styles = {
+      pending: { bg: 'bg-orange-100', text: 'text-orange-800', icon: AlertCircle, label: 'Pending' },
       reported: { bg: 'bg-red-100', text: 'text-red-800', icon: AlertCircle, label: 'Reported' },
       arranged: { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: Clock, label: 'Arranged' },
       in_progress: { bg: 'bg-blue-100', text: 'text-blue-800', icon: Clock, label: 'In Progress' },
       completed: { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircle, label: 'Completed' },
       closed: { bg: 'bg-gray-100', text: 'text-gray-800', icon: CheckCircle, label: 'Closed' },
-      no_record: { bg: 'bg-orange-100', text: 'text-orange-800', icon: AlertCircle, label: 'No Record' },
     };
 
-    const style = styles[status as keyof typeof styles] || styles.no_record;
+    const style = styles[status as keyof typeof styles] || styles.pending;
     const Icon = style.icon;
 
     return (
@@ -288,12 +321,12 @@ export default function DeceasedMembers() {
                 className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
               >
                 <option value="all">All Status</option>
+                <option value="pending">Pending</option>
                 <option value="reported">Reported</option>
                 <option value="arranged">Arranged</option>
                 <option value="in_progress">In Progress</option>
                 <option value="completed">Completed</option>
                 <option value="closed">Closed</option>
-                <option value="no_record">No Record</option>
               </select>
             </div>
           </div>
@@ -394,20 +427,20 @@ export default function DeceasedMembers() {
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10">
                             <div className="h-10 w-10 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center text-white font-semibold">
-                              {record.deceased_name?.[0] || '?'}
+                              {member?.first_name?.[0] || '?'}
                             </div>
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {record.deceased_name}
+                              {member ? `${member.first_name} ${member.last_name}` : 'Unknown Member'}
                             </div>
                             <div className="text-xs text-gray-500">
-                              {member?.date_of_birth ? (
+                              {member?.dob ? (
                                 <>
-                                  Born: {new Date(member.date_of_birth).toLocaleDateString()}
+                                  Born: {new Date(member.dob).toLocaleDateString()}
                                   {record.date_of_death && (
                                     <span className="ml-2">
-                                      (Age: {Math.floor((new Date(record.date_of_death).getTime() - new Date(member.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))})
+                                      (Age: {Math.floor((new Date(record.date_of_death).getTime() - new Date(member.dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000))})
                                     </span>
                                   )}
                                 </>
@@ -445,7 +478,7 @@ export default function DeceasedMembers() {
                         {getStatusBadge(record.status)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {record.handled_by || 'Not assigned'}
+                        {record.assigned_committee_member || 'Not assigned'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                         <div className="relative">

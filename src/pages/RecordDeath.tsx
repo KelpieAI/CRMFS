@@ -106,25 +106,48 @@ export default function RecordDeath() {
     mutationFn: async (data: DeathFormData) => {
       // 1. Create deceased record
       const { data: deceasedRecord, error: recordError} = await supabase
-        .from('deceased')
+        .from('deceased_records')
         .insert({
           member_id: data.member_id,
-          deceased_name: `${selectedMember.first_name} ${selectedMember.last_name}`,
-          
+
           // Death Details
           date_of_death: data.date_of_death,
           time_of_death: data.time_of_death,
           place_of_death: data.place_of_death,
+          hospital_mortuary: data.hospital_mortuary,
           cause_of_death: data.cause_of_death,
+          death_certificate_number: data.death_certificate_number,
           death_certificate_obtained: data.death_certificate_obtained,
           next_of_kin_notified: data.next_of_kin_notified,
-          
+          assigned_committee_member: data.assigned_committee_member,
+
           // Funeral Arrangements
           burial_location: data.burial_location,
+          burial_plot_number: data.burial_plot_number,
           burial_date: data.burial_date,
           burial_time: data.burial_time,
           imam_name: data.imam_name,
-          
+          funeral_director: data.funeral_director,
+          funeral_director_phone: data.funeral_director_phone,
+          estimated_attendees: data.estimated_attendees,
+
+          // Costs & Expenses
+          estimated_total_cost: data.estimated_total_cost,
+          cemetery_plot_fee: data.cemetery_plot_fee,
+          imam_fee: data.imam_fee,
+          coffin_shroud_cost: data.coffin_shroud_cost,
+          transport_cost: data.transport_cost,
+          other_costs: data.other_costs,
+          payment_responsibility: data.payment_responsibility,
+
+          // Family Contacts
+          primary_contact_name: data.primary_contact_name,
+          primary_contact_relation: data.primary_contact_relation,
+          primary_contact_phone: data.primary_contact_phone,
+          primary_contact_email: data.primary_contact_email,
+          secondary_contact_name: data.secondary_contact_name,
+          secondary_contact_phone: data.secondary_contact_phone,
+
           // Status and Notes
           status: 'reported',
           notes: data.notes,
@@ -142,7 +165,7 @@ export default function RecordDeath() {
       // 2. Update member status to deceased
       const { error: memberError } = await supabase
         .from('members')
-        .update({ 
+        .update({
           status: 'deceased',
         })
         .eq('id', data.member_id);
