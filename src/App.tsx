@@ -21,6 +21,8 @@ import Settings from './pages/Settings';
 import DeletionRequests from './pages/DeletionRequests';
 import NotFound from './pages/NotFound';
 import CommandPalette from './components/CommandPalette';
+import UploadDocuments from './pages/UploadDocuments';
+import SignDeclarations from './pages/SignDeclarations';
 
 // Scroll to top on route change
 function ScrollToTop() {
@@ -59,8 +61,10 @@ function App() {
               <CommandPalette />
               
               <Routes>
-                {/* Public Route - Login Only */}
+                {/* Public Routes — no login required */}
                 <Route path="/login" element={<Login />} />
+                <Route path="/upload-documents" element={<UploadDocuments />} />
+                <Route path="/sign-declarations" element={<SignDeclarations />} />
 
                 {/* Protected Routes - Require Authentication */}
                 <Route path="/" element={
