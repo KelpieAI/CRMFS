@@ -228,11 +228,10 @@ export default function UploadDocuments() {
       margin: '0 0 24px 0',
     },
     label: {
-      display: 'block' as const,
       color: '#374151',
       fontSize: '14px',
       fontWeight: 600,
-      margin: '0 0 8px 0',
+      margin: '0 0 4px 0',
     },
     dropzone: (hasFile: boolean) => ({
       border: `2px dashed ${hasFile ? '#2d5016' : '#d1d5db'}`,
@@ -437,18 +436,9 @@ export default function UploadDocuments() {
         <div style={styles.body}>
           <p style={styles.greeting}>Hello {member?.first_name} {member?.last_name},</p>
 
-          <div style={styles.infoBox}>
-            <p style={styles.infoBoxTitle}>📋 Required Documents:</p>
-            <ul style={styles.infoBoxList}>
-              <li>Photo ID — Passport or Driving Licence</li>
-              <li>Proof of Address — Utility Bill or Council Tax (within 3 months)</li>
-            </ul>
-          </div>
-
-          <p style={styles.formatsNote}><strong>Accepted formats:</strong> JPG, PNG, PDF (max 5MB each)</p>
-
           {/* Photo ID */}
-          <label style={styles.label}>Photo ID *</label>
+          <p style={styles.label}>📷 Photo ID <span style={{ color: '#ef4444' }}>*</span></p>
+          <p style={{ color: '#6b7280', fontSize: '13px', margin: '0 0 8px 0' }}>Passport or Driving Licence · JPG, PNG or PDF (max 5MB)</p>
           <label style={styles.dropzone(!!files.photoId)}>
             <input
               type="file"
@@ -464,7 +454,8 @@ export default function UploadDocuments() {
           </label>
 
           {/* Proof of Address */}
-          <label style={styles.label}>Proof of Address *</label>
+          <p style={{ ...styles.label, marginTop: '20px' }}>🏠 Proof of Address <span style={{ color: '#ef4444' }}>*</span></p>
+          <p style={{ color: '#6b7280', fontSize: '13px', margin: '0 0 8px 0' }}>Utility Bill or Council Tax (within 3 months) · JPG, PNG or PDF (max 5MB)</p>
           <label style={styles.dropzone(!!files.proofOfAddress)}>
             <input
               type="file"
