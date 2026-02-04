@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
 interface TokenData {
@@ -25,6 +25,8 @@ export default function UploadDocuments() {
   const [tokenData, setTokenData] = useState<TokenData | null>(null);
   const [files, setFiles] = useState<{ photoId: File | null; proofOfAddress: File | null }>({ photoId: null, proofOfAddress: null });
   const [errorMessage, setErrorMessage] = useState('');
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const addressInputRef = useRef<HTMLInputElement>(null);
 
   // Extract token from URL
   useEffect(() => {
@@ -439,8 +441,9 @@ export default function UploadDocuments() {
           {/* Photo ID */}
           <p style={styles.label}>📷 Photo ID <span style={{ color: '#ef4444' }}>*</span></p>
           <p style={{ color: '#6b7280', fontSize: '13px', margin: '0 0 8px 0' }}>Passport or Driving Licence · JPG, PNG or PDF (max 5MB)</p>
-          <label style={styles.dropzone(!!files.photoId)}>
+          <div style={styles.dropzone(!!files.photoId)} onClick={() => photoInputRef.current?.click()}>
             <input
+              ref={photoInputRef}
               type="file"
               accept=".jpg,.jpeg,.png,.pdf"
               style={{ display: 'none' }}
@@ -451,13 +454,14 @@ export default function UploadDocuments() {
               ? <p style={styles.fileChosen}>✓ {files.photoId.name}</p>
               : <p style={styles.dropzoneText}>Tap to choose file</p>
             }
-          </label>
+          </div>
 
           {/* Proof of Address */}
           <p style={{ ...styles.label, marginTop: '20px' }}>🏠 Proof of Address <span style={{ color: '#ef4444' }}>*</span></p>
           <p style={{ color: '#6b7280', fontSize: '13px', margin: '0 0 8px 0' }}>Utility Bill or Council Tax (within 3 months) · JPG, PNG or PDF (max 5MB)</p>
-          <label style={styles.dropzone(!!files.proofOfAddress)}>
+          <div style={styles.dropzone(!!files.proofOfAddress)} onClick={() => addressInputRef.current?.click()}>
             <input
+              ref={addressInputRef}
               type="file"
               accept=".jpg,.jpeg,.png,.pdf"
               style={{ display: 'none' }}
@@ -468,7 +472,7 @@ export default function UploadDocuments() {
               ? <p style={styles.fileChosen}>✓ {files.proofOfAddress.name}</p>
               : <p style={styles.dropzoneText}>Tap to choose file</p>
             }
-          </label>
+          </div>
 
           {/* Submit */}
           <button
