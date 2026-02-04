@@ -187,7 +187,11 @@ export default function AddMember() {
   const [gpPostcode, setGpPostcode] = useState('');
   const [gpTelephone, setGpTelephone] = useState('');
   const [gpEmail, setGpEmail] = useState('');
-  
+
+  // Document email tracking
+  const [documentEmailSent, setDocumentEmailSent] = useState(false);
+  const [sendingDocumentEmail, setSendingDocumentEmail] = useState(false);
+
   const [formData, setFormData] = useState<FormData>(savedApplication?.form_data || {
     app_type: 'single',
     title: '',
@@ -599,39 +603,13 @@ export default function AddMember() {
       return memberId;
     },
     onSuccess: async (memberId) => {
-      // Track email sending results
-      let emailsSuccessful = true;
-      let emailError = '';
+      // Track declarations email sending result
+      let declarationsEmailSent = true;
 
-      // Get the Supabase anon key for Edge Function calls
+      // Supabase anon key for Edge Function calls
       const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrcHdpYmlzbWtld3JlemdjaGJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI3NDM2NjAsImV4cCI6MjA1ODMxOTY2MH0.gvJozgHMIqFKxJeUrz7dkH9S6HiIQWBwaKw8WvDK0Hc';
 
-      // Send document upload email
-      try {
-        const docUploadResponse = await fetch('https://fkpwibismkewrezgchbq.supabase.co/functions/v1/send-document-upload-email', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            memberId,
-            email: formData.email,
-            firstName: formData.first_name,
-            lastName: formData.last_name,
-          }),
-        });
-
-        if (!docUploadResponse.ok) {
-          throw new Error('Document upload email failed');
-        }
-      } catch (error) {
-        console.error('Failed to send document upload email:', error);
-        emailsSuccessful = false;
-        emailError = 'document upload';
-      }
-
-      // Send declarations email
+      // Send declarations email automatically after member creation
       try {
         const declarationsResponse = await fetch('https://fkpwibismkewrezgchbq.supabase.co/functions/v1/send-declarations-email', {
           method: 'POST',
@@ -652,8 +630,7 @@ export default function AddMember() {
         }
       } catch (error) {
         console.error('Failed to send declarations email:', error);
-        emailsSuccessful = false;
-        emailError = emailError ? 'emails' : 'declarations';
+        declarationsEmailSent = false;
       }
 
       // Delete saved application if exists
@@ -684,8 +661,8 @@ export default function AddMember() {
           memberName,
           applicationReference,
           paymentReceived,
-          emailsSuccessful,
-          emailError,
+          documentEmailSent, // Sent manually during Step 6
+          declarationsEmailSent, // Sent automatically after creation
         },
       });
     },
@@ -752,6 +729,45 @@ export default function AddMember() {
 
   const handleSaveProgress = () => {
     saveProgressMutation.mutate();
+  };
+
+  // Supabase anon key for Edge Function calls
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrcHdpYmlzbWtld3JlemdjaGJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI3NDM2NjAsImV4cCI6MjA1ODMxOTY2MH0.gvJozgHMIqFKxJeUrz7dkH9S6HiIQWBwaKw8WvDK0Hc';
+
+  const handleSendDocumentEmail = async () => {
+    if (!formData.email) {
+      alert('Please enter the member\'s email address first');
+      return;
+    }
+
+    setSendingDocumentEmail(true);
+    try {
+      const response = await fetch('https://fkpwibismkewrezgchbq.supabase.co/functions/v1/send-document-upload-email', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          memberId: null, // Will be created after registration
+          email: formData.email,
+          firstName: formData.first_name,
+          lastName: formData.last_name,
+          isPreRegistration: true, // Flag to indicate this is before member creation
+        }),
+      });
+
+      if (response.ok) {
+        setDocumentEmailSent(true);
+      } else {
+        throw new Error('Failed to send email');
+      }
+    } catch (error) {
+      console.error('Failed to send document upload email:', error);
+      alert('Failed to send email. Please try again.');
+    } finally {
+      setSendingDocumentEmail(false);
+    }
   };
 
   const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'Medical Info', 'Documents', 'Declarations', 'GDPR Compliance', 'Payment'];
@@ -1059,20 +1075,9 @@ export default function AddMember() {
         {currentStep === 5 && <StepMedicalInfo formData={formData} updateFormData={updateFormData} mainHasMedicalCondition={mainHasMedicalCondition} setMainHasMedicalCondition={setMainHasMedicalCondition} jointHasMedicalCondition={jointHasMedicalCondition} setJointHasMedicalCondition={setJointHasMedicalCondition} />}
         {currentStep === 6 && <StepDocuments
           formData={formData}
-          mainPhotoId={mainPhotoId} setMainPhotoId={setMainPhotoId}
-          mainPhotoIdUrl={mainPhotoIdUrl} setMainPhotoIdUrl={setMainPhotoIdUrl}
-          mainProofAddress={mainProofAddress} setMainProofAddress={setMainProofAddress}
-          mainProofAddressUrl={mainProofAddressUrl} setMainProofAddressUrl={setMainProofAddressUrl}
-          jointPhotoId={jointPhotoId} setJointPhotoId={setJointPhotoId}
-          jointPhotoIdUrl={jointPhotoIdUrl} setJointPhotoIdUrl={setJointPhotoIdUrl}
-          jointProofAddress={jointProofAddress} setJointProofAddress={setJointProofAddress}
-          jointProofAddressUrl={jointProofAddressUrl} setJointProofAddressUrl={setJointProofAddressUrl}
-          childrenDocuments={childrenDocuments} setChildrenDocuments={setChildrenDocuments}
-          childrenDocumentUrls={childrenDocumentUrls} setChildrenDocumentUrls={setChildrenDocumentUrls}
-          uploadingDoc={uploadingDoc}
-          uploadDocument={uploadDocument}
-          deleteDocument={deleteDocument}
-          calculateAge={calculateAge}
+          documentEmailSent={documentEmailSent}
+          sendingDocumentEmail={sendingDocumentEmail}
+          onSendDocumentEmail={handleSendDocumentEmail}
         />}
         {currentStep === 7 && <StepDeclarations
           gpPracticeName={gpPracticeName} setGpPracticeName={setGpPracticeName}
@@ -1724,457 +1729,125 @@ function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, se
 
 function StepDocuments({
   formData,
-  mainPhotoId, setMainPhotoId,
-  mainPhotoIdUrl, setMainPhotoIdUrl,
-  mainProofAddress, setMainProofAddress,
-  mainProofAddressUrl, setMainProofAddressUrl,
-  jointPhotoId, setJointPhotoId,
-  jointPhotoIdUrl, setJointPhotoIdUrl,
-  jointProofAddress, setJointProofAddress,
-  jointProofAddressUrl, setJointProofAddressUrl,
-  childrenDocuments, setChildrenDocuments,
-  childrenDocumentUrls, setChildrenDocumentUrls,
-  uploadingDoc,
-  uploadDocument,
-  deleteDocument,
-  calculateAge
+  documentEmailSent,
+  sendingDocumentEmail,
+  onSendDocumentEmail,
 }: any) {
   const hasJointMember = formData.app_type === 'joint';
   const children = formData.children || [];
+  const memberEmail = formData.email;
 
   return (
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2 mb-2">
           <h2 className="text-2xl font-bold text-gray-900">Documents</h2>
-          <InfoTooltip title="Upload Requirements">
+          <InfoTooltip title="Document Requirements">
             <ul className="space-y-1">
-              <li>• Accepted formats: JPG, PNG, PDF</li>
-              <li>• Maximum file size: 5MB per file</li>
-              <li>• Documents must be clear and readable</li>
               <li>• Photo ID: Passport or Driving Licence</li>
               <li>• Proof of Address: Utility bill, Council tax, Bank statement (within last 3 months)</li>
-              <li>• Children: Birth certificate or Passport required</li>
+              {children.length > 0 && <li>• Children: Birth certificate or Passport required</li>}
             </ul>
           </InfoTooltip>
         </div>
         <p className="text-sm text-gray-600">
-          Please upload the required documents. Accepted formats: JPG, PNG, PDF (Max 5MB per file)
+          Documents will be requested from the member via secure email link
         </p>
       </div>
 
-      <div className="mb-8">
-        <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-          <User className="h-4 w-4 mr-2 text-emerald-600" />
-          Main Member Documents
-        </h4>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Photo ID (Passport, Driving Licence) *
-            </label>
-
-            {mainPhotoIdUrl ? (
-              <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <FileText className="h-8 w-8 text-emerald-600 mr-3" />
-                    <div>
-                      <p className="text-sm font-medium text-emerald-900">
-                        {mainPhotoId?.name || 'Uploaded'}
-                      </p>
-                      <p className="text-xs text-emerald-600">
-                        {mainPhotoId ? `${(mainPhotoId.size / 1024).toFixed(1)} KB` : ''}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await deleteDocument(mainPhotoIdUrl);
-                      setMainPhotoIdUrl('');
-                      setMainPhotoId(null);
-                    }}
-                    className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      if (file.size > 5 * 1024 * 1024) {
-                        alert('File too large. Maximum 5MB.');
-                        return;
-                      }
-                      setMainPhotoId(file);
-                      const url = await uploadDocument(file, 'photo_id', 'main');
-                      if (url) setMainPhotoIdUrl(url);
-                    }
-                  }}
-                  className="hidden"
-                  id="main-photo-id"
-                  disabled={uploadingDoc === 'main-photo_id'}
-                />
-                <label
-                  htmlFor="main-photo-id"
-                  className="flex flex-col items-center cursor-pointer"
-                >
-                  {uploadingDoc === 'main-photo_id' ? (
-                    <>
-                      <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
-                      <span className="text-sm text-gray-600">Uploading...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                      <span className="text-sm text-gray-600">Click to upload</span>
-                      <span className="text-xs text-gray-500">or drag and drop</span>
-                    </>
-                  )}
-                </label>
-              </div>
-            )}
+      {/* Email-based document upload info */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="text-center max-w-md mx-auto">
+          <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+            <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Proof of Address (Utility Bill, Council Tax) *
-            </label>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Send Document Upload Request
+          </h3>
 
-            {mainProofAddressUrl ? (
-              <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <FileText className="h-8 w-8 text-emerald-600 mr-3" />
-                    <div>
-                      <p className="text-sm font-medium text-emerald-900">
-                        {mainProofAddress?.name || 'Uploaded'}
-                      </p>
-                      <p className="text-xs text-emerald-600">
-                        {mainProofAddress ? `${(mainProofAddress.size / 1024).toFixed(1)} KB` : ''}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await deleteDocument(mainProofAddressUrl);
-                      setMainProofAddressUrl('');
-                      setMainProofAddress(null);
-                    }}
-                    className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      if (file.size > 5 * 1024 * 1024) {
-                        alert('File too large. Maximum 5MB.');
-                        return;
-                      }
-                      setMainProofAddress(file);
-                      const url = await uploadDocument(file, 'proof_address', 'main');
-                      if (url) setMainProofAddressUrl(url);
-                    }
-                  }}
-                  className="hidden"
-                  id="main-proof-address"
-                  disabled={uploadingDoc === 'main-proof_address'}
-                />
-                <label
-                  htmlFor="main-proof-address"
-                  className="flex flex-col items-center cursor-pointer"
-                >
-                  {uploadingDoc === 'main-proof_address' ? (
-                    <>
-                      <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
-                      <span className="text-sm text-gray-600">Uploading...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                      <span className="text-sm text-gray-600">Click to upload</span>
-                      <span className="text-xs text-gray-500">or drag and drop</span>
-                    </>
-                  )}
-                </label>
-              </div>
-            )}
+          <p className="text-sm text-gray-600 mb-4">
+            Click the button below to send a secure email link to <strong>{memberEmail || 'the member'}</strong>.
+            They will be able to upload their documents directly through the link.
+          </p>
+
+          {/* Document requirements list */}
+          <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
+            <p className="text-xs font-semibold text-gray-700 mb-2">Required Documents:</p>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
+                Main Member: Photo ID + Proof of Address
+              </li>
+              {hasJointMember && (
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
+                  Joint Member: Photo ID + Proof of Address
+                </li>
+              )}
+              {children.length > 0 && (
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
+                  {children.length} {children.length === 1 ? 'Child' : 'Children'}: Birth Certificate/Passport
+                </li>
+              )}
+            </ul>
           </div>
+
+          {documentEmailSent ? (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+              <div className="flex items-center justify-center gap-2 text-emerald-700">
+                <CheckCircle className="h-5 w-5" />
+                <span className="font-medium">Email sent successfully!</span>
+              </div>
+              <p className="text-xs text-emerald-600 mt-1">
+                The member will receive the link shortly. You can resend if needed.
+              </p>
+              <button
+                type="button"
+                onClick={onSendDocumentEmail}
+                disabled={sendingDocumentEmail}
+                className="mt-3 text-sm text-emerald-700 hover:text-emerald-800 underline"
+              >
+                Resend email
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={onSendDocumentEmail}
+              disabled={sendingDocumentEmail || !memberEmail}
+              className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
+            >
+              {sendingDocumentEmail ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  Send Document Upload Email
+                </>
+              )}
+            </button>
+          )}
+
+          {!memberEmail && (
+            <p className="text-xs text-amber-600 mt-2">
+              Please enter the member's email address in Step 2 first
+            </p>
+          )}
+
+          <p className="text-xs text-gray-500 mt-4">
+            The secure link expires after 7 days. Documents can also be uploaded from the member profile after registration.
+          </p>
         </div>
       </div>
-
-      {hasJointMember && (
-        <div className="mb-8 pb-8 border-b border-gray-200">
-          <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-            <Users className="h-4 w-4 mr-2 text-emerald-600" />
-            Joint Member Documents
-          </h4>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Photo ID (Passport, Driving Licence) *
-              </label>
-
-              {jointPhotoIdUrl ? (
-                <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <FileText className="h-8 w-8 text-emerald-600 mr-3" />
-                      <div>
-                        <p className="text-sm font-medium text-emerald-900">
-                          {jointPhotoId?.name || 'Uploaded'}
-                        </p>
-                        <p className="text-xs text-emerald-600">
-                          {jointPhotoId ? `${(jointPhotoId.size / 1024).toFixed(1)} KB` : ''}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await deleteDocument(jointPhotoIdUrl);
-                        setJointPhotoIdUrl('');
-                        setJointPhotoId(null);
-                      }}
-                      className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        if (file.size > 5 * 1024 * 1024) {
-                          alert('File too large. Maximum 5MB.');
-                          return;
-                        }
-                        setJointPhotoId(file);
-                        const url = await uploadDocument(file, 'photo_id', 'joint');
-                        if (url) setJointPhotoIdUrl(url);
-                      }
-                    }}
-                    className="hidden"
-                    id="joint-photo-id"
-                    disabled={uploadingDoc === 'joint-photo_id'}
-                  />
-                  <label
-                    htmlFor="joint-photo-id"
-                    className="flex flex-col items-center cursor-pointer"
-                  >
-                    {uploadingDoc === 'joint-photo_id' ? (
-                      <>
-                        <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
-                        <span className="text-sm text-gray-600">Uploading...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                        <span className="text-sm text-gray-600">Click to upload</span>
-                        <span className="text-xs text-gray-500">or drag and drop</span>
-                      </>
-                    )}
-                  </label>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Proof of Address (Utility Bill, Council Tax) *
-              </label>
-
-              {jointProofAddressUrl ? (
-                <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <FileText className="h-8 w-8 text-emerald-600 mr-3" />
-                      <div>
-                        <p className="text-sm font-medium text-emerald-900">
-                          {jointProofAddress?.name || 'Uploaded'}
-                        </p>
-                        <p className="text-xs text-emerald-600">
-                          {jointProofAddress ? `${(jointProofAddress.size / 1024).toFixed(1)} KB` : ''}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await deleteDocument(jointProofAddressUrl);
-                        setJointProofAddressUrl('');
-                        setJointProofAddress(null);
-                      }}
-                      className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        if (file.size > 5 * 1024 * 1024) {
-                          alert('File too large. Maximum 5MB.');
-                          return;
-                        }
-                        setJointProofAddress(file);
-                        const url = await uploadDocument(file, 'proof_address', 'joint');
-                        if (url) setJointProofAddressUrl(url);
-                      }
-                    }}
-                    className="hidden"
-                    id="joint-proof-address"
-                    disabled={uploadingDoc === 'joint-proof_address'}
-                  />
-                  <label
-                    htmlFor="joint-proof-address"
-                    className="flex flex-col items-center cursor-pointer"
-                  >
-                    {uploadingDoc === 'joint-proof_address' ? (
-                      <>
-                        <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
-                        <span className="text-sm text-gray-600">Uploading...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                        <span className="text-sm text-gray-600">Click to upload</span>
-                        <span className="text-xs text-gray-500">or drag and drop</span>
-                      </>
-                    )}
-                  </label>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {children.length > 0 && (
-        <div className="mb-6">
-          <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-            <Baby className="h-4 w-4 mr-2 text-emerald-600" />
-            Children's Documents
-          </h4>
-
-          <div className="space-y-4">
-            {children.map((child: any, index: number) => (
-              <div key={index} className="border border-gray-200 rounded-lg p-4">
-                <p className="text-sm font-medium text-gray-900 mb-3">
-                  {child.first_name} {child.last_name} (Age {calculateAge(child.dob)})
-                </p>
-
-                {childrenDocumentUrls[`child-${index}`] ? (
-                  <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <FileText className="h-8 w-8 text-emerald-600 mr-3" />
-                        <div>
-                          <p className="text-sm font-medium text-emerald-900">
-                            {childrenDocuments[`child-${index}`]?.name || 'Uploaded'}
-                          </p>
-                          <p className="text-xs text-emerald-600">
-                            Birth Certificate / Passport
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          await deleteDocument(childrenDocumentUrls[`child-${index}`]);
-                          setChildrenDocumentUrls((prev: any) => {
-                            const updated = { ...prev };
-                            delete updated[`child-${index}`];
-                            return updated;
-                          });
-                          setChildrenDocuments((prev: any) => {
-                            const updated = { ...prev };
-                            delete updated[`child-${index}`];
-                            return updated;
-                          });
-                        }}
-                        className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
-                    <input
-                      type="file"
-                      accept="image/*,.pdf"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          if (file.size > 5 * 1024 * 1024) {
-                            alert('File too large. Maximum 5MB.');
-                            return;
-                          }
-                          setChildrenDocuments((prev: any) => ({ ...prev, [`child-${index}`]: file }));
-                          const url = await uploadDocument(file, 'birth_cert', `child_${index}`);
-                          if (url) {
-                            setChildrenDocumentUrls((prev: any) => ({ ...prev, [`child-${index}`]: url }));
-                          }
-                        }
-                      }}
-                      className="hidden"
-                      id={`child-doc-${index}`}
-                      disabled={uploadingDoc === `child_${index}-birth_cert`}
-                    />
-                    <label
-                      htmlFor={`child-doc-${index}`}
-                      className="flex flex-col items-center cursor-pointer"
-                    >
-                      {uploadingDoc === `child_${index}-birth_cert` ? (
-                        <>
-                          <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
-                          <span className="text-sm text-gray-600">Uploading...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                          <span className="text-sm text-gray-600">Upload Birth Certificate</span>
-                          <span className="text-xs text-gray-500">or Passport</span>
-                        </>
-                      )}
-                    </label>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

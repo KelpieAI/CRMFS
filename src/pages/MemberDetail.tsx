@@ -736,6 +736,63 @@ export default function MemberDetail() {
               <span className="text-white font-medium">{lastUpdateInfo.updated_by}</span>
             </div>
           )}
+
+          {/* Status Indicators for Documents and Declarations */}
+          {member.status === 'pending' && (
+            <div className="mt-4 pt-4 border-t border-white/20">
+              <p className="text-xs text-white/70 mb-2 uppercase tracking-wide font-medium">Pending Requirements</p>
+              <div className="flex flex-wrap gap-3">
+                {/* Documents Status */}
+                {(() => {
+                  const hasMainDocs = member.main_photo_id_url && member.main_proof_address_url;
+                  return (
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
+                      hasMainDocs
+                        ? 'bg-emerald-500/20 text-emerald-100'
+                        : 'bg-amber-500/20 text-amber-100'
+                    }`}>
+                      {hasMainDocs ? (
+                        <>
+                          <CheckCircle className="h-3.5 w-3.5" />
+                          Documents Uploaded
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="h-3.5 w-3.5" />
+                          Awaiting Documents
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Declarations Status */}
+                {(() => {
+                  const declarations = memberData?.declarations;
+                  const hasDeclarations = declarations?.main_medical_consent && declarations?.main_final_declaration;
+                  return (
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
+                      hasDeclarations
+                        ? 'bg-emerald-500/20 text-emerald-100'
+                        : 'bg-amber-500/20 text-amber-100'
+                    }`}>
+                      {hasDeclarations ? (
+                        <>
+                          <CheckCircle className="h-3.5 w-3.5" />
+                          Declarations Signed
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="h-3.5 w-3.5" />
+                          Awaiting Declarations
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Paused Member Warning */}
