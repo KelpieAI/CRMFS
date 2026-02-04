@@ -39,7 +39,7 @@ export default function RegistrationSidebar({
     { id: 4, label: 'Next of Kin', icon: Heart },
     { id: 5, label: 'Medical Info', icon: Stethoscope },
     { id: 6, label: 'Documents', icon: Upload },
-    { id: 7, label: 'Declarations', icon: CheckSquare },
+    { id: 7, label: 'GP Details', icon: Stethoscope },
     { id: 8, label: 'GDPR Compliance', icon: FileText },
     { id: 9, label: 'Payment', icon: CreditCard },
   ];

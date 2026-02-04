@@ -524,21 +524,22 @@ export default function AddMember() {
         await supabase.from('medical_info').insert({ member_id: memberId, member_type: 'joint', disclaimer: formData.joint_disclaimer, conditions: formData.joint_conditions });
       }
 
+      // Declarations will be completed by member via secure email link
       await supabase.from('declarations').insert({
         member_id: memberId,
-        main_medical_consent: mainMedicalConsent,
-        main_medical_signature: mainMedicalSignature,
-        main_medical_consent_date: new Date().toISOString(),
-        main_final_declaration: mainFinalDeclaration,
-        main_final_signature: mainFinalSignature,
-        main_final_declaration_date: new Date().toISOString(),
+        main_medical_consent: false,
+        main_medical_signature: null,
+        main_medical_consent_date: null,
+        main_final_declaration: false,
+        main_final_signature: null,
+        main_final_declaration_date: null,
         ...(formData.app_type === 'joint' && {
-          joint_medical_consent: jointMedicalConsent,
-          joint_medical_signature: jointMedicalSignature,
-          joint_medical_consent_date: new Date().toISOString(),
-          joint_final_declaration: jointFinalDeclaration,
-          joint_final_signature: jointFinalSignature,
-          joint_final_declaration_date: new Date().toISOString(),
+          joint_medical_consent: false,
+          joint_medical_signature: null,
+          joint_medical_consent_date: null,
+          joint_final_declaration: false,
+          joint_final_signature: null,
+          joint_final_declaration_date: null,
         }),
       });
 
@@ -598,6 +599,64 @@ export default function AddMember() {
       return memberId;
     },
     onSuccess: async (memberId) => {
+      // Track email sending results
+      let emailsSuccessful = true;
+      let emailError = '';
+
+      // Get the Supabase anon key for Edge Function calls
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrcHdpYmlzbWtld3JlemdjaGJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI3NDM2NjAsImV4cCI6MjA1ODMxOTY2MH0.gvJozgHMIqFKxJeUrz7dkH9S6HiIQWBwaKw8WvDK0Hc';
+
+      // Send document upload email
+      try {
+        const docUploadResponse = await fetch('https://fkpwibismkewrezgchbq.supabase.co/functions/v1/send-document-upload-email', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            memberId,
+            email: formData.email,
+            firstName: formData.first_name,
+            lastName: formData.last_name,
+          }),
+        });
+
+        if (!docUploadResponse.ok) {
+          throw new Error('Document upload email failed');
+        }
+      } catch (error) {
+        console.error('Failed to send document upload email:', error);
+        emailsSuccessful = false;
+        emailError = 'document upload';
+      }
+
+      // Send declarations email
+      try {
+        const declarationsResponse = await fetch('https://fkpwibismkewrezgchbq.supabase.co/functions/v1/send-declarations-email', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            memberId,
+            email: formData.email,
+            firstName: formData.first_name,
+            lastName: formData.last_name,
+          }),
+        });
+
+        if (!declarationsResponse.ok) {
+          throw new Error('Declarations email failed');
+        }
+      } catch (error) {
+        console.error('Failed to send declarations email:', error);
+        emailsSuccessful = false;
+        emailError = emailError ? 'emails' : 'declarations';
+      }
+
+      // Delete saved application if exists
       if (applicationReference) {
         try {
           const { error: deleteError } = await supabase
@@ -625,6 +684,8 @@ export default function AddMember() {
           memberName,
           applicationReference,
           paymentReceived,
+          emailsSuccessful,
+          emailError,
         },
       });
     },
@@ -788,27 +849,11 @@ export default function AddMember() {
   const validateDeclarationsStep = (): boolean => {
     const errors: Record<string, string> = {};
 
-    // Validate GP Details
+    // Validate GP Details only - declarations are now handled via email token system
     if (!gpPracticeName) errors.gpPracticeName = 'GP practice name is required';
     if (!gpPracticeAddress) errors.gpPracticeAddress = 'GP practice address is required';
     if (!gpPostcode) errors.gpPostcode = 'GP postcode is required';
     if (!gpTelephone) errors.gpTelephone = 'GP telephone is required';
-
-    // Validate Main Member Medical Consent
-    if (!mainMedicalConsent) errors.mainMedicalConsent = 'Medical consent is required';
-    if (!mainMedicalSignature) errors.mainMedicalSignature = 'Medical consent signature is required';
-
-    // Validate Main Member Final Declaration
-    if (!mainFinalDeclaration) errors.mainFinalDeclaration = 'Final declaration is required';
-    if (!mainFinalSignature) errors.mainFinalSignature = 'Final declaration signature is required';
-
-    // Validate Joint Member Declarations (if applicable)
-    if (formData.app_type === 'joint') {
-      if (!jointMedicalConsent) errors.jointMedicalConsent = 'Joint member medical consent is required';
-      if (!jointMedicalSignature) errors.jointMedicalSignature = 'Joint member medical consent signature is required';
-      if (!jointFinalDeclaration) errors.jointFinalDeclaration = 'Joint member final declaration is required';
-      if (!jointFinalSignature) errors.jointFinalSignature = 'Joint member final declaration signature is required';
-    }
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -1030,20 +1075,11 @@ export default function AddMember() {
           calculateAge={calculateAge}
         />}
         {currentStep === 7 && <StepDeclarations
-          formData={formData}
           gpPracticeName={gpPracticeName} setGpPracticeName={setGpPracticeName}
           gpPracticeAddress={gpPracticeAddress} setGpPracticeAddress={setGpPracticeAddress}
           gpPostcode={gpPostcode} setGpPostcode={setGpPostcode}
           gpTelephone={gpTelephone} setGpTelephone={setGpTelephone}
           gpEmail={gpEmail} setGpEmail={setGpEmail}
-          mainMedicalConsent={mainMedicalConsent} setMainMedicalConsent={setMainMedicalConsent}
-          mainMedicalSignature={mainMedicalSignature} setMainMedicalSignature={setMainMedicalSignature}
-          jointMedicalConsent={jointMedicalConsent} setJointMedicalConsent={setJointMedicalConsent}
-          jointMedicalSignature={jointMedicalSignature} setJointMedicalSignature={setJointMedicalSignature}
-          mainFinalDeclaration={mainFinalDeclaration} setMainFinalDeclaration={setMainFinalDeclaration}
-          mainFinalSignature={mainFinalSignature} setMainFinalSignature={setMainFinalSignature}
-          jointFinalDeclaration={jointFinalDeclaration} setJointFinalDeclaration={setJointFinalDeclaration}
-          jointFinalSignature={jointFinalSignature} setJointFinalSignature={setJointFinalSignature}
           validationErrors={validationErrors}
         />}
         {currentStep === 8 && <StepPaperForm
@@ -2144,362 +2180,135 @@ function StepDocuments({
 }
 
 function StepDeclarations({
-  formData,
   gpPracticeName, setGpPracticeName,
   gpPracticeAddress, setGpPracticeAddress,
   gpPostcode, setGpPostcode,
   gpTelephone, setGpTelephone,
   gpEmail, setGpEmail,
-  mainMedicalConsent, setMainMedicalConsent,
-  mainMedicalSignature, setMainMedicalSignature,
-  jointMedicalConsent, setJointMedicalConsent,
-  jointMedicalSignature, setJointMedicalSignature,
-  mainFinalDeclaration, setMainFinalDeclaration,
-  mainFinalSignature, setMainFinalSignature,
-  jointFinalDeclaration, setJointFinalDeclaration,
-  jointFinalSignature, setJointFinalSignature,
   validationErrors
 }: any) {
-  const hasJointMember = formData.app_type === 'joint';
-
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Declarations & Signatures</h2>
-        <p className="text-sm text-gray-600">Please complete all required declarations</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">GP Details & Declarations</h2>
+        <p className="text-sm text-gray-600">Enter the member's GP practice details</p>
       </div>
 
-      {/* ============================================ */}
-      {/* SECTION 6: MEDICAL CONSENT */}
-      {/* ============================================ */}
+      {/* Email-based declarations info banner */}
+      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-emerald-900 mb-1">
+              Declarations & Documents via Email
+            </h4>
+            <p className="text-sm text-emerald-800">
+              After registration, the member will receive two secure emails:
+            </p>
+            <ul className="text-sm text-emerald-700 mt-2 space-y-1">
+              <li>• <strong>Document Upload Link</strong> - To upload Photo ID and Proof of Address</li>
+              <li>• <strong>Declarations Link</strong> - To sign Medical Consent (Section 6) and T&Cs (Section 7)</li>
+            </ul>
+            <p className="text-xs text-emerald-600 mt-2">
+              These secure links expire after 7 days and can only be used once.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* GP Details */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex items-center gap-2 mb-6">
           <h3 className="text-lg font-semibold text-gray-900">
-            Section 6: Medical Consent
+            GP Practice Details
           </h3>
-          <InfoTooltip title="Medical Consent Statement">
+          <InfoTooltip title="Why we need GP details">
             <p className="leading-relaxed">
-              I do not have any medical condition or illness other than those disclosed in the medical
-              history section of this form that may invalidate my application (see section 14). In the
-              event of my death, I authorise CRMFS to request information from my medical records
-              relevant to my application for funeral cover. I give consent for this information to be
-              sourced from my GP or other medical specialists that I may have received treatment from.
+              GP details are required for medical consent purposes. In the event of a claim,
+              CRMFS may need to request information from the member's medical records relevant
+              to their application for funeral cover.
             </p>
           </InfoTooltip>
         </div>
 
-        {/* GP Details */}
-        <div className="mb-6">
-          <h4 className="text-sm font-semibold text-gray-900 mb-4">GP Practice Details</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                GP Practice Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={gpPracticeName}
-                onChange={(e) => setGpPracticeName(e.target.value)}
-                required
-                placeholder="Enter GP practice name"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPracticeName ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              {validationErrors.gpPracticeName && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPracticeName}</p>}
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                GP Practice Address <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={gpPracticeAddress}
-                onChange={(e) => setGpPracticeAddress(e.target.value)}
-                required
-                placeholder="Enter GP practice address"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPracticeAddress ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              {validationErrors.gpPracticeAddress && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPracticeAddress}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Post Code <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={gpPostcode}
-                onChange={(e) => setGpPostcode(e.target.value)}
-                required
-                placeholder="e.g., FK1 1UG"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPostcode ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              {validationErrors.gpPostcode && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPostcode}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Telephone <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="tel"
-                value={gpTelephone}
-                onChange={(e) => setGpTelephone(e.target.value)}
-                required
-                placeholder="GP practice phone"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpTelephone ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              {validationErrors.gpTelephone && <p className="text-red-500 text-xs mt-1">{validationErrors.gpTelephone}</p>}
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                value={gpEmail}
-                onChange={(e) => setGpEmail(e.target.value)}
-                placeholder="GP practice email (optional)"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Main Member Consent & Signature */}
-        <div className="mb-6 pb-6 border-b border-gray-200">
-          <h4 className="text-sm font-semibold text-gray-900 mb-4">Applicant 1 Consent</h4>
-
-          <div className="space-y-4">
-            {/* Checkbox */}
-            <label className="flex items-start cursor-pointer">
-              <input
-                type="checkbox"
-                checked={mainMedicalConsent}
-                onChange={(e) => setMainMedicalConsent(e.target.checked)}
-                required
-                className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-              />
-              <span className="ml-3 text-sm text-gray-700">
-                I confirm that I have read and agree to the medical consent statement above <span className="text-red-500">*</span>
-              </span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              GP Practice Name <span className="text-red-500">*</span>
             </label>
-            {validationErrors.mainMedicalConsent && <p className="text-red-500 text-xs mt-1">{validationErrors.mainMedicalConsent}</p>}
-
-            {/* Signature Field */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Applicant 1 Signature (Full Name) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={mainMedicalSignature}
-                onChange={(e) => setMainMedicalSignature(e.target.value)}
-                required
-                placeholder="Type your full name as signature"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-serif italic text-lg ${validationErrors.mainMedicalSignature ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                By typing your name, you are providing your electronic signature
-              </p>
-              {validationErrors.mainMedicalSignature && <p className="text-red-500 text-xs mt-1">{validationErrors.mainMedicalSignature}</p>}
-            </div>
-
-            {/* Date */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date
-              </label>
-              <input
-                type="date"
-                defaultValue={new Date().toISOString().split('T')[0]}
-                readOnly
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-              />
-            </div>
+            <input
+              type="text"
+              value={gpPracticeName}
+              onChange={(e) => setGpPracticeName(e.target.value)}
+              required
+              placeholder="Enter GP practice name"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPracticeName ? 'border-red-500' : 'border-gray-300'}`}
+            />
+            {validationErrors.gpPracticeName && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPracticeName}</p>}
           </div>
-        </div>
 
-        {/* Joint Member Consent & Signature (if applicable) */}
-        {hasJointMember && (
-          <div className="mb-6">
-            <h4 className="text-sm font-semibold text-gray-900 mb-4">Applicant 2 Consent</h4>
-
-            <div className="space-y-4">
-              {/* Checkbox */}
-              <label className="flex items-start cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={jointMedicalConsent}
-                  onChange={(e) => setJointMedicalConsent(e.target.checked)}
-                  required={hasJointMember}
-                  className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-                />
-                <span className="ml-3 text-sm text-gray-700">
-                  I confirm that I have read and agree to the medical consent statement above <span className="text-red-500">*</span>
-                </span>
-              </label>
-              {validationErrors.jointMedicalConsent && <p className="text-red-500 text-xs mt-1">{validationErrors.jointMedicalConsent}</p>}
-
-              {/* Signature Field */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Applicant 2 Signature (Full Name) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={jointMedicalSignature}
-                  onChange={(e) => setJointMedicalSignature(e.target.value)}
-                  required={hasJointMember}
-                  placeholder="Type full name as signature"
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-serif italic text-lg ${validationErrors.jointMedicalSignature ? 'border-red-500' : 'border-gray-300'}`}
-                />
-                {validationErrors.jointMedicalSignature && <p className="text-red-500 text-xs mt-1">{validationErrors.jointMedicalSignature}</p>}
-              </div>
-
-              {/* Date */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date
-                </label>
-                <input
-                  type="date"
-                  defaultValue={new Date().toISOString().split('T')[0]}
-                  readOnly
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ============================================ */}
-      {/* SECTION 7: DECLARATION */}
-      {/* ============================================ */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6">
-          Section 7: Declaration
-        </h3>
-
-        {/* Declaration Statement */}
-        <div className="bg-purple-50 border-l-4 border-purple-500 p-4 mb-6">
-          <p className="text-sm text-purple-900 leading-relaxed">
-            I solemnly declare that I have read, understood, and agree to abide by the terms and
-            conditions as set out here in this document by Central Region Muslim Funerals Services
-            (CRMFS). Should CRMFS create emergency only funds to meet the unexpected cost, I
-            agree to contribute my equal share. I hereby declare that the personal details provided
-            in this form are true and correct. A copy of which I have received.
-          </p>
-        </div>
-
-        {/* Main Member Declaration & Signature */}
-        <div className="mb-6 pb-6 border-b border-gray-200">
-          <h4 className="text-sm font-semibold text-gray-900 mb-4">Applicant 1 Declaration</h4>
-
-          <div className="space-y-4">
-            {/* Checkbox */}
-            <label className="flex items-start cursor-pointer">
-              <input
-                type="checkbox"
-                checked={mainFinalDeclaration}
-                onChange={(e) => setMainFinalDeclaration(e.target.checked)}
-                required
-                className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-              />
-              <span className="ml-3 text-sm text-gray-700">
-                I confirm that I have read and agree to the declaration above <span className="text-red-500">*</span>
-              </span>
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              GP Practice Address <span className="text-red-500">*</span>
             </label>
-            {validationErrors.mainFinalDeclaration && <p className="text-red-500 text-xs mt-1">{validationErrors.mainFinalDeclaration}</p>}
+            <input
+              type="text"
+              value={gpPracticeAddress}
+              onChange={(e) => setGpPracticeAddress(e.target.value)}
+              required
+              placeholder="Enter GP practice address"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPracticeAddress ? 'border-red-500' : 'border-gray-300'}`}
+            />
+            {validationErrors.gpPracticeAddress && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPracticeAddress}</p>}
+          </div>
 
-            {/* Signature Field */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Applicant 1 Signature (Full Name) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={mainFinalSignature}
-                onChange={(e) => setMainFinalSignature(e.target.value)}
-                required
-                placeholder="Type your full name as signature"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-serif italic text-lg ${validationErrors.mainFinalSignature ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                By typing your name, you are providing your electronic signature
-              </p>
-              {validationErrors.mainFinalSignature && <p className="text-red-500 text-xs mt-1">{validationErrors.mainFinalSignature}</p>}
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Post Code <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={gpPostcode}
+              onChange={(e) => setGpPostcode(e.target.value)}
+              required
+              placeholder="e.g., FK1 1UG"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPostcode ? 'border-red-500' : 'border-gray-300'}`}
+            />
+            {validationErrors.gpPostcode && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPostcode}</p>}
+          </div>
 
-            {/* Date */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date
-              </label>
-              <input
-                type="date"
-                defaultValue={new Date().toISOString().split('T')[0]}
-                readOnly
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Telephone <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="tel"
+              value={gpTelephone}
+              onChange={(e) => setGpTelephone(e.target.value)}
+              required
+              placeholder="GP practice phone"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpTelephone ? 'border-red-500' : 'border-gray-300'}`}
+            />
+            {validationErrors.gpTelephone && <p className="text-red-500 text-xs mt-1">{validationErrors.gpTelephone}</p>}
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Email
+            </label>
+            <input
+              type="email"
+              value={gpEmail}
+              onChange={(e) => setGpEmail(e.target.value)}
+              placeholder="GP practice email (optional)"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            />
           </div>
         </div>
-
-        {/* Joint Member Declaration & Signature (if applicable) */}
-        {hasJointMember && (
-          <div className="mb-6">
-            <h4 className="text-sm font-semibold text-gray-900 mb-4">Applicant 2 Declaration</h4>
-
-            <div className="space-y-4">
-              {/* Checkbox */}
-              <label className="flex items-start cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={jointFinalDeclaration}
-                  onChange={(e) => setJointFinalDeclaration(e.target.checked)}
-                  required={hasJointMember}
-                  className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-                />
-                <span className="ml-3 text-sm text-gray-700">
-                  I confirm that I have read and agree to the declaration above <span className="text-red-500">*</span>
-                </span>
-              </label>
-              {validationErrors.jointFinalDeclaration && <p className="text-red-500 text-xs mt-1">{validationErrors.jointFinalDeclaration}</p>}
-
-              {/* Signature Field */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Applicant 2 Signature (Full Name) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={jointFinalSignature}
-                  onChange={(e) => setJointFinalSignature(e.target.value)}
-                  required={hasJointMember}
-                  placeholder="Type full name as signature"
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-serif italic text-lg ${validationErrors.jointFinalSignature ? 'border-red-500' : 'border-gray-300'}`}
-                />
-                {validationErrors.jointFinalSignature && <p className="text-red-500 text-xs mt-1">{validationErrors.jointFinalSignature}</p>}
-              </div>
-
-              {/* Date */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date
-                </label>
-                <input
-                  type="date"
-                  defaultValue={new Date().toISOString().split('T')[0]}
-                  readOnly
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

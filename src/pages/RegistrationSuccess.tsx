@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { CheckCircle, Clock, UserPlus, Eye } from 'lucide-react';
+import { CheckCircle, Clock, UserPlus, Eye, Mail, AlertCircle } from 'lucide-react';
 
 export default function RegistrationSuccess() {
   const navigate = useNavigate();
@@ -10,6 +10,8 @@ export default function RegistrationSuccess() {
   const memberId = location.state?.memberId;
   const memberName = location.state?.memberName || 'New Member';
   const paymentReceived = location.state?.paymentReceived || false;
+  const emailsSuccessful = location.state?.emailsSuccessful !== false; // Default to true
+  const emailError = location.state?.emailError || '';
 
   useEffect(() => {
     // Auto-redirect if no member data (shouldn't happen)
@@ -92,6 +94,42 @@ export default function RegistrationSuccess() {
                 </div>
               )}
             </div>
+
+            {/* Email Notification Status */}
+            {emailsSuccessful ? (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <Mail className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-blue-800 font-medium mb-1">
+                      Emails sent to member
+                    </p>
+                    <p className="text-blue-700 text-sm">
+                      The member will receive two secure emails:
+                    </p>
+                    <ul className="text-blue-600 text-sm mt-1 space-y-0.5">
+                      <li>• <strong>Document Upload</strong> - To upload Photo ID & Proof of Address</li>
+                      <li>• <strong>Declarations</strong> - To sign Medical Consent & T&Cs</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-amber-800 font-medium mb-1">
+                      Email sending issue
+                    </p>
+                    <p className="text-amber-700 text-sm">
+                      Member was created successfully, but there was an issue sending the {emailError} email(s).
+                      You can resend them from the member's profile page.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="space-y-4">
