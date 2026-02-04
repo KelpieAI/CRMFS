@@ -3,7 +3,7 @@
 > A comprehensive member and payment management system built for Falkirk Central Mosque's death committee (Central Region Muslim Funeral Service).
 
 **Built by:** [Kelpie AI](https://kelpieai.co.uk)  
-**Version:** 0.9.1.0  
+**Version:** 0.9.4.0  
 **Status:** Active Development  
 **Tech Stack:** React + TypeScript + Supabase + Tailwind CSS + Resend
 
@@ -71,7 +71,11 @@ This CRM serves the death committee's operational needs by:
   - Searchable access history per member
 
 ### 👥 Member Management
-- **10-Step Registration Wizard** with progress tracking:
+- **10-Step Registration Wizard** with professional sidebar navigation:
+  - Fixed left sidebar showing all steps with clear progress indicators
+  - Green checkmarks for completed steps, dark green for active, gray for pending
+  - Click completed steps to navigate back and review
+  - Quick Actions: Save Progress, Back to Members, Email Copy, Print Progress
   - Personal details with age auto-calculation
   - Joint member registration (optional)
   - Children information
@@ -83,10 +87,12 @@ This CRM serves the death committee's operational needs by:
   - **Paper Form Record (GDPR compliance tracking)**
   - Pro-rata payment calculation with age-based fees
 - **Save Progress Feature** - Resume incomplete registrations
-- **Comprehensive Member Detail Pages** with:
-  - Modern Supabase-style collapsible navigation
+- **Comprehensive Member Detail Pages** with redesigned interface:
+  - Islamic green gradient hero section with member name and status
+  - Quick info strip showing phone, email, age, total paid, location
+  - Modern card-based layout with hover effects and mosque gold accents
   - Sub-navigation sidebar with 10 information tabs
-  - Personal Info tab (editable)
+  - Personal Info tab (editable, redesigned with better visual hierarchy)
   - Joint Member tab (partner details)
   - Children tab (add/edit/delete with premium modals)
   - Next of Kin tab (mandatory emergency contacts with CRUD)
@@ -206,6 +212,11 @@ This CRM serves the death committee's operational needs by:
 
 ### 💀 Deceased Member Management
 - Comprehensive funeral record system with 4-step wizard
+- **Pending Status by Default:**
+  - Deceased members marked as "pending" until Record of Death form completed
+  - Ensures data integrity for funeral service documentation
+  - Prevents incomplete death records from appearing in active workflows
+  - **Note:** Record of Death form workflow to be implemented in future release
 - Deceased member list with search and filter
 - **7 Information Tabs per Deceased Member:**
   - Overview (deceased info, family contacts)
@@ -673,14 +684,14 @@ See `STYLING_GUIDE.md` for detailed instructions.
 
 ## 📊 Project Metrics
 
-- **Total Components:** 53+
+- **Total Components:** 55+
 - **Database Tables:** 25 (including email automation tables)
 - **Storage Buckets:** 1 (member-documents)
 - **Edge Functions:** 3 (send-renewal-reminders, send-late-payment-warnings, auto-pause-members)
 - **Cron Jobs:** 3 (9:00 AM, 10:00 AM, 10:30 AM UTC daily)
 - **Database Triggers:** 3 (welcome email, payment confirmation, reactivation success)
 - **Email Templates:** 11 (8 cron-based + 3 instant trigger-based)
-- **Lines of Code:** ~40,000
+- **Lines of Code:** ~42,000
 - **Pages:** 18
 - **API Endpoints:** 115+ (via Supabase + Resend)
 - **Member Detail Tabs:** 10
@@ -688,7 +699,7 @@ See `STYLING_GUIDE.md` for detailed instructions.
 - **Registration Steps:** 10
 - **Document Types:** 5
 - **Premium Modals:** 7
-- **Premium Features:** 15 (including complete email automation)
+- **Premium Features:** 17 (including complete email automation + redesigned interfaces)
 
 ---
 
@@ -753,7 +764,7 @@ This system handles sensitive personal data. Security measures include:
 
 ## 📈 Version History
 
-### v0.9.1.0 (Current - 26 January 2026)
+### v0.9.4.0 (Current - 01 February 2026)
 🎊 **Instant Email Triggers Complete!** This release completes the email automation system with three instant-trigger emails that fire immediately when key events occur. Combined with the cron-based system from v0.9.0.0, the mosque now has complete automated communication for the entire member lifecycle. The system now handles 11 different email scenarios without any manual intervention.
 
 - **Instant Trigger Emails (Database Triggers):**
@@ -792,9 +803,107 @@ This system handles sensitive personal data. Security measures include:
 - Cron Jobs: 3 (9:00 AM, 10:00 AM, 10:30 AM UTC)
 - Email Types: 11 (8 scheduled + 3 instant)
 
-**Note:** Member detail interface redesign scheduled for v0.9.2.0
+**Note:** Deceased member workflow enhancement scheduled for future release
 
-### v0.9.0.0 (22 January 2026)
+### v0.9.3.0 (01 February 2026)
+🎨 **Registration Flow Redesign!** This release dramatically improves the user experience of the member registration process by replacing the cramped horizontal progress stepper with a professional sidebar navigation that matches the MemberSubNav styling. The new design provides better visual hierarchy, clearer progress tracking, and improved usability on all screen sizes.
+
+- **Registration Sidebar Navigation:**
+  - Fixed left sidebar replacing horizontal stepper
+  - All 9 steps clearly listed with numbered circles
+  - Visual progress indicators: green checkmark (completed), dark green circle (active), gray circle (pending)
+  - Click completed steps to navigate back and review
+  - Matches MemberSubNav styling (Islamic green #2d5016, mosque gold #D4AF37)
+  - Better spacing and typography throughout
+  - Smooth transitions and hover effects
+- **Quick Actions Section:**
+  - Save Progress button (green/prominent) for resuming later
+  - Back to Members link for easy navigation
+  - Email Copy function to send progress to member
+  - Print Progress for physical records
+  - All actions styled consistently with system theme
+- **Deceased Member Enhancement:**
+  - Deceased members now marked as "pending" by default
+  - Proper status only assigned after Record of Death form completed in-app
+  - Prevents incomplete death records from appearing in active workflows
+  - Ensures data integrity for funeral service documentation
+  - **Note:** Record of Death form workflow to be implemented in future release
+- **UX Improvements:**
+  - Much cleaner visual hierarchy
+  - No more cramped horizontal stepper
+  - Better mobile responsiveness
+  - Consistent branding with rest of system
+  - Professional appearance matching production standards
+
+**Technical Details:**
+- New component: RegistrationSidebar.tsx
+- Props: currentStep, completedSteps, onStepChange, onSaveProgress, onBack, onSendCopy, onPrintProgress
+- Styling: Tailwind CSS with Islamic green + mosque gold theme
+- Icons: lucide-react (User, Baby, Heart, Stethoscope, Upload, CheckSquare, FileText, CreditCard)
+
+**User Impact:**
+- Clearer progress tracking during registration
+- Easier to review previous steps
+- Better understanding of where they are in the process
+- Reduced confusion about next steps
+- More professional appearance increases trust
+
+### v0.9.2.0 (01 February 2026)
+🎨 **Member Detail Interface Revamp!** Following user feedback about the bland and cramped member detail interface, this release introduces a complete visual redesign that transforms the page from boring white boxes into a modern, professional interface with proper Islamic branding and visual hierarchy.
+
+- **Hero Section Redesign:**
+  - Islamic green gradient background (from #2d5016 to #3d6622)
+  - Large prominent member name display (32px bold)
+  - Status badge next to name (green for active, red for paused, yellow for pending)
+  - Mosque gold member ID (#D4AF37) for easy reference
+  - Quick info strip showing phone, email, age, total paid, location at a glance
+  - Removed cramped stat cards that cluttered the interface
+  - Professional appearance matching production standards
+- **Personal Info Tab Redesign:**
+  - Modern card-based layout with rounded corners and shadows
+  - Hover effects (cards lift up 2px on hover)
+  - Mosque gold accent borders on featured cards (4px left border)
+  - Better spacing throughout (24px padding vs previous 16px)
+  - Grouped information in 2-column grid for related data
+  - Visual icons in card headers for quick scanning
+  - Action buttons at bottom of each card for clear CTAs
+  - Address displayed in attractive block format with icon
+  - New Membership Information card showing member ID, join date, renewal, total paid
+  - Contact items styled with green background boxes for visibility
+- **Subnav Sidebar Enhancement:**
+  - Wider sidebar (288px vs 224px) for breathing room
+  - Bigger icons (18px) for better visibility
+  - Active state: light green background + dark green left border
+  - Hover state: mosque gold left border for visual feedback
+  - More padding throughout (16px on steps)
+  - Bolder fonts for better readability
+  - Quick Actions section properly styled with hover effects
+  - Smooth transitions on all interactive elements
+- **Visual Improvements:**
+  - Islamic branding throughout (green #2d5016 + gold #D4AF37)
+  - Proper visual hierarchy with font sizes and weights
+  - Professional shadows and rounded corners
+  - Consistent spacing and alignment
+  - Better use of white space
+  - Modern color palette matching mosque identity
+- **Technical Implementation:**
+  - Updated MemberDetail.tsx hero section (lines 436-678)
+  - Redesigned PersonalInfoTab component (lines 1238-1378)
+  - Completely rebuilt MemberSubNav.tsx component
+  - All changes maintain existing functionality
+  - No breaking changes to data structure or logic
+
+**User Impact:**
+- Much more visually appealing interface
+- Information easier to scan and understand
+- Professional appearance increases committee confidence
+- Islamic branding creates sense of ownership
+- Better UX reduces training time for new users
+- Reduced visual clutter improves focus
+
+**Note:** Registration progress stepper redesign scheduled for v0.9.3.0
+
+### v0.9.1.0 (26 January 2026)
 🎉 **Email Automation Complete!** This release introduces a fully automated email communication system that eliminates the need for manual renewal reminders and late payment follow-ups. The committee can now focus on serving members rather than chasing paperwork, with the system automatically handling all routine communications through professional branded emails.
 
 - **Email Infrastructure:**

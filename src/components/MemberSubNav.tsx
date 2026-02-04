@@ -53,16 +53,19 @@ export default function MemberSubNav({
   ].filter(item => item.show);
 
   return (
-    <div className="w-56 bg-white border-r border-gray-200 h-full overflow-y-auto">
-      {/* Header */}
-      <div className="sticky top-0 bg-white border-b border-gray-200 px-3 py-2.5 z-10">
-        <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+    <div className="w-72 bg-white border-r border-gray-200 h-screen flex flex-col">
+      {/* Header - flush to top */}
+      <div className="flex-shrink-0 bg-white px-5 py-4 border-b-2 border-[#2d5016]">
+        <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
           Member Details
         </h2>
       </div>
 
+      {/* Scrollable content area */}
+      <div className="flex-1 overflow-y-auto">
+
       {/* Navigation Items */}
-      <nav className="p-2 space-y-0.5">
+      <nav className="p-4 space-y-1">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -72,26 +75,31 @@ export default function MemberSubNav({
               key={item.id}
               onClick={() => onTabChange(item.id)}
               className={`
-                w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition-all duration-150
+                w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all duration-200
+                group relative
                 ${isActive
-                  ? 'bg-emerald-50 text-emerald-700 font-medium'
-                  : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-emerald-50 text-[#2d5016] font-semibold border-l-3 border-l-[#2d5016] pl-3.5'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 hover:border-l-3 hover:border-l-[#D4AF37] hover:pl-3.5'
                 }
               `}
             >
-              <div className="flex items-center space-x-2.5">
-                <Icon className={`h-4 w-4 ${isActive ? 'text-emerald-600' : 'text-gray-400'}`} />
-                <span className="text-sm">{item.label}</span>
+              <div className="flex items-center gap-3">
+                <Icon
+                  className={`h-[18px] w-[18px] transition-colors ${
+                    isActive ? 'text-[#2d5016]' : 'text-gray-400 group-hover:text-[#D4AF37]'
+                  }`}
+                />
+                <span className="text-[15px]">{item.label}</span>
               </div>
-              
+
               {/* Count badge */}
               {item.count !== undefined && item.count > 0 && (
                 <span
                   className={`
-                    inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium rounded-full
+                    inline-flex items-center justify-center min-w-[24px] h-5 px-2 text-xs font-bold rounded-full
                     ${isActive
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-gray-100 text-gray-600'
+                      ? 'bg-[#2d5016] text-white'
+                      : 'bg-gray-200 text-gray-700 group-hover:bg-[#D4AF37] group-hover:text-white'
                     }
                   `}
                 >
@@ -103,39 +111,45 @@ export default function MemberSubNav({
         })}
       </nav>
 
-      {/* Quick Info Section (Optional) */}
-      <div className="mt-3 px-3 py-2.5 bg-gray-50 border-t border-gray-200">
-        <p className="text-xs text-gray-500 font-medium mb-1.5">QUICK ACTIONS</p>
-        <div className="space-y-1.5">
-          <button 
+      {/* Divider */}
+      <div className="mx-5 my-5 border-t border-gray-200"></div>
+
+      {/* Quick Actions Section */}
+      <div className="px-5 pb-6">
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+          Quick Actions
+        </p>
+        <div className="space-y-2.5">
+          <button
             onClick={quickActions.onPrint || (() => window.print())}
-            className="w-full text-left text-xs text-gray-600 hover:text-emerald-600 transition-colors flex items-center"
+            className="w-full text-left text-[13px] text-gray-600 hover:text-[#2d5016] hover:bg-gray-50 transition-all py-2.5 px-3 rounded-lg flex items-center gap-2.5 font-medium"
           >
-            <Printer className="h-3 w-3 mr-2" />
+            <Printer className="h-4 w-4" />
             Print Summary
           </button>
-          <button 
+          <button
             onClick={quickActions.onExport}
-            className="w-full text-left text-xs text-gray-600 hover:text-emerald-600 transition-colors flex items-center"
+            className="w-full text-left text-[13px] text-gray-600 hover:text-[#2d5016] hover:bg-gray-50 transition-all py-2.5 px-3 rounded-lg flex items-center gap-2.5 font-medium"
           >
-            <Download className="h-3 w-3 mr-2" />
+            <Download className="h-4 w-4" />
             Export Data
           </button>
-          <button 
+          <button
             onClick={quickActions.onEmail}
-            className="w-full text-left text-xs text-gray-600 hover:text-emerald-600 transition-colors flex items-center"
+            className="w-full text-left text-[13px] text-gray-600 hover:text-[#2d5016] hover:bg-gray-50 transition-all py-2.5 px-3 rounded-lg flex items-center gap-2.5 font-medium"
           >
-            <Mail className="h-3 w-3 mr-2" />
+            <Mail className="h-4 w-4" />
             Send Email
           </button>
-          <button 
+          <button
             onClick={quickActions.onDeleteRequest}
-            className="w-full text-left text-xs text-red-600 hover:text-red-700 transition-colors flex items-center"
+            className="w-full text-left text-[13px] text-red-600 hover:text-red-700 hover:bg-red-50 transition-all py-2.5 px-3 rounded-lg flex items-center gap-2.5 font-medium"
           >
-            <Trash2 className="h-3 w-3 mr-2" />
-            Create Deletion Request
+            <Trash2 className="h-4 w-4" />
+            Delete Request
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

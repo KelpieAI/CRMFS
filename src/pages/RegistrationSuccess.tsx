@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { CheckCircle, Clock, UserPlus, Eye } from 'lucide-react';
+import { CheckCircle, Clock, UserPlus, Eye, Mail, AlertCircle } from 'lucide-react';
 
 export default function RegistrationSuccess() {
   const navigate = useNavigate();
@@ -10,6 +10,8 @@ export default function RegistrationSuccess() {
   const memberId = location.state?.memberId;
   const memberName = location.state?.memberName || 'New Member';
   const paymentReceived = location.state?.paymentReceived || false;
+  const documentEmailSent = location.state?.documentEmailSent || false;
+  const declarationsEmailSent = location.state?.declarationsEmailSent !== false; // Default to true
 
   useEffect(() => {
     // Auto-redirect if no member data (shouldn't happen)
@@ -91,6 +93,55 @@ export default function RegistrationSuccess() {
                   </p>
                 </div>
               )}
+            </div>
+
+            {/* Email Notification Status */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <Mail className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="w-full">
+                  <p className="text-blue-800 font-medium mb-2">
+                    Email Status
+                  </p>
+                  <div className="space-y-2">
+                    {/* Document Upload Email */}
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-blue-700">Document Upload Email</span>
+                      {documentEmailSent ? (
+                        <span className="flex items-center gap-1 text-emerald-600">
+                          <CheckCircle className="h-4 w-4" />
+                          Sent
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-amber-600">
+                          <Clock className="h-4 w-4" />
+                          Not sent yet
+                        </span>
+                      )}
+                    </div>
+                    {/* Declarations Email */}
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-blue-700">Declarations Email</span>
+                      {declarationsEmailSent ? (
+                        <span className="flex items-center gap-1 text-emerald-600">
+                          <CheckCircle className="h-4 w-4" />
+                          Sent automatically
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-red-600">
+                          <AlertCircle className="h-4 w-4" />
+                          Failed - resend from profile
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {!documentEmailSent && (
+                    <p className="text-xs text-blue-600 mt-2">
+                      You can send the document upload email from the member's profile page.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Action Buttons */}

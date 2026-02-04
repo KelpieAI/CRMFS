@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
 import { logActivity, ActivityTypes } from '../lib/activityLogger';
 import DateInput from '../components/DateInput';
+import RegistrationSidebar from '../components/RegistrationSidebar';
 import {
   ArrowLeft,
   ArrowRight,
@@ -12,12 +12,8 @@ import {
   Users,
   User,
   Baby,
-  Heart,
-  Stethoscope,
   FileText,
   Upload,
-  CheckSquare,
-  CreditCard,
   Loader2,
   Plus,
   Trash2,
@@ -25,9 +21,39 @@ import {
   Clock,
   Copy,
   Shield,
+  Info,
 } from 'lucide-react';
 
-const stepIcons = [Users, User, Users, Baby, Heart, Stethoscope, FileText, Upload, CheckSquare, FileText, CreditCard];
+
+// Reusable Info Tooltip Component
+function InfoTooltip({ title, children }: { title: string; children: React.ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative inline-flex items-center">
+      <button
+        type="button"
+        onMouseEnter={() => setIsOpen(true)}
+        onMouseLeave={() => setIsOpen(false)}
+        onClick={() => setIsOpen(!isOpen)}
+        className="p-1 text-gray-400 hover:text-[#2d5016] hover:bg-emerald-50 rounded-full transition-colors"
+        aria-label={`Info: ${title}`}
+      >
+        <Info className="h-4 w-4" />
+      </button>
+      {isOpen && (
+        <div className="absolute z-50 left-6 top-0 w-72 bg-white border border-gray-200 rounded-lg shadow-lg p-4 text-left">
+          <div className="absolute -left-2 top-2 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-r-8 border-r-white"></div>
+          <div className="absolute -left-[9px] top-2 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-r-8 border-r-gray-200"></div>
+          <h5 className="text-sm font-semibold text-gray-900 mb-2">{title}</h5>
+          <div className="text-xs text-gray-600 space-y-1">
+            {children}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface Child {
   first_name: string;
@@ -124,7 +150,6 @@ export default function AddMember() {
   const [highestStepReached, setHighestStepReached] = useState(savedApplication?.current_step || 0);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [childValidationErrors, setChildValidationErrors] = useState<Record<number, Record<string, string>>>({});
-  const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [applicationReference, setApplicationReference] = useState<string | null>(savedApplication?.application_reference || null);
   const [mainHasMedicalCondition, setMainHasMedicalCondition] = useState(false);
@@ -162,7 +187,11 @@ export default function AddMember() {
   const [gpPostcode, setGpPostcode] = useState('');
   const [gpTelephone, setGpTelephone] = useState('');
   const [gpEmail, setGpEmail] = useState('');
-  
+
+  // Document email tracking
+  const [documentEmailSent, setDocumentEmailSent] = useState(false);
+  const [sendingDocumentEmail, setSendingDocumentEmail] = useState(false);
+
   const [formData, setFormData] = useState<FormData>(savedApplication?.form_data || {
     app_type: 'single',
     title: '',
@@ -386,6 +415,11 @@ export default function AddMember() {
     setFormData((prev) => ({ ...prev, total_amount: total }));
   }, [formData.main_joining_fee, formData.main_membership_fee, formData.joint_joining_fee, formData.joint_membership_fee, formData.app_type]);
 
+  // Scroll to top when step changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentStep]);
+
   const mainJoiningFee = calculateJoiningFee(mainDob, membershipType === 'legacy');
   const jointJoiningFee = formData.app_type === 'joint' && formData.joint_dob
     ? calculateJoiningFee(formData.joint_dob, membershipType === 'legacy')
@@ -494,21 +528,22 @@ export default function AddMember() {
         await supabase.from('medical_info').insert({ member_id: memberId, member_type: 'joint', disclaimer: formData.joint_disclaimer, conditions: formData.joint_conditions });
       }
 
+      // Declarations will be completed by member via secure email link
       await supabase.from('declarations').insert({
         member_id: memberId,
-        main_medical_consent: mainMedicalConsent,
-        main_medical_signature: mainMedicalSignature,
-        main_medical_consent_date: new Date().toISOString(),
-        main_final_declaration: mainFinalDeclaration,
-        main_final_signature: mainFinalSignature,
-        main_final_declaration_date: new Date().toISOString(),
+        main_medical_consent: false,
+        main_medical_signature: null,
+        main_medical_consent_date: null,
+        main_final_declaration: false,
+        main_final_signature: null,
+        main_final_declaration_date: null,
         ...(formData.app_type === 'joint' && {
-          joint_medical_consent: jointMedicalConsent,
-          joint_medical_signature: jointMedicalSignature,
-          joint_medical_consent_date: new Date().toISOString(),
-          joint_final_declaration: jointFinalDeclaration,
-          joint_final_signature: jointFinalSignature,
-          joint_final_declaration_date: new Date().toISOString(),
+          joint_medical_consent: false,
+          joint_medical_signature: null,
+          joint_medical_consent_date: null,
+          joint_final_declaration: false,
+          joint_final_signature: null,
+          joint_final_declaration_date: null,
         }),
       });
 
@@ -568,6 +603,37 @@ export default function AddMember() {
       return memberId;
     },
     onSuccess: async (memberId) => {
+      // Track declarations email sending result
+      let declarationsEmailSent = true;
+
+      // Supabase anon key for Edge Function calls
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrcHdpYmlzbWtld3JlemdjaGJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI3NDM2NjAsImV4cCI6MjA1ODMxOTY2MH0.gvJozgHMIqFKxJeUrz7dkH9S6HiIQWBwaKw8WvDK0Hc';
+
+      // Send declarations email automatically after member creation
+      try {
+        const declarationsResponse = await fetch('https://fkpwibismkewrezgchbq.supabase.co/functions/v1/send-declarations-email', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            memberId,
+            email: formData.email,
+            firstName: formData.first_name,
+            lastName: formData.last_name,
+          }),
+        });
+
+        if (!declarationsResponse.ok) {
+          throw new Error('Declarations email failed');
+        }
+      } catch (error) {
+        console.error('Failed to send declarations email:', error);
+        declarationsEmailSent = false;
+      }
+
+      // Delete saved application if exists
       if (applicationReference) {
         try {
           const { error: deleteError } = await supabase
@@ -595,6 +661,8 @@ export default function AddMember() {
           memberName,
           applicationReference,
           paymentReceived,
+          documentEmailSent, // Sent manually during Step 6
+          declarationsEmailSent, // Sent automatically after creation
         },
       });
     },
@@ -602,7 +670,6 @@ export default function AddMember() {
 
   const saveProgressMutation = useMutation({
     mutationFn: async () => {
-      setIsSaving(true);
 
       if (applicationReference) {
         const { error } = await supabase
@@ -649,7 +716,6 @@ export default function AddMember() {
     onSuccess: (reference) => {
       setApplicationReference(reference);
       setSaveMessage(`✓ Progress saved! Reference: ${reference}`);
-      setIsSaving(false);
       
       // Clear message after 3 seconds
       setTimeout(() => setSaveMessage(''), 3000);
@@ -657,13 +723,51 @@ export default function AddMember() {
     onError: (error) => {
       console.error('Save error:', error);
       setSaveMessage('✗ Failed to save progress');
-      setIsSaving(false);
       setTimeout(() => setSaveMessage(''), 3000);
     },
   });
 
   const handleSaveProgress = () => {
     saveProgressMutation.mutate();
+  };
+
+  // Supabase anon key for Edge Function calls
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrcHdpYmlzbWtld3JlemdjaGJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI3NDM2NjAsImV4cCI6MjA1ODMxOTY2MH0.gvJozgHMIqFKxJeUrz7dkH9S6HiIQWBwaKw8WvDK0Hc';
+
+  const handleSendDocumentEmail = async () => {
+    if (!formData.email) {
+      alert('Please enter the member\'s email address first');
+      return;
+    }
+
+    setSendingDocumentEmail(true);
+    try {
+      const response = await fetch('https://fkpwibismkewrezgchbq.supabase.co/functions/v1/send-document-upload-email', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          memberId: null, // Will be created after registration
+          email: formData.email,
+          firstName: formData.first_name,
+          lastName: formData.last_name,
+          isPreRegistration: true, // Flag to indicate this is before member creation
+        }),
+      });
+
+      if (response.ok) {
+        setDocumentEmailSent(true);
+      } else {
+        throw new Error('Failed to send email');
+      }
+    } catch (error) {
+      console.error('Failed to send document upload email:', error);
+      alert('Failed to send email. Please try again.');
+    } finally {
+      setSendingDocumentEmail(false);
+    }
   };
 
   const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'Medical Info', 'Documents', 'Declarations', 'GDPR Compliance', 'Payment'];
@@ -761,27 +865,11 @@ export default function AddMember() {
   const validateDeclarationsStep = (): boolean => {
     const errors: Record<string, string> = {};
 
-    // Validate GP Details
+    // Validate GP Details only - declarations are now handled via email token system
     if (!gpPracticeName) errors.gpPracticeName = 'GP practice name is required';
     if (!gpPracticeAddress) errors.gpPracticeAddress = 'GP practice address is required';
     if (!gpPostcode) errors.gpPostcode = 'GP postcode is required';
     if (!gpTelephone) errors.gpTelephone = 'GP telephone is required';
-
-    // Validate Main Member Medical Consent
-    if (!mainMedicalConsent) errors.mainMedicalConsent = 'Medical consent is required';
-    if (!mainMedicalSignature) errors.mainMedicalSignature = 'Medical consent signature is required';
-
-    // Validate Main Member Final Declaration
-    if (!mainFinalDeclaration) errors.mainFinalDeclaration = 'Final declaration is required';
-    if (!mainFinalSignature) errors.mainFinalSignature = 'Final declaration signature is required';
-
-    // Validate Joint Member Declarations (if applicable)
-    if (formData.app_type === 'joint') {
-      if (!jointMedicalConsent) errors.jointMedicalConsent = 'Joint member medical consent is required';
-      if (!jointMedicalSignature) errors.jointMedicalSignature = 'Joint member medical consent signature is required';
-      if (!jointFinalDeclaration) errors.jointFinalDeclaration = 'Joint member final declaration is required';
-      if (!jointFinalSignature) errors.jointFinalSignature = 'Joint member final declaration signature is required';
-    }
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -910,73 +998,75 @@ export default function AddMember() {
     ? steps.filter((_, index) => index !== 2)
     : steps;
 
-  const visibleStepIcons = formData.app_type === 'single'
-    ? stepIcons.filter((_, index) => index !== 2)
-    : stepIcons;
-
   const stepIndexMap = formData.app_type === 'single'
     ? [0, 1, 3, 4, 5, 6, 7, 8, 9]
     : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   const currentVisibleStepIndex = stepIndexMap.indexOf(currentStep);
 
+  // Map sidebar step IDs (1-9) to internal step indices
+  const sidebarStepToIndex: Record<number, number> = {
+    1: 0,  // Membership Type
+    2: 1,  // Main Member
+    3: 3,  // Children (skip joint member step 2)
+    4: 4,  // Next of Kin
+    5: 5,  // Medical Info
+    6: 6,  // Documents
+    7: 7,  // Declarations
+    8: 8,  // GDPR Compliance (Paper Form)
+    9: 9,  // Payment
+  };
+
+  // Get reachable steps for sidebar (convert internal indices to sidebar IDs)
+  // A step is reachable if it has been reached before (i.e., <= highestStepReached)
+  const getReachableSteps = (): number[] => {
+    const reachable: number[] = [];
+    Object.entries(sidebarStepToIndex).forEach(([sidebarId, internalIndex]) => {
+      if (internalIndex <= highestStepReached && internalIndex !== currentStep) {
+        reachable.push(parseInt(sidebarId));
+      }
+    });
+    return reachable;
+  };
+
+  // Get current sidebar step ID from internal step index
+  const getCurrentSidebarStep = (): number => {
+    const entry = Object.entries(sidebarStepToIndex).find(([_, idx]) => idx === currentStep);
+    return entry ? parseInt(entry[0]) : 1;
+  };
+
+  // Handle sidebar step change
+  const handleSidebarStepChange = (sidebarStepId: number) => {
+    const internalIndex = sidebarStepToIndex[sidebarStepId];
+    if (internalIndex !== undefined && internalIndex <= highestStepReached) {
+      setValidationErrors({});
+      setChildValidationErrors({});
+      setCurrentStep(internalIndex);
+    }
+  };
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">New Member Registration</h1>
-        <p className="mt-1 text-sm text-gray-600">Complete all steps to register a new funeral service member</p>
+    <div className="flex min-h-screen -m-6">
+      {/* Sidebar */}
+      <div className="fixed top-0 left-16 h-screen z-30">
+        <RegistrationSidebar
+          currentStep={getCurrentSidebarStep()}
+          completedSteps={getReachableSteps()}
+          onStepChange={handleSidebarStepChange}
+          onSaveProgress={handleSaveProgress}
+          onBack={() => navigate('/members')}
+        />
       </div>
 
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 overflow-x-auto">
-        <div className="flex items-center justify-center gap-1 min-w-max mx-auto px-4">
-          {visibleSteps.map((step, visualIndex) => {
-            const actualIndex = stepIndexMap[visualIndex];
-            const Icon = visibleStepIcons[visualIndex];
-            const isActive = actualIndex === currentStep;
-            const isCompleted = actualIndex < currentStep;
-            const isReachable = actualIndex <= highestStepReached;
-            const isClickable = isReachable && !isActive;
+      {/* Main Content */}
+      <div className="flex-1 ml-[352px] p-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">New Member Registration</h1>
+            <p className="mt-1 text-sm text-gray-600">Complete all steps to register a new funeral service member</p>
+          </div>
 
-            const handleStepClick = () => {
-              if (isClickable) {
-                setValidationErrors({});
-                setChildValidationErrors({});
-                setCurrentStep(actualIndex);
-              }
-            };
-
-            return (
-              <div key={step} className="flex items-center">
-                <div 
-                  className={`flex flex-col items-center min-w-[80px] ${
-                    isClickable ? 'cursor-pointer group' : ''
-                  }`}
-                  onClick={handleStepClick}
-                >
-                  <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all ${
-                      isActive ? 'border-emerald-600 bg-emerald-600 text-white' :
-                      isCompleted ? 'border-emerald-600 bg-emerald-600 text-white group-hover:bg-emerald-700 group-hover:border-emerald-700 group-hover:scale-110' : 
-                      isReachable ? 'border-emerald-600 bg-white text-emerald-600 group-hover:bg-emerald-50' :
-                      'border-gray-300 bg-white text-gray-400'
-                    }`}>
-                    {isCompleted ? <Check className="h-6 w-6" /> : <Icon className="h-6 w-6" />}
-                  </div>
-                  <span className={`mt-2 text-xs font-medium text-center transition-colors ${
-                    isActive ? 'text-emerald-600' : 
-                    isClickable ? 'text-gray-500 group-hover:text-emerald-600' : 
-                    'text-gray-400'
-                  }`}>
-                    {step}
-                  </span>
-                </div>
-                {visualIndex < visibleSteps.length - 1 && <div className={`h-0.5 w-4 flex-shrink-0 ${isCompleted ? 'bg-emerald-600' : 'bg-gray-300'}`} />}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-8">
+          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-8">
         {currentStep === 0 && <StepMembershipType formData={formData} updateFormData={updateFormData} />}
         {currentStep === 1 && <StepMainMember formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
         {currentStep === 2 && <StepJointMember formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
@@ -985,36 +1075,16 @@ export default function AddMember() {
         {currentStep === 5 && <StepMedicalInfo formData={formData} updateFormData={updateFormData} mainHasMedicalCondition={mainHasMedicalCondition} setMainHasMedicalCondition={setMainHasMedicalCondition} jointHasMedicalCondition={jointHasMedicalCondition} setJointHasMedicalCondition={setJointHasMedicalCondition} />}
         {currentStep === 6 && <StepDocuments
           formData={formData}
-          mainPhotoId={mainPhotoId} setMainPhotoId={setMainPhotoId}
-          mainPhotoIdUrl={mainPhotoIdUrl} setMainPhotoIdUrl={setMainPhotoIdUrl}
-          mainProofAddress={mainProofAddress} setMainProofAddress={setMainProofAddress}
-          mainProofAddressUrl={mainProofAddressUrl} setMainProofAddressUrl={setMainProofAddressUrl}
-          jointPhotoId={jointPhotoId} setJointPhotoId={setJointPhotoId}
-          jointPhotoIdUrl={jointPhotoIdUrl} setJointPhotoIdUrl={setJointPhotoIdUrl}
-          jointProofAddress={jointProofAddress} setJointProofAddress={setJointProofAddress}
-          jointProofAddressUrl={jointProofAddressUrl} setJointProofAddressUrl={setJointProofAddressUrl}
-          childrenDocuments={childrenDocuments} setChildrenDocuments={setChildrenDocuments}
-          childrenDocumentUrls={childrenDocumentUrls} setChildrenDocumentUrls={setChildrenDocumentUrls}
-          uploadingDoc={uploadingDoc}
-          uploadDocument={uploadDocument}
-          deleteDocument={deleteDocument}
-          calculateAge={calculateAge}
+          documentEmailSent={documentEmailSent}
+          sendingDocumentEmail={sendingDocumentEmail}
+          onSendDocumentEmail={handleSendDocumentEmail}
         />}
         {currentStep === 7 && <StepDeclarations
-          formData={formData}
           gpPracticeName={gpPracticeName} setGpPracticeName={setGpPracticeName}
           gpPracticeAddress={gpPracticeAddress} setGpPracticeAddress={setGpPracticeAddress}
           gpPostcode={gpPostcode} setGpPostcode={setGpPostcode}
           gpTelephone={gpTelephone} setGpTelephone={setGpTelephone}
           gpEmail={gpEmail} setGpEmail={setGpEmail}
-          mainMedicalConsent={mainMedicalConsent} setMainMedicalConsent={setMainMedicalConsent}
-          mainMedicalSignature={mainMedicalSignature} setMainMedicalSignature={setMainMedicalSignature}
-          jointMedicalConsent={jointMedicalConsent} setJointMedicalConsent={setJointMedicalConsent}
-          jointMedicalSignature={jointMedicalSignature} setJointMedicalSignature={setJointMedicalSignature}
-          mainFinalDeclaration={mainFinalDeclaration} setMainFinalDeclaration={setMainFinalDeclaration}
-          mainFinalSignature={mainFinalSignature} setMainFinalSignature={setMainFinalSignature}
-          jointFinalDeclaration={jointFinalDeclaration} setJointFinalDeclaration={setJointFinalDeclaration}
-          jointFinalSignature={jointFinalSignature} setJointFinalSignature={setJointFinalSignature}
           validationErrors={validationErrors}
         />}
         {currentStep === 8 && <StepPaperForm
@@ -1030,61 +1100,43 @@ export default function AddMember() {
         {currentStep === 9 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} signupDate={signupDate} setSignupDate={setSignupDate} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} mainJoiningFee={mainJoiningFee} jointJoiningFee={jointJoiningFee} proRataAnnualFee={proRataAnnualFee} mainProRataFee={mainProRataFee} jointProRataFee={jointProRataFee} adjustmentValue={adjustmentValue} totalDue={totalDue} coverageEndDate={coverageEndDate} />}
       </div>
 
-      <div className="flex justify-between items-center bg-white rounded-xl shadow-md border border-gray-200 p-6">
-        <div className="flex items-center gap-4">
-          <button onClick={handleBack} disabled={currentStep === 0}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-            <ArrowLeft className="h-4 w-4 mr-2" /> Back
-          </button>
-          
-          <button
-            onClick={handleSaveProgress}
-            disabled={isSaving || !formData.first_name || !formData.last_name}
-            className="inline-flex items-center px-4 py-2 border-2 border-emerald-600 text-emerald-600 rounded-lg text-sm font-medium hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                </svg>
-                Save Progress
-              </>
-            )}
-          </button>
-        </div>
+          <div className="flex justify-between items-center bg-white rounded-xl shadow-md border border-gray-200 p-6">
+            <div className="flex items-center gap-4">
+              <button onClick={handleBack} disabled={currentStep === 0}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <ArrowLeft className="h-4 w-4 mr-2" /> Back
+              </button>
+            </div>
 
-        <div className="flex flex-col items-center">
-          <span className="text-sm text-gray-600">Step {currentVisibleStepIndex + 1} of {visibleSteps.length}</span>
-          {saveMessage && (
-            <span className={`text-xs mt-1 ${saveMessage.includes('✓') ? 'text-green-600' : 'text-red-600'}`}>
-              {saveMessage}
-            </span>
-          )}
-          {applicationReference && (
-            <span className="text-xs text-gray-500 mt-1">Ref: {applicationReference}</span>
-          )}
-        </div>
+            <div className="flex flex-col items-center">
+              <span className="text-sm text-gray-600">Step {currentVisibleStepIndex + 1} of {visibleSteps.length}</span>
+              {saveMessage && (
+                <span className={`text-xs mt-1 ${saveMessage.includes('✓') ? 'text-green-600' : 'text-red-600'}`}>
+                  {saveMessage}
+                </span>
+              )}
+              {applicationReference && (
+                <span className="text-xs text-gray-500 mt-1">Ref: {applicationReference}</span>
+              )}
+            </div>
 
-        {currentStep < steps.length - 1 ? (
-          <button onClick={handleNext}
-            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md">
-            Next <ArrowRight className="h-4 w-4 ml-2" />
-          </button>
-        ) : (
-          <button onClick={() => submitMutation.mutate()} disabled={submitMutation.isPending}
-            className="inline-flex items-center px-6 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
-            {submitMutation.isPending ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting...</>
+            {currentStep < steps.length - 1 ? (
+              <button onClick={handleNext}
+                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md">
+                Next <ArrowRight className="h-4 w-4 ml-2" />
+              </button>
             ) : (
-              <><Check className="h-4 w-4 mr-2" /> Submit Registration</>
+              <button onClick={() => submitMutation.mutate()} disabled={submitMutation.isPending}
+                className="inline-flex items-center px-6 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                {submitMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting...</>
+                ) : (
+                  <><Check className="h-4 w-4 mr-2" /> Submit Registration</>
+                )}
+              </button>
             )}
-          </button>
-        )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1677,818 +1729,259 @@ function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, se
 
 function StepDocuments({
   formData,
-  mainPhotoId, setMainPhotoId,
-  mainPhotoIdUrl, setMainPhotoIdUrl,
-  mainProofAddress, setMainProofAddress,
-  mainProofAddressUrl, setMainProofAddressUrl,
-  jointPhotoId, setJointPhotoId,
-  jointPhotoIdUrl, setJointPhotoIdUrl,
-  jointProofAddress, setJointProofAddress,
-  jointProofAddressUrl, setJointProofAddressUrl,
-  childrenDocuments, setChildrenDocuments,
-  childrenDocumentUrls, setChildrenDocumentUrls,
-  uploadingDoc,
-  uploadDocument,
-  deleteDocument,
-  calculateAge
+  documentEmailSent,
+  sendingDocumentEmail,
+  onSendDocumentEmail,
 }: any) {
   const hasJointMember = formData.app_type === 'joint';
   const children = formData.children || [];
+  const memberEmail = formData.email;
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Documents</h2>
+        <div className="flex items-center gap-2 mb-2">
+          <h2 className="text-2xl font-bold text-gray-900">Documents</h2>
+          <InfoTooltip title="Document Requirements">
+            <ul className="space-y-1">
+              <li>• Photo ID: Passport or Driving Licence</li>
+              <li>• Proof of Address: Utility bill, Council tax, Bank statement (within last 3 months)</li>
+              {children.length > 0 && <li>• Children: Birth certificate or Passport required</li>}
+            </ul>
+          </InfoTooltip>
+        </div>
         <p className="text-sm text-gray-600">
-          Please upload the required documents. Accepted formats: JPG, PNG, PDF (Max 5MB per file)
+          Documents will be requested from the member via secure email link
         </p>
       </div>
 
-      <div className="mb-8">
-        <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-          <User className="h-4 w-4 mr-2 text-emerald-600" />
-          Main Member Documents
-        </h4>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Photo ID (Passport, Driving Licence) *
-            </label>
-
-            {mainPhotoIdUrl ? (
-              <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <FileText className="h-8 w-8 text-emerald-600 mr-3" />
-                    <div>
-                      <p className="text-sm font-medium text-emerald-900">
-                        {mainPhotoId?.name || 'Uploaded'}
-                      </p>
-                      <p className="text-xs text-emerald-600">
-                        {mainPhotoId ? `${(mainPhotoId.size / 1024).toFixed(1)} KB` : ''}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await deleteDocument(mainPhotoIdUrl);
-                      setMainPhotoIdUrl('');
-                      setMainPhotoId(null);
-                    }}
-                    className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      if (file.size > 5 * 1024 * 1024) {
-                        alert('File too large. Maximum 5MB.');
-                        return;
-                      }
-                      setMainPhotoId(file);
-                      const url = await uploadDocument(file, 'photo_id', 'main');
-                      if (url) setMainPhotoIdUrl(url);
-                    }
-                  }}
-                  className="hidden"
-                  id="main-photo-id"
-                  disabled={uploadingDoc === 'main-photo_id'}
-                />
-                <label
-                  htmlFor="main-photo-id"
-                  className="flex flex-col items-center cursor-pointer"
-                >
-                  {uploadingDoc === 'main-photo_id' ? (
-                    <>
-                      <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
-                      <span className="text-sm text-gray-600">Uploading...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                      <span className="text-sm text-gray-600">Click to upload</span>
-                      <span className="text-xs text-gray-500">or drag and drop</span>
-                    </>
-                  )}
-                </label>
-              </div>
-            )}
+      {/* Email-based document upload info */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="text-center max-w-md mx-auto">
+          <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+            <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Proof of Address (Utility Bill, Council Tax) *
-            </label>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Send Document Upload Request
+          </h3>
 
-            {mainProofAddressUrl ? (
-              <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <FileText className="h-8 w-8 text-emerald-600 mr-3" />
-                    <div>
-                      <p className="text-sm font-medium text-emerald-900">
-                        {mainProofAddress?.name || 'Uploaded'}
-                      </p>
-                      <p className="text-xs text-emerald-600">
-                        {mainProofAddress ? `${(mainProofAddress.size / 1024).toFixed(1)} KB` : ''}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await deleteDocument(mainProofAddressUrl);
-                      setMainProofAddressUrl('');
-                      setMainProofAddress(null);
-                    }}
-                    className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      if (file.size > 5 * 1024 * 1024) {
-                        alert('File too large. Maximum 5MB.');
-                        return;
-                      }
-                      setMainProofAddress(file);
-                      const url = await uploadDocument(file, 'proof_address', 'main');
-                      if (url) setMainProofAddressUrl(url);
-                    }
-                  }}
-                  className="hidden"
-                  id="main-proof-address"
-                  disabled={uploadingDoc === 'main-proof_address'}
-                />
-                <label
-                  htmlFor="main-proof-address"
-                  className="flex flex-col items-center cursor-pointer"
-                >
-                  {uploadingDoc === 'main-proof_address' ? (
-                    <>
-                      <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
-                      <span className="text-sm text-gray-600">Uploading...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                      <span className="text-sm text-gray-600">Click to upload</span>
-                      <span className="text-xs text-gray-500">or drag and drop</span>
-                    </>
-                  )}
-                </label>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+          <p className="text-sm text-gray-600 mb-4">
+            Click the button below to send a secure email link to <strong>{memberEmail || 'the member'}</strong>.
+            They will be able to upload their documents directly through the link.
+          </p>
 
-      {hasJointMember && (
-        <div className="mb-8 pb-8 border-b border-gray-200">
-          <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-            <Users className="h-4 w-4 mr-2 text-emerald-600" />
-            Joint Member Documents
-          </h4>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Photo ID (Passport, Driving Licence) *
-              </label>
-
-              {jointPhotoIdUrl ? (
-                <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <FileText className="h-8 w-8 text-emerald-600 mr-3" />
-                      <div>
-                        <p className="text-sm font-medium text-emerald-900">
-                          {jointPhotoId?.name || 'Uploaded'}
-                        </p>
-                        <p className="text-xs text-emerald-600">
-                          {jointPhotoId ? `${(jointPhotoId.size / 1024).toFixed(1)} KB` : ''}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await deleteDocument(jointPhotoIdUrl);
-                        setJointPhotoIdUrl('');
-                        setJointPhotoId(null);
-                      }}
-                      className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        if (file.size > 5 * 1024 * 1024) {
-                          alert('File too large. Maximum 5MB.');
-                          return;
-                        }
-                        setJointPhotoId(file);
-                        const url = await uploadDocument(file, 'photo_id', 'joint');
-                        if (url) setJointPhotoIdUrl(url);
-                      }
-                    }}
-                    className="hidden"
-                    id="joint-photo-id"
-                    disabled={uploadingDoc === 'joint-photo_id'}
-                  />
-                  <label
-                    htmlFor="joint-photo-id"
-                    className="flex flex-col items-center cursor-pointer"
-                  >
-                    {uploadingDoc === 'joint-photo_id' ? (
-                      <>
-                        <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
-                        <span className="text-sm text-gray-600">Uploading...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                        <span className="text-sm text-gray-600">Click to upload</span>
-                        <span className="text-xs text-gray-500">or drag and drop</span>
-                      </>
-                    )}
-                  </label>
-                </div>
+          {/* Document requirements list */}
+          <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
+            <p className="text-xs font-semibold text-gray-700 mb-2">Required Documents:</p>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
+                Main Member: Photo ID + Proof of Address
+              </li>
+              {hasJointMember && (
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
+                  Joint Member: Photo ID + Proof of Address
+                </li>
               )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Proof of Address (Utility Bill, Council Tax) *
-              </label>
-
-              {jointProofAddressUrl ? (
-                <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <FileText className="h-8 w-8 text-emerald-600 mr-3" />
-                      <div>
-                        <p className="text-sm font-medium text-emerald-900">
-                          {jointProofAddress?.name || 'Uploaded'}
-                        </p>
-                        <p className="text-xs text-emerald-600">
-                          {jointProofAddress ? `${(jointProofAddress.size / 1024).toFixed(1)} KB` : ''}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await deleteDocument(jointProofAddressUrl);
-                        setJointProofAddressUrl('');
-                        setJointProofAddress(null);
-                      }}
-                      className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        if (file.size > 5 * 1024 * 1024) {
-                          alert('File too large. Maximum 5MB.');
-                          return;
-                        }
-                        setJointProofAddress(file);
-                        const url = await uploadDocument(file, 'proof_address', 'joint');
-                        if (url) setJointProofAddressUrl(url);
-                      }
-                    }}
-                    className="hidden"
-                    id="joint-proof-address"
-                    disabled={uploadingDoc === 'joint-proof_address'}
-                  />
-                  <label
-                    htmlFor="joint-proof-address"
-                    className="flex flex-col items-center cursor-pointer"
-                  >
-                    {uploadingDoc === 'joint-proof_address' ? (
-                      <>
-                        <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
-                        <span className="text-sm text-gray-600">Uploading...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                        <span className="text-sm text-gray-600">Click to upload</span>
-                        <span className="text-xs text-gray-500">or drag and drop</span>
-                      </>
-                    )}
-                  </label>
-                </div>
+              {children.length > 0 && (
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
+                  {children.length} {children.length === 1 ? 'Child' : 'Children'}: Birth Certificate/Passport
+                </li>
               )}
-            </div>
+            </ul>
           </div>
-        </div>
-      )}
 
-      {children.length > 0 && (
-        <div className="mb-6">
-          <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-            <Baby className="h-4 w-4 mr-2 text-emerald-600" />
-            Children's Documents
-          </h4>
-
-          <div className="space-y-4">
-            {children.map((child: any, index: number) => (
-              <div key={index} className="border border-gray-200 rounded-lg p-4">
-                <p className="text-sm font-medium text-gray-900 mb-3">
-                  {child.first_name} {child.last_name} (Age {calculateAge(child.dob)})
-                </p>
-
-                {childrenDocumentUrls[`child-${index}`] ? (
-                  <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <FileText className="h-8 w-8 text-emerald-600 mr-3" />
-                        <div>
-                          <p className="text-sm font-medium text-emerald-900">
-                            {childrenDocuments[`child-${index}`]?.name || 'Uploaded'}
-                          </p>
-                          <p className="text-xs text-emerald-600">
-                            Birth Certificate / Passport
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          await deleteDocument(childrenDocumentUrls[`child-${index}`]);
-                          setChildrenDocumentUrls((prev: any) => {
-                            const updated = { ...prev };
-                            delete updated[`child-${index}`];
-                            return updated;
-                          });
-                          setChildrenDocuments((prev: any) => {
-                            const updated = { ...prev };
-                            delete updated[`child-${index}`];
-                            return updated;
-                          });
-                        }}
-                        className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
-                    <input
-                      type="file"
-                      accept="image/*,.pdf"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          if (file.size > 5 * 1024 * 1024) {
-                            alert('File too large. Maximum 5MB.');
-                            return;
-                          }
-                          setChildrenDocuments((prev: any) => ({ ...prev, [`child-${index}`]: file }));
-                          const url = await uploadDocument(file, 'birth_cert', `child_${index}`);
-                          if (url) {
-                            setChildrenDocumentUrls((prev: any) => ({ ...prev, [`child-${index}`]: url }));
-                          }
-                        }
-                      }}
-                      className="hidden"
-                      id={`child-doc-${index}`}
-                      disabled={uploadingDoc === `child_${index}-birth_cert`}
-                    />
-                    <label
-                      htmlFor={`child-doc-${index}`}
-                      className="flex flex-col items-center cursor-pointer"
-                    >
-                      {uploadingDoc === `child_${index}-birth_cert` ? (
-                        <>
-                          <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
-                          <span className="text-sm text-gray-600">Uploading...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                          <span className="text-sm text-gray-600">Upload Birth Certificate</span>
-                          <span className="text-xs text-gray-500">or Passport</span>
-                        </>
-                      )}
-                    </label>
-                  </div>
-                )}
+          {documentEmailSent ? (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+              <div className="flex items-center justify-center gap-2 text-emerald-700">
+                <CheckCircle className="h-5 w-5" />
+                <span className="font-medium">Email sent successfully!</span>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+              <p className="text-xs text-emerald-600 mt-1">
+                The member will receive the link shortly. You can resend if needed.
+              </p>
+              <button
+                type="button"
+                onClick={onSendDocumentEmail}
+                disabled={sendingDocumentEmail}
+                className="mt-3 text-sm text-emerald-700 hover:text-emerald-800 underline"
+              >
+                Resend email
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={onSendDocumentEmail}
+              disabled={sendingDocumentEmail || !memberEmail}
+              className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
+            >
+              {sendingDocumentEmail ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  Send Document Upload Email
+                </>
+              )}
+            </button>
+          )}
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h5 className="text-sm font-semibold text-blue-900 mb-2">Upload Requirements:</h5>
-        <ul className="text-xs text-blue-800 space-y-1">
-          <li>• Accepted formats: JPG, PNG, PDF</li>
-          <li>• Maximum file size: 5MB per file</li>
-          <li>• Documents must be clear and readable</li>
-          <li>• Photo ID: Passport or Driving Licence</li>
-          <li>• Proof of Address: Utility bill, Council tax, Bank statement (within last 3 months)</li>
-          <li>• Children: Birth certificate or Passport required</li>
-        </ul>
+          {!memberEmail && (
+            <p className="text-xs text-amber-600 mt-2">
+              Please enter the member's email address in Step 2 first
+            </p>
+          )}
+
+          <p className="text-xs text-gray-500 mt-4">
+            The secure link expires after 7 days. Documents can also be uploaded from the member profile after registration.
+          </p>
+        </div>
       </div>
     </div>
   );
 }
 
 function StepDeclarations({
-  formData,
   gpPracticeName, setGpPracticeName,
   gpPracticeAddress, setGpPracticeAddress,
   gpPostcode, setGpPostcode,
   gpTelephone, setGpTelephone,
   gpEmail, setGpEmail,
-  mainMedicalConsent, setMainMedicalConsent,
-  mainMedicalSignature, setMainMedicalSignature,
-  jointMedicalConsent, setJointMedicalConsent,
-  jointMedicalSignature, setJointMedicalSignature,
-  mainFinalDeclaration, setMainFinalDeclaration,
-  mainFinalSignature, setMainFinalSignature,
-  jointFinalDeclaration, setJointFinalDeclaration,
-  jointFinalSignature, setJointFinalSignature,
   validationErrors
 }: any) {
-  const hasJointMember = formData.app_type === 'joint';
-
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Declarations & Signatures</h2>
-        <p className="text-sm text-gray-600">Please complete all required declarations</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">GP Details & Declarations</h2>
+        <p className="text-sm text-gray-600">Enter the member's GP practice details</p>
       </div>
 
-      {/* ============================================ */}
-      {/* SECTION 6: MEDICAL CONSENT */}
-      {/* ============================================ */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6">
-          Section 6: Medical Consent
-        </h3>
-
-        {/* Medical Consent Statement */}
-        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-          <p className="text-sm text-blue-900 leading-relaxed">
-            I do not have any medical condition or illness other than those disclosed in the medical
-            history section of this form that may invalidate my application (see section 14). In the
-            event of my death, I authorise CRMFS to request information from my medical records
-            relevant to my application for funeral cover. I give consent for this information to be
-            sourced from my GP or other medical specialists that I may have received treatment from.
-          </p>
-        </div>
-
-        {/* GP Details */}
-        <div className="mb-6">
-          <h4 className="text-sm font-semibold text-gray-900 mb-4">GP Practice Details</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                GP Practice Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={gpPracticeName}
-                onChange={(e) => setGpPracticeName(e.target.value)}
-                required
-                placeholder="Enter GP practice name"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPracticeName ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              {validationErrors.gpPracticeName && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPracticeName}</p>}
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                GP Practice Address <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={gpPracticeAddress}
-                onChange={(e) => setGpPracticeAddress(e.target.value)}
-                required
-                placeholder="Enter GP practice address"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPracticeAddress ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              {validationErrors.gpPracticeAddress && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPracticeAddress}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Post Code <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={gpPostcode}
-                onChange={(e) => setGpPostcode(e.target.value)}
-                required
-                placeholder="e.g., FK1 1UG"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPostcode ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              {validationErrors.gpPostcode && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPostcode}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Telephone <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="tel"
-                value={gpTelephone}
-                onChange={(e) => setGpTelephone(e.target.value)}
-                required
-                placeholder="GP practice phone"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpTelephone ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              {validationErrors.gpTelephone && <p className="text-red-500 text-xs mt-1">{validationErrors.gpTelephone}</p>}
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                value={gpEmail}
-                onChange={(e) => setGpEmail(e.target.value)}
-                placeholder="GP practice email (optional)"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
-            </div>
+      {/* Email-based declarations info banner */}
+      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-emerald-900 mb-1">
+              Declarations & Documents via Email
+            </h4>
+            <p className="text-sm text-emerald-800">
+              After registration, the member will receive two secure emails:
+            </p>
+            <ul className="text-sm text-emerald-700 mt-2 space-y-1">
+              <li>• <strong>Document Upload Link</strong> - To upload Photo ID and Proof of Address</li>
+              <li>• <strong>Declarations Link</strong> - To sign Medical Consent (Section 6) and T&Cs (Section 7)</li>
+            </ul>
+            <p className="text-xs text-emerald-600 mt-2">
+              These secure links expire after 7 days and can only be used once.
+            </p>
           </div>
         </div>
-
-        {/* Main Member Consent & Signature */}
-        <div className="mb-6 pb-6 border-b border-gray-200">
-          <h4 className="text-sm font-semibold text-gray-900 mb-4">Applicant 1 Consent</h4>
-
-          <div className="space-y-4">
-            {/* Checkbox */}
-            <label className="flex items-start cursor-pointer">
-              <input
-                type="checkbox"
-                checked={mainMedicalConsent}
-                onChange={(e) => setMainMedicalConsent(e.target.checked)}
-                required
-                className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-              />
-              <span className="ml-3 text-sm text-gray-700">
-                I confirm that I have read and agree to the medical consent statement above <span className="text-red-500">*</span>
-              </span>
-            </label>
-            {validationErrors.mainMedicalConsent && <p className="text-red-500 text-xs mt-1">{validationErrors.mainMedicalConsent}</p>}
-
-            {/* Signature Field */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Applicant 1 Signature (Full Name) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={mainMedicalSignature}
-                onChange={(e) => setMainMedicalSignature(e.target.value)}
-                required
-                placeholder="Type your full name as signature"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-serif italic text-lg ${validationErrors.mainMedicalSignature ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                By typing your name, you are providing your electronic signature
-              </p>
-              {validationErrors.mainMedicalSignature && <p className="text-red-500 text-xs mt-1">{validationErrors.mainMedicalSignature}</p>}
-            </div>
-
-            {/* Date */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date
-              </label>
-              <input
-                type="date"
-                defaultValue={new Date().toISOString().split('T')[0]}
-                readOnly
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Joint Member Consent & Signature (if applicable) */}
-        {hasJointMember && (
-          <div className="mb-6">
-            <h4 className="text-sm font-semibold text-gray-900 mb-4">Applicant 2 Consent</h4>
-
-            <div className="space-y-4">
-              {/* Checkbox */}
-              <label className="flex items-start cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={jointMedicalConsent}
-                  onChange={(e) => setJointMedicalConsent(e.target.checked)}
-                  required={hasJointMember}
-                  className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-                />
-                <span className="ml-3 text-sm text-gray-700">
-                  I confirm that I have read and agree to the medical consent statement above <span className="text-red-500">*</span>
-                </span>
-              </label>
-              {validationErrors.jointMedicalConsent && <p className="text-red-500 text-xs mt-1">{validationErrors.jointMedicalConsent}</p>}
-
-              {/* Signature Field */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Applicant 2 Signature (Full Name) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={jointMedicalSignature}
-                  onChange={(e) => setJointMedicalSignature(e.target.value)}
-                  required={hasJointMember}
-                  placeholder="Type full name as signature"
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-serif italic text-lg ${validationErrors.jointMedicalSignature ? 'border-red-500' : 'border-gray-300'}`}
-                />
-                {validationErrors.jointMedicalSignature && <p className="text-red-500 text-xs mt-1">{validationErrors.jointMedicalSignature}</p>}
-              </div>
-
-              {/* Date */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date
-                </label>
-                <input
-                  type="date"
-                  defaultValue={new Date().toISOString().split('T')[0]}
-                  readOnly
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* ============================================ */}
-      {/* SECTION 7: DECLARATION */}
-      {/* ============================================ */}
+      {/* GP Details */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6">
-          Section 7: Declaration
-        </h3>
-
-        {/* Declaration Statement */}
-        <div className="bg-purple-50 border-l-4 border-purple-500 p-4 mb-6">
-          <p className="text-sm text-purple-900 leading-relaxed">
-            I solemnly declare that I have read, understood, and agree to abide by the terms and
-            conditions as set out here in this document by Central Region Muslim Funerals Services
-            (CRMFS). Should CRMFS create emergency only funds to meet the unexpected cost, I
-            agree to contribute my equal share. I hereby declare that the personal details provided
-            in this form are true and correct. A copy of which I have received.
-          </p>
+        <div className="flex items-center gap-2 mb-6">
+          <h3 className="text-lg font-semibold text-gray-900">
+            GP Practice Details
+          </h3>
+          <InfoTooltip title="Why we need GP details">
+            <p className="leading-relaxed">
+              GP details are required for medical consent purposes. In the event of a claim,
+              CRMFS may need to request information from the member's medical records relevant
+              to their application for funeral cover.
+            </p>
+          </InfoTooltip>
         </div>
 
-        {/* Main Member Declaration & Signature */}
-        <div className="mb-6 pb-6 border-b border-gray-200">
-          <h4 className="text-sm font-semibold text-gray-900 mb-4">Applicant 1 Declaration</h4>
-
-          <div className="space-y-4">
-            {/* Checkbox */}
-            <label className="flex items-start cursor-pointer">
-              <input
-                type="checkbox"
-                checked={mainFinalDeclaration}
-                onChange={(e) => setMainFinalDeclaration(e.target.checked)}
-                required
-                className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-              />
-              <span className="ml-3 text-sm text-gray-700">
-                I confirm that I have read and agree to the declaration above <span className="text-red-500">*</span>
-              </span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              GP Practice Name <span className="text-red-500">*</span>
             </label>
-            {validationErrors.mainFinalDeclaration && <p className="text-red-500 text-xs mt-1">{validationErrors.mainFinalDeclaration}</p>}
+            <input
+              type="text"
+              value={gpPracticeName}
+              onChange={(e) => setGpPracticeName(e.target.value)}
+              required
+              placeholder="Enter GP practice name"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPracticeName ? 'border-red-500' : 'border-gray-300'}`}
+            />
+            {validationErrors.gpPracticeName && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPracticeName}</p>}
+          </div>
 
-            {/* Signature Field */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Applicant 1 Signature (Full Name) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={mainFinalSignature}
-                onChange={(e) => setMainFinalSignature(e.target.value)}
-                required
-                placeholder="Type your full name as signature"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-serif italic text-lg ${validationErrors.mainFinalSignature ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                By typing your name, you are providing your electronic signature
-              </p>
-              {validationErrors.mainFinalSignature && <p className="text-red-500 text-xs mt-1">{validationErrors.mainFinalSignature}</p>}
-            </div>
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              GP Practice Address <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={gpPracticeAddress}
+              onChange={(e) => setGpPracticeAddress(e.target.value)}
+              required
+              placeholder="Enter GP practice address"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPracticeAddress ? 'border-red-500' : 'border-gray-300'}`}
+            />
+            {validationErrors.gpPracticeAddress && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPracticeAddress}</p>}
+          </div>
 
-            {/* Date */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date
-              </label>
-              <input
-                type="date"
-                defaultValue={new Date().toISOString().split('T')[0]}
-                readOnly
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Post Code <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={gpPostcode}
+              onChange={(e) => setGpPostcode(e.target.value)}
+              required
+              placeholder="e.g., FK1 1UG"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPostcode ? 'border-red-500' : 'border-gray-300'}`}
+            />
+            {validationErrors.gpPostcode && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPostcode}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Telephone <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="tel"
+              value={gpTelephone}
+              onChange={(e) => setGpTelephone(e.target.value)}
+              required
+              placeholder="GP practice phone"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpTelephone ? 'border-red-500' : 'border-gray-300'}`}
+            />
+            {validationErrors.gpTelephone && <p className="text-red-500 text-xs mt-1">{validationErrors.gpTelephone}</p>}
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Email
+            </label>
+            <input
+              type="email"
+              value={gpEmail}
+              onChange={(e) => setGpEmail(e.target.value)}
+              placeholder="GP practice email (optional)"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            />
           </div>
         </div>
-
-        {/* Joint Member Declaration & Signature (if applicable) */}
-        {hasJointMember && (
-          <div className="mb-6">
-            <h4 className="text-sm font-semibold text-gray-900 mb-4">Applicant 2 Declaration</h4>
-
-            <div className="space-y-4">
-              {/* Checkbox */}
-              <label className="flex items-start cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={jointFinalDeclaration}
-                  onChange={(e) => setJointFinalDeclaration(e.target.checked)}
-                  required={hasJointMember}
-                  className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-                />
-                <span className="ml-3 text-sm text-gray-700">
-                  I confirm that I have read and agree to the declaration above <span className="text-red-500">*</span>
-                </span>
-              </label>
-              {validationErrors.jointFinalDeclaration && <p className="text-red-500 text-xs mt-1">{validationErrors.jointFinalDeclaration}</p>}
-
-              {/* Signature Field */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Applicant 2 Signature (Full Name) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={jointFinalSignature}
-                  onChange={(e) => setJointFinalSignature(e.target.value)}
-                  required={hasJointMember}
-                  placeholder="Type full name as signature"
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-serif italic text-lg ${validationErrors.jointFinalSignature ? 'border-red-500' : 'border-gray-300'}`}
-                />
-                {validationErrors.jointFinalSignature && <p className="text-red-500 text-xs mt-1">{validationErrors.jointFinalSignature}</p>}
-              </div>
-
-              {/* Date */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date
-                </label>
-                <input
-                  type="date"
-                  defaultValue={new Date().toISOString().split('T')[0]}
-                  readOnly
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -2514,31 +2007,24 @@ function StepPaperForm({
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Paper Application Form Record
-        </h3>
-
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <div className="flex items-start">
-            <FileText className="h-5 w-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
-            <div>
-              <h4 className="text-sm font-semibold text-blue-900 mb-2">
-                GDPR Compliance via Paper Form
-              </h4>
-              <p className="text-sm text-blue-800 mb-2">
-                The member has completed and signed the official paper application form which includes:
-              </p>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Section 6: Medical Consent (explicit consent for special category data)</li>
-                <li>• Section 7: Declaration (T&Cs acceptance, emergency fund contribution)</li>
-                <li>• All required GDPR consents (personal data, medical data, GP access, data sharing, retention)</li>
-              </ul>
-              <p className="text-xs text-blue-700 mt-3">
-                <strong>Record Keeping:</strong> The signed paper form must be filed and retained for 7 years
-                after membership ends (GDPR Article 30 - Record of Processing Activities).
-              </p>
-            </div>
-          </div>
+        <div className="flex items-center gap-2 mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Paper Application Form Record
+          </h3>
+          <InfoTooltip title="GDPR Compliance via Paper Form">
+            <p className="mb-2">
+              The member has completed and signed the official paper application form which includes:
+            </p>
+            <ul className="space-y-1 mb-2">
+              <li>• Section 6: Medical Consent (explicit consent for special category data)</li>
+              <li>• Section 7: Declaration (T&Cs acceptance, emergency fund contribution)</li>
+              <li>• All required GDPR consents (personal data, medical data, GP access, data sharing, retention)</li>
+            </ul>
+            <p className="text-[10px] text-gray-500 border-t border-gray-200 pt-2 mt-2">
+              <strong>Record Keeping:</strong> The signed paper form must be filed and retained for 7 years
+              after membership ends (GDPR Article 30 - Record of Processing Activities).
+            </p>
+          </InfoTooltip>
         </div>
 
         <div className="space-y-4">
@@ -2753,25 +2239,6 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
           </p>
         </div>
 
-        {/* Age-Based Fee Information */}
-        {mainDob && membershipType === 'new' && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="text-sm font-semibold text-blue-900 mb-2">
-              Age-Based Joining Fee
-            </h4>
-            <p className="text-sm text-blue-800 mb-3">
-              Applicant age: <span className="font-semibold">{calculateAge(mainDob)} years</span>
-            </p>
-            <div className="text-xs text-blue-700 space-y-1">
-              <p>• Ages 18-25: £75</p>
-              <p>• Ages 26-35: £100</p>
-              <p>• Ages 36-45: £200</p>
-              <p>• Ages 46-55: £300</p>
-              <p>• Ages 56-65+: £500</p>
-            </div>
-          </div>
-        )}
-
         {/* Fee Breakdown */}
         <div className="bg-gray-50 rounded-lg p-4 mb-6">
           <h4 className="text-sm font-semibold text-gray-900 mb-3">Fee Breakdown</h4>
@@ -2780,7 +2247,19 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
             {/* Main Member - Joining Fee */}
             <div>
               <div className="flex justify-between mb-1">
-                <span className="text-gray-600">Joining Fee (one-time):</span>
+                <span className="text-gray-600 flex items-center gap-1">
+                  Joining Fee (one-time):
+                  <InfoTooltip title="Age-Based Joining Fee">
+                    <ul className="space-y-1">
+                      <li>• Ages 18-25: £75</li>
+                      <li>• Ages 26-35: £100</li>
+                      <li>• Ages 36-45: £200</li>
+                      <li>• Ages 46-55: £300</li>
+                      <li>• Ages 56-65+: £500</li>
+                    </ul>
+                    <p className="mt-2 pt-2 border-t border-gray-200">Children under 18 are free.</p>
+                  </InfoTooltip>
+                </span>
                 <span className="font-medium">
                   {membershipType === 'legacy' ? (
                     <span className="text-yellow-600">£0.00 (Waived - Legacy)</span>
@@ -2861,26 +2340,21 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
           </div>
         </div>
 
-        {/* Pro-rata Information Box */}
-        {signupDate && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="text-sm font-semibold text-blue-900 mb-2">
-              Pro-rata Payment Information
-            </h4>
-            <div className="text-xs text-blue-700 space-y-1">
-              <p>• All memberships renew on <strong>January 1st</strong> each year</p>
-              <p>• Annual fee is pro-rated from signup date to December 31st</p>
-              <p>• Use adjustments to prepay for following year (saves time in January!)</p>
-              <p>• Example: Add £100 adjustment = coverage through Dec 31, 2026</p>
-            </div>
-          </div>
-        )}
-
         {/* Adjustments Section */}
         <div className="mb-6">
-          <h4 className="text-sm font-semibold text-gray-900 mb-3">
-            Adjustments (Optional)
-          </h4>
+          <div className="flex items-center gap-2 mb-3">
+            <h4 className="text-sm font-semibold text-gray-900">
+              Adjustments (Optional)
+            </h4>
+            <InfoTooltip title="Pro-rata Payment Information">
+              <ul className="space-y-1">
+                <li>• All memberships renew on <strong>January 1st</strong> each year</li>
+                <li>• Annual fee is pro-rated from signup date to December 31st</li>
+                <li>• Use adjustments to prepay for following year (saves time in January!)</li>
+                <li>• Example: Add £100 adjustment = coverage through Dec 31, 2027</li>
+              </ul>
+            </InfoTooltip>
+          </div>
           <p className="text-xs text-gray-500 mb-3">
             Add additional amount to prepay for following year or make advance payment
           </p>
@@ -2900,7 +2374,7 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Tip: Add £100 to prepay for 2026
+                Tip: Add £100 to prepay for 2027
               </p>
             </div>
             <div>
@@ -2911,7 +2385,7 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
                 type="text"
                 value={adjustmentReason}
                 onChange={(e) => setAdjustmentReason(e.target.value)}
-                placeholder="e.g., Prepay 2026"
+                placeholder="e.g., Prepay 2027"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
               />
             </div>

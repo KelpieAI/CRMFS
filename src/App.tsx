@@ -1,7 +1,5 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from './contexts/ToastContext';
 import { AuthProvider } from './contexts/AuthContext';
@@ -23,6 +21,19 @@ import Settings from './pages/Settings';
 import DeletionRequests from './pages/DeletionRequests';
 import NotFound from './pages/NotFound';
 import CommandPalette from './components/CommandPalette';
+import UploadDocuments from './pages/UploadDocuments';
+import SignDeclarations from './pages/SignDeclarations';
+
+// Scroll to top on route change
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [pathname]);
+
+  return null;
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,14 +53,18 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
+          {/* Scroll to top on route change */}
+          <ScrollToTop />
           <AuthProvider>
             <ToastProvider>
               {/* Command Palette - OUTSIDE Routes */}
               <CommandPalette />
               
               <Routes>
-                {/* Public Route - Login Only */}
+                {/* Public Routes — no login required */}
                 <Route path="/login" element={<Login />} />
+                <Route path="/upload-documents" element={<UploadDocuments />} />
+                <Route path="/sign-declarations" element={<SignDeclarations />} />
 
                 {/* Protected Routes - Require Authentication */}
                 <Route path="/" element={

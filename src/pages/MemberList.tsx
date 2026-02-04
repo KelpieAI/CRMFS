@@ -39,8 +39,18 @@ export default function MemberList() {
       member.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       member.mobile?.includes(searchTerm);
 
-    const matchesStatus =
-      statusFilter === 'all' || member.status === statusFilter;
+    // Handle deceased filtering:
+    // - If statusFilter is 'deceased', show only deceased members
+    // - If statusFilter is 'all', exclude deceased members (they appear in Deceased page)
+    // - Otherwise, filter by specific status (excluding deceased)
+    let matchesStatus;
+    if (statusFilter === 'deceased') {
+      matchesStatus = member.status === 'deceased';
+    } else if (statusFilter === 'all') {
+      matchesStatus = member.status !== 'deceased';
+    } else {
+      matchesStatus = member.status === statusFilter && member.status !== 'deceased';
+    }
 
     return matchesSearch && matchesStatus;
   });
@@ -386,7 +396,7 @@ export default function MemberList() {
                                 Edit Member
                               </button>
                               
-                              {member.status !== 'paused' && (
+                              {(member.status as string) !== 'paused' && (
                                 <button
                                   onClick={() => {
                                     navigate(`/members/${member.id}?action=pause`);
