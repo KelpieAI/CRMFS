@@ -484,7 +484,7 @@ export default function UploadDocuments() {
           </button>
 
           <div style={styles.warningBox}>
-            <p style={styles.warningText}>🔒 <strong>Security:</strong> This is a single-use secure link. Your documents are encrypted and handled in accordance with GDPR.</p>
+            <p style={styles.warningText}>🔒 <strong>Security:</strong> This is a single-use secure link. Your documents are encrypted and handled in accordance with data protection regulations.</p>
           </div>
         </div>
         <div style={styles.footer}>
