@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase, Member } from '../lib/supabase';
 import { TableSkeleton } from '../components/SkeletonComponents';
 import { BulkActionsBar } from '../components/BulkActionsBar';
@@ -8,6 +8,7 @@ import { Search, Filter, Plus, Eye, Mail, Phone, Users, RefreshCw, Check, MoreVe
 
 export default function MemberList() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -16,6 +17,9 @@ export default function MemberList() {
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [showMemberMenu, setShowMemberMenu] = useState<string | null>(null);
+
+  // Get alert filter from URL query params
+  const alertFilter = searchParams.get('filter');
 
   const { data: members, isLoading, refetch } = useQuery({
     queryKey: ['members'],
@@ -28,6 +32,50 @@ export default function MemberList() {
       if (error) throw error;
       return data as Member[];
     },
+  });
+
+  // Fetch email tokens for alert filtering
+  const { data: emailTokens } = useQuery({
+    queryKey: ['email-tokens-for-alerts'],
+    queryFn: async () => {
+      if (!alertFilter || (alertFilter !== 'documents_pending' && alertFilter !== 'declarations_pending')) {
+        return null;
+      }
+
+      const tokenType = alertFilter === 'documents_pending' ? 'document_upload' : 'declarations_signature';
+
+      const { data } = await supabase
+        .from('email_tokens')
+        .select('member_id')
+        .eq('token_type', tokenType)
+        .is('used_at', null)
+        .eq('is_valid', true);
+
+      return data?.map(t => t.member_id) || [];
+    },
+    enabled: alertFilter === 'documents_pending' || alertFilter === 'declarations_pending',
+  });
+
+  // Fetch overdue payments for alert filtering
+  const { data: overduePaymentMembers } = useQuery({
+    queryKey: ['overdue-payments-for-alerts'],
+    queryFn: async () => {
+      if (alertFilter !== 'payments_overdue') {
+        return null;
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+
+      const { data } = await supabase
+        .from('payments')
+        .select('member_id')
+        .eq('payment_status', 'pending')
+        .lt('renewal_date', today)
+        .not('renewal_date', 'is', null);
+
+      return data?.map(p => p.member_id) || [];
+    },
+    enabled: alertFilter === 'payments_overdue',
   });
 
   const filteredMembers = members?.filter((member) => {
@@ -52,7 +100,15 @@ export default function MemberList() {
       matchesStatus = member.status === statusFilter && member.status !== 'deceased';
     }
 
-    return matchesSearch && matchesStatus;
+    // Handle alert filters
+    let matchesAlertFilter = true;
+    if (alertFilter === 'documents_pending' || alertFilter === 'declarations_pending') {
+      matchesAlertFilter = emailTokens?.includes(member.id) || false;
+    } else if (alertFilter === 'payments_overdue') {
+      matchesAlertFilter = overduePaymentMembers?.includes(member.id) || false;
+    }
+
+    return matchesSearch && matchesStatus && matchesAlertFilter;
   });
 
   // Pagination calculations
@@ -164,6 +220,45 @@ export default function MemberList() {
           New Member
         </Link>
       </div>
+
+      {/* Alert Filter Banner */}
+      {alertFilter && (
+        <div className="bg-orange-50 border-l-4 border-orange-600 p-4 rounded-lg shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
+                  <Filter className="h-4 w-4 text-orange-600" />
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-orange-900">
+                  Filtered by: {
+                    alertFilter === 'documents_pending' ? 'Documents Pending' :
+                    alertFilter === 'declarations_pending' ? 'Declarations Pending' :
+                    alertFilter === 'payments_overdue' ? 'Payments Overdue' :
+                    alertFilter === 'emails_failed' ? 'Emails Failed' :
+                    alertFilter
+                  }
+                </p>
+                <p className="text-xs text-orange-700">
+                  Showing {filteredMembers?.length || 0} members with this alert
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setSearchParams({});
+                setStatusFilter('all');
+                setSearchTerm('');
+              }}
+              className="inline-flex items-center px-3 py-1.5 bg-white border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium"
+            >
+              Clear Filter
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Search and Filter */}
       <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200">

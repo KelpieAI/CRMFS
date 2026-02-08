@@ -10,10 +10,14 @@ import {
   UserCheck,
   Clock,
   PoundSterling,
-  AlertCircle,
+  AlertTriangle,
   Plus,
   RefreshCw,
   Check,
+  FileText,
+  PenSquare,
+  CreditCard,
+  Mail,
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -62,63 +66,49 @@ export default function Dashboard() {
     },
   });
 
-  // Fetch upcoming renewals (members whose anniversary is within next 30 days)
-  const { data: upcomingRenewals, refetch: refetchRenewals } = useQuery({
-    queryKey: ['upcoming-renewals'],
+  // Fetch alerts (action-required items)
+  const { data: alerts, refetch: refetchAlerts } = useQuery({
+    queryKey: ['dashboard-alerts'],
     queryFn: async () => {
-      const today = new Date();
-      const thirtyDaysFromNow = new Date();
-      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      const today = new Date().toISOString().split('T')[0];
 
-      // Get all active members with their join dates
-      const { data: members } = await supabase
-        .from('members')
-        .select('id, first_name, last_name, email, join_date, status')
-        .eq('status', 'active')
-        .not('join_date', 'is', null)
-        .order('join_date', { ascending: true });
+      // Get distinct members with pending document uploads
+      const { data: docsPending } = await supabase
+        .from('email_tokens')
+        .select('member_id')
+        .eq('token_type', 'document_upload')
+        .is('used_at', null)
+        .eq('is_valid', true);
 
-      if (!members) return [];
+      // Get distinct members with pending declarations
+      const { data: declsPending } = await supabase
+        .from('email_tokens')
+        .select('member_id')
+        .eq('token_type', 'declarations_signature')
+        .is('used_at', null)
+        .eq('is_valid', true);
 
-      // Filter members whose anniversary is within next 30 days
-      const renewals = members
-        .map((member) => {
-          const joinDate = new Date(member.join_date);
-          const currentYear = today.getFullYear();
-          
-          // Calculate this year's anniversary
-          const anniversaryThisYear = new Date(
-            currentYear,
-            joinDate.getMonth(),
-            joinDate.getDate()
-          );
+      // Get distinct members with overdue payments
+      const { data: paymentsOverdue } = await supabase
+        .from('payments')
+        .select('member_id')
+        .eq('payment_status', 'pending')
+        .lt('renewal_date', today)
+        .not('renewal_date', 'is', null);
 
-          // If anniversary already passed this year, calculate next year's
-          const renewalDate = anniversaryThisYear < today
-            ? new Date(currentYear + 1, joinDate.getMonth(), joinDate.getDate())
-            : anniversaryThisYear;
+      // Count unique members for each alert type
+      const documentsPendingCount = new Set(docsPending?.map(d => d.member_id) || []).size;
+      const declarationsPendingCount = new Set(declsPending?.map(d => d.member_id) || []).size;
+      const paymentsOverdueCount = new Set(paymentsOverdue?.map(p => p.member_id) || []).size;
+      const emailsFailedCount = 0; // Placeholder for future feature
 
-          // Check if renewal is within next 30 days
-          if (renewalDate >= today && renewalDate <= thirtyDaysFromNow) {
-            const daysUntil = Math.ceil((renewalDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-            
-            return {
-              id: member.id,
-              first_name: member.first_name,
-              last_name: member.last_name,
-              email: member.email,
-              renewal_date: renewalDate.toISOString(),
-              days_until_renewal: daysUntil,
-            };
-          }
-
-          return null;
-        })
-        .filter((r): r is NonNullable<typeof r> => r !== null)
-        .sort((a, b) => a.days_until_renewal - b.days_until_renewal)
-        .slice(0, 5); // Limit to 5 most urgent
-
-      return renewals;
+      return {
+        documentsPending: documentsPendingCount,
+        declarationsPending: declarationsPendingCount,
+        paymentsOverdue: paymentsOverdueCount,
+        emailsFailed: emailsFailedCount,
+        totalAlerts: documentsPendingCount + declarationsPendingCount + paymentsOverdueCount + emailsFailedCount,
+      };
     },
   });
 
@@ -199,7 +189,7 @@ export default function Dashboard() {
               await Promise.all([
                 refetchStats(),
                 refetchMembers(),
-                refetchRenewals(),
+                refetchAlerts(),
               ]);
               setIsRefreshing(false);
               setShowSuccess(true);
@@ -330,68 +320,153 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Upcoming Renewals */}
+        {/* Alerts */}
         <div className="bg-white shadow-lg rounded-xl border border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-yellow-600 to-yellow-700 px-6 py-4">
+          <div className="bg-gradient-to-r from-orange-600 to-amber-600 px-6 py-4">
             <h2 className="text-lg font-semibold text-white flex items-center">
-              <AlertCircle className="h-5 w-5 mr-2" />
-              Upcoming Renewals
+              <AlertTriangle className="h-5 w-5 mr-2" />
+              Alerts
+              {alerts && alerts.totalAlerts > 0 && (
+                <span className="ml-2 px-2 py-0.5 bg-white text-orange-600 text-xs font-bold rounded-full">
+                  {alerts.totalAlerts}
+                </span>
+              )}
             </h2>
           </div>
           <div className="divide-y divide-gray-200">
-            {upcomingRenewals && upcomingRenewals.length > 0 ? (
-              upcomingRenewals.map((renewal) => (
-                <Link
-                  key={renewal.id}
-                  to={`/members/${renewal.id}`}
-                  className="px-6 py-4 hover:bg-yellow-50 transition-colors block"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {renewal.first_name} {renewal.last_name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {renewal.email}
-                      </p>
+            {alerts && alerts.totalAlerts > 0 ? (
+              <>
+                {alerts.documentsPending > 0 && (
+                  <Link
+                    to="/members?filter=documents_pending"
+                    className="px-6 py-4 hover:bg-orange-50 transition-colors block"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0">
+                          <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+                            <FileText className="h-5 w-5 text-orange-600" />
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            Documents Pending
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Members need to upload documents
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-2xl font-bold text-orange-600">
+                        {alerts.documentsPending}
+                      </span>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">
-                        {new Date(renewal.renewal_date).toLocaleDateString('en-GB', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric'
-                        })}
-                      </p>
-                      <p className={`text-xs font-semibold ${
-                        renewal.days_until_renewal <= 7 
-                          ? 'text-red-600' 
-                          : renewal.days_until_renewal <= 14
-                          ? 'text-orange-600'
-                          : 'text-yellow-600'
-                      }`}>
-                        {renewal.days_until_renewal === 0 
-                          ? 'Today!' 
-                          : renewal.days_until_renewal === 1
-                          ? 'Tomorrow'
-                          : `In ${renewal.days_until_renewal} days`}
-                      </p>
+                  </Link>
+                )}
+                {alerts.declarationsPending > 0 && (
+                  <Link
+                    to="/members?filter=declarations_pending"
+                    className="px-6 py-4 hover:bg-orange-50 transition-colors block"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0">
+                          <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                            <PenSquare className="h-5 w-5 text-amber-600" />
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            Declarations Pending
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Members need to sign declarations
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-2xl font-bold text-amber-600">
+                        {alerts.declarationsPending}
+                      </span>
                     </div>
-                  </div>
-                </Link>
-              ))
+                  </Link>
+                )}
+                {alerts.paymentsOverdue > 0 && (
+                  <Link
+                    to="/members?filter=payments_overdue"
+                    className="px-6 py-4 hover:bg-orange-50 transition-colors block"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0">
+                          <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+                            <CreditCard className="h-5 w-5 text-red-600" />
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            Payments Overdue
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Members with overdue payments
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-2xl font-bold text-red-600">
+                        {alerts.paymentsOverdue}
+                      </span>
+                    </div>
+                  </Link>
+                )}
+                {alerts.emailsFailed > 0 && (
+                  <Link
+                    to="/members?filter=emails_failed"
+                    className="px-6 py-4 hover:bg-orange-50 transition-colors block"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0">
+                          <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
+                            <Mail className="h-5 w-5 text-gray-600" />
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            Emails Failed
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Email delivery issues
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-2xl font-bold text-gray-600">
+                        {alerts.emailsFailed}
+                      </span>
+                    </div>
+                  </Link>
+                )}
+              </>
             ) : (
-              <div className="px-6 py-8 text-center text-gray-500">
-                No upcoming renewals in the next 30 days
+              <div className="px-6 py-8 text-center">
+                <div className="flex flex-col items-center space-y-2">
+                  <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+                    <Check className="h-6 w-6 text-green-600" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-900">
+                    No alerts - all members up to date
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Everything is looking good!
+                  </p>
+                </div>
               </div>
             )}
           </div>
           <div className="bg-gray-50 px-6 py-3">
             <Link
-              to="/payments"
-              className="text-sm font-medium text-yellow-600 hover:text-yellow-700"
+              to="/members"
+              className="text-sm font-medium text-orange-600 hover:text-orange-700"
             >
-              View all payments →
+              View all members →
             </Link>
           </div>
         </div>
