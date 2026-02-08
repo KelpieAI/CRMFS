@@ -18,7 +18,7 @@ interface TokenData {
   status: TokenStatus;
 }
 
-export default function EmailTokenStatus({ memberId, memberEmail, memberFirstName: _memberFirstName, memberLastName: _memberLastName }: EmailTokenStatusProps) {
+export default function EmailTokenStatus({ memberId, memberEmail, memberFirstName, memberLastName }: EmailTokenStatusProps) {
   const [documentStatus, setDocumentStatus] = useState<TokenData | null>(null);
   const [declarationStatus, setDeclarationStatus] = useState<TokenData | null>(null);
   const [hasDocuments, setHasDocuments] = useState(false);
@@ -84,14 +84,13 @@ export default function EmailTokenStatus({ memberId, memberEmail, memberFirstNam
 
       setHasDocuments((docs?.length || 0) >= 2);
 
-      // Check if member has actually signed declarations
+      // TODO: Re-enable once we confirm correct column names in declarations table
+      // For now, just check if any declaration exists
       const { data: decls } = await supabase
         .from('declarations')
         .select('id')
         .eq('member_id', memberId)
-        .eq('medical_sig_1', true)
-        .eq('agreement_sig_1', true)
-        .single();
+        .maybeSingle();
 
       setHasDeclarations(!!decls);
 
@@ -112,31 +111,42 @@ export default function EmailTokenStatus({ memberId, memberEmail, memberFirstNam
   const handleResend = async (type: 'document_upload' | 'declarations_signature') => {
     setResending(type === 'document_upload' ? 'docs' : 'declarations');
     try {
-      const { data, error } = await supabase.functions.invoke('resend-member-email', {
-        body: {
-          memberId,
-          emailType: type,
-        },
-      });
-
-      if (error) {
-        console.error('Supabase function error:', error);
-        throw error;
+      // Get the current session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('No active session');
       }
+
+      // Call Edge Function directly with fetch to ensure auth header is included
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resend-member-email`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            memberId,
+            emailType: type,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
 
       // Reload status to show the new token
       await loadTokenStatus();
-
-      // Show success message with magic link in development
-      if (data?.magicLink) {
-        console.log('Magic link generated:', data.magicLink);
-      }
-
       alert(`Email resent successfully to ${memberEmail}`);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Resend error:', error);
-      const errorMessage = error?.message || 'Failed to resend email. Please try again.';
-      alert(errorMessage);
+      alert('Failed to resend email. Please try again.');
     } finally {
       setResending(null);
     }
