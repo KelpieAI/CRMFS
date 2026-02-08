@@ -5,7 +5,6 @@ import {
   Stethoscope,
   FileText,
   Upload,
-  CheckSquare,
   CreditCard,
   Save,
   ArrowLeft,

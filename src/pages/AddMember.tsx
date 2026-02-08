@@ -12,8 +12,6 @@ import {
   Users,
   User,
   Baby,
-  FileText,
-  Upload,
   Loader2,
   Plus,
   Trash2,
@@ -161,18 +159,6 @@ export default function AddMember() {
   const [paymentReceived, setPaymentReceived] = useState(false);
   const [mainDob, setMainDob] = useState(savedApplication?.form_data?.dob || '');
 
-  // Medical Consent
-  const [mainMedicalConsent, setMainMedicalConsent] = useState(false);
-  const [mainMedicalSignature, setMainMedicalSignature] = useState('');
-  const [jointMedicalConsent, setJointMedicalConsent] = useState(false);
-  const [jointMedicalSignature, setJointMedicalSignature] = useState('');
-
-  // Final Declaration
-  const [mainFinalDeclaration, setMainFinalDeclaration] = useState(false);
-  const [mainFinalSignature, setMainFinalSignature] = useState('');
-  const [jointFinalDeclaration, setJointFinalDeclaration] = useState(false);
-  const [jointFinalSignature, setJointFinalSignature] = useState('');
-
   // Paper form tracking
   const [paperFormVersion, setPaperFormVersion] = useState('v01.25');
   const [applicationDate, setApplicationDate] = useState(new Date().toISOString().split('T')[0]);
@@ -257,21 +243,6 @@ export default function AddMember() {
     payment_method: '',
   });
 
-  const [mainPhotoId, setMainPhotoId] = useState<File | null>(null);
-  const [mainPhotoIdUrl, setMainPhotoIdUrl] = useState<string>('');
-  const [mainProofAddress, setMainProofAddress] = useState<File | null>(null);
-  const [mainProofAddressUrl, setMainProofAddressUrl] = useState<string>('');
-
-  const [jointPhotoId, setJointPhotoId] = useState<File | null>(null);
-  const [jointPhotoIdUrl, setJointPhotoIdUrl] = useState<string>('');
-  const [jointProofAddress, setJointProofAddress] = useState<File | null>(null);
-  const [jointProofAddressUrl, setJointProofAddressUrl] = useState<string>('');
-
-  const [childrenDocuments, setChildrenDocuments] = useState<Record<string, File | null>>({});
-  const [childrenDocumentUrls, setChildrenDocumentUrls] = useState<Record<string, string>>({});
-
-  const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
-
   const { data: feeStructure } = useQuery({
     queryKey: ['fee-structure'],
     queryFn: async () => {
@@ -343,56 +314,6 @@ export default function AddMember() {
     if (!feeStructure || age === 0) return { joining: 0, membership: 100 };
     const tier = feeStructure.find((fee: any) => age >= fee.age_min && age <= fee.age_max);
     return { joining: tier ? tier.joining_fee : 0, membership: tier ? tier.membership_fee : 100 };
-  };
-
-  const uploadDocument = async (file: File, category: string, applicantType: string) => {
-    if (!file) return null;
-
-    try {
-      setUploadingDoc(`${applicantType}-${category}`);
-
-      const timestamp = Date.now();
-      const filename = `${applicantType}_${category}_${timestamp}_${file.name}`;
-      const filePath = `documents/${filename}`;
-
-      const { error } = await supabase.storage
-        .from('member-documents')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (error) throw error;
-
-      const { data: urlData } = supabase.storage
-        .from('member-documents')
-        .getPublicUrl(filePath);
-
-      setUploadingDoc(null);
-      return urlData.publicUrl;
-    } catch (error) {
-      console.error('Upload error:', error);
-      alert('Failed to upload document. Please try again.');
-      setUploadingDoc(null);
-      return null;
-    }
-  };
-
-  const deleteDocument = async (url: string) => {
-    if (!url) return;
-
-    try {
-      const urlParts = url.split('/');
-      const filePath = `documents/${urlParts[urlParts.length - 1]}`;
-
-      const { error } = await supabase.storage
-        .from('member-documents')
-        .remove([filePath]);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Delete error:', error);
-    }
   };
 
   useEffect(() => {

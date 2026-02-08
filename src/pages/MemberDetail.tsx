@@ -7,6 +7,7 @@ import CompactLayout from '../components/CompactLayout';
 import MemberSubNav from '../components/MemberSubNav';
 import { ProfileHeaderSkeleton, FormSkeleton } from '../components/SkeletonComponents';
 import { useMemberStatusUpdate } from '../hooks/useOptimisticUpdates';
+import EmailTokenStatus from '../components/EmailTokenStatus';
 import {
   ArrowLeft,
   User,
@@ -38,6 +39,7 @@ import {
   MoreVertical,
   ChevronDown,
   ChevronUp,
+  Clock,
 } from 'lucide-react';
 
 export default function MemberDetail() {
@@ -2866,6 +2868,14 @@ function DocumentsTab({ member, memberId }: any) {
             {hasAnyDocuments ? 'Manage Documents' : 'Upload Documents'}
           </button>
         </div>
+
+      {/* Email Token Status */}
+      <EmailTokenStatus
+        memberId={memberId}
+        memberEmail={member?.email || ''}
+        memberFirstName={member?.first_name || ''}
+        memberLastName={member?.last_name || ''}
+      />
 
       {/* Main Member Documents */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
