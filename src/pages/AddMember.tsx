@@ -174,9 +174,10 @@ export default function AddMember() {
   const [gpTelephone, setGpTelephone] = useState('');
   const [gpEmail, setGpEmail] = useState('');
 
-  // Document email tracking - currently disabled (pre-registration emails not supported)
-  const [documentEmailSent] = useState(false);
-  const [sendingDocumentEmail] = useState(false);
+  // Document email tracking
+  const [documentEmailSent, setDocumentEmailSent] = useState(false);
+  const [sendingDocumentEmail, setSendingDocumentEmail] = useState(false);
+  const [createdMemberId, setCreatedMemberId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<FormData>(savedApplication?.form_data || {
     app_type: 'single',
@@ -413,6 +414,9 @@ export default function AddMember() {
 
       if (memberError) throw memberError;
       const memberId = member.id;
+
+      // Store the created member ID so it can be used for sending emails
+      setCreatedMemberId(memberId);
 
       if (formData.app_type === 'joint') {
         await supabase.from('joint_members').insert({
@@ -655,9 +659,51 @@ export default function AddMember() {
   };
 
   const handleSendDocumentEmail = async () => {
-    // Pre-registration document emails are not currently supported
-    // Members must be created first before sending document upload links
-    alert('Please complete the member registration first. You can send document upload links from the member detail page after registration.');
+    // Check if member ID exists
+    if (!createdMemberId) {
+      alert('Please complete the member registration first. You can send document upload links from the member detail page after registration.');
+      return;
+    }
+
+    // Check if member email exists
+    if (!formData.email) {
+      alert('Please enter the member\'s email address first');
+      return;
+    }
+
+    setSendingDocumentEmail(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error('No active session');
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resend-member-email`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          memberId: createdMemberId,
+          emailType: 'document_upload',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to send email');
+      }
+
+      setDocumentEmailSent(true);
+      alert('Document upload email sent successfully!');
+    } catch (error) {
+      console.error('Failed to send document upload email:', error);
+      alert('Failed to send email. Please try again.');
+    } finally {
+      setSendingDocumentEmail(false);
+    }
   };
 
   const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'Medical Info', 'Documents', 'Declarations', 'GDPR Compliance', 'Payment'];
