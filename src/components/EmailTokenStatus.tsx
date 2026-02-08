@@ -18,7 +18,7 @@ interface TokenData {
   status: TokenStatus;
 }
 
-export default function EmailTokenStatus({ memberId, memberEmail, memberFirstName, memberLastName }: EmailTokenStatusProps) {
+export default function EmailTokenStatus({ memberId, memberEmail, memberFirstName: _memberFirstName, memberLastName: _memberLastName }: EmailTokenStatusProps) {
   const [documentStatus, setDocumentStatus] = useState<TokenData | null>(null);
   const [declarationStatus, setDeclarationStatus] = useState<TokenData | null>(null);
   const [hasDocuments, setHasDocuments] = useState(false);
@@ -112,27 +112,31 @@ export default function EmailTokenStatus({ memberId, memberEmail, memberFirstNam
   const handleResend = async (type: 'document_upload' | 'declarations_signature') => {
     setResending(type === 'document_upload' ? 'docs' : 'declarations');
     try {
-      // Get the current session to pass auth header
-      const { data: { session } } = await supabase.auth.getSession();
-      
       const { data, error } = await supabase.functions.invoke('resend-member-email', {
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-        },
         body: {
           memberId,
           emailType: type,
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw error;
+      }
 
       // Reload status to show the new token
       await loadTokenStatus();
+
+      // Show success message with magic link in development
+      if (data?.magicLink) {
+        console.log('Magic link generated:', data.magicLink);
+      }
+
       alert(`Email resent successfully to ${memberEmail}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Resend error:', error);
-      alert('Failed to resend email. Please try again.');
+      const errorMessage = error?.message || 'Failed to resend email. Please try again.';
+      alert(errorMessage);
     } finally {
       setResending(null);
     }
