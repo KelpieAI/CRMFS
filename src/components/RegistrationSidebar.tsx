@@ -4,7 +4,6 @@ import {
   Heart,
   Stethoscope,
   FileText,
-  Upload,
   CreditCard,
   Save,
   ArrowLeft,
@@ -37,10 +36,9 @@ export default function RegistrationSidebar({
     { id: 3, label: 'Children', icon: Baby },
     { id: 4, label: 'Next of Kin', icon: Heart },
     { id: 5, label: 'Medical Info', icon: Stethoscope },
-    { id: 6, label: 'Documents', icon: Upload },
-    { id: 7, label: 'GP Details', icon: Stethoscope },
-    { id: 8, label: 'GDPR Compliance', icon: FileText },
-    { id: 9, label: 'Payment', icon: CreditCard },
+    { id: 6, label: 'GP Details', icon: Stethoscope },
+    { id: 7, label: 'GDPR Compliance', icon: FileText },
+    { id: 8, label: 'Payment', icon: CreditCard },
   ];
 
   const getStepStatus = (stepId: number) => {

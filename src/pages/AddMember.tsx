@@ -174,10 +174,6 @@ export default function AddMember() {
   const [gpTelephone, setGpTelephone] = useState('');
   const [gpEmail, setGpEmail] = useState('');
 
-  // Document email tracking
-  const [documentEmailSent, setDocumentEmailSent] = useState(false);
-  const [sendingDocumentEmail, setSendingDocumentEmail] = useState(false);
-  const [createdMemberId, setCreatedMemberId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<FormData>(savedApplication?.form_data || {
     app_type: 'single',
@@ -415,9 +411,6 @@ export default function AddMember() {
       if (memberError) throw memberError;
       const memberId = member.id;
 
-      // Store the created member ID so it can be used for sending emails
-      setCreatedMemberId(memberId);
-
       if (formData.app_type === 'joint') {
         await supabase.from('joint_members').insert({
           member_id: memberId, title: formData.joint_title, first_name: formData.joint_first_name,
@@ -528,38 +521,6 @@ export default function AddMember() {
       return memberId;
     },
     onSuccess: async (memberId) => {
-      // Track declarations email sending result
-      let declarationsEmailSent = true;
-
-      // Send declarations email automatically after member creation
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (!session) {
-          throw new Error('No active session');
-        }
-
-        const declarationsResponse = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resend-member-email`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            memberId,
-            emailType: 'declarations_signature',
-          }),
-        });
-
-        if (!declarationsResponse.ok) {
-          const errorData = await declarationsResponse.json().catch(() => ({}));
-          throw new Error(errorData.error || 'Declarations email failed');
-        }
-      } catch (error) {
-        console.error('Failed to send declarations email:', error);
-        declarationsEmailSent = false;
-      }
-
       // Delete saved application if exists
       if (applicationReference) {
         try {
@@ -586,10 +547,9 @@ export default function AddMember() {
         state: {
           memberId,
           memberName,
+          memberEmail: formData.email,
           applicationReference,
           paymentReceived,
-          documentEmailSent, // Sent manually during Step 6
-          declarationsEmailSent, // Sent automatically after creation
         },
       });
     },
@@ -658,72 +618,7 @@ export default function AddMember() {
     saveProgressMutation.mutate();
   };
 
-  const handleSendDocumentEmail = async () => {
-    // Check if member email exists
-    if (!formData.email) {
-      alert('Please enter the member\'s email address first');
-      return;
-    }
-
-    setSendingDocumentEmail(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        throw new Error('No active session');
-      }
-
-      // If we have a createdMemberId, use it; otherwise try to find the member by email
-      let memberId = createdMemberId;
-
-      if (!memberId) {
-        // Try to find the member by email
-        const { data: member, error: memberError } = await supabase
-          .from('members')
-          .select('id')
-          .eq('email', formData.email)
-          .maybeSingle();
-
-        if (memberError) {
-          throw new Error('Failed to look up member');
-        }
-
-        if (!member) {
-          alert('Member not found. Please complete the registration first.');
-          return;
-        }
-
-        memberId = member.id;
-      }
-
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resend-member-email`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          memberId: memberId,
-          emailType: 'document_upload',
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to send email');
-      }
-
-      setDocumentEmailSent(true);
-      alert('Document upload email sent successfully!');
-    } catch (error) {
-      console.error('Failed to send document upload email:', error);
-      alert(error instanceof Error ? error.message : 'Failed to send email. Please try again.');
-    } finally {
-      setSendingDocumentEmail(false);
-    }
-  };
-
-  const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'Medical Info', 'Documents', 'Declarations', 'GDPR Compliance', 'Payment'];
+  const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'Medical Info', 'GP Details', 'GDPR Compliance', 'Payment'];
 
   const validateMainMemberStep = (): boolean => {
     const errors: Record<string, string> = {};
@@ -952,22 +847,21 @@ export default function AddMember() {
     : steps;
 
   const stepIndexMap = formData.app_type === 'single'
-    ? [0, 1, 3, 4, 5, 6, 7, 8, 9]
-    : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    ? [0, 1, 3, 4, 5, 6, 7, 8]
+    : [0, 1, 2, 3, 4, 5, 6, 7, 8];
 
   const currentVisibleStepIndex = stepIndexMap.indexOf(currentStep);
 
-  // Map sidebar step IDs (1-9) to internal step indices
+  // Map sidebar step IDs (1-8) to internal step indices
   const sidebarStepToIndex: Record<number, number> = {
     1: 0,  // Membership Type
     2: 1,  // Main Member
     3: 3,  // Children (skip joint member step 2)
     4: 4,  // Next of Kin
     5: 5,  // Medical Info
-    6: 6,  // Documents
-    7: 7,  // Declarations
-    8: 8,  // GDPR Compliance (Paper Form)
-    9: 9,  // Payment
+    6: 6,  // GP Details
+    7: 7,  // GDPR Compliance (Paper Form)
+    8: 8,  // Payment
   };
 
   // Get reachable steps for sidebar (convert internal indices to sidebar IDs)
@@ -1026,13 +920,7 @@ export default function AddMember() {
         {currentStep === 3 && <StepChildren formData={formData} addChild={addChild} removeChild={removeChild} updateChild={updateChild} childValidationErrors={childValidationErrors} />}
         {currentStep === 4 && <StepNextOfKin formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
         {currentStep === 5 && <StepMedicalInfo formData={formData} updateFormData={updateFormData} mainHasMedicalCondition={mainHasMedicalCondition} setMainHasMedicalCondition={setMainHasMedicalCondition} jointHasMedicalCondition={jointHasMedicalCondition} setJointHasMedicalCondition={setJointHasMedicalCondition} />}
-        {currentStep === 6 && <StepDocuments
-          formData={formData}
-          documentEmailSent={documentEmailSent}
-          sendingDocumentEmail={sendingDocumentEmail}
-          onSendDocumentEmail={handleSendDocumentEmail}
-        />}
-        {currentStep === 7 && <StepDeclarations
+        {currentStep === 6 && <StepDeclarations
           gpPracticeName={gpPracticeName} setGpPracticeName={setGpPracticeName}
           gpPracticeAddress={gpPracticeAddress} setGpPracticeAddress={setGpPracticeAddress}
           gpPostcode={gpPostcode} setGpPostcode={setGpPostcode}
@@ -1040,7 +928,7 @@ export default function AddMember() {
           gpEmail={gpEmail} setGpEmail={setGpEmail}
           validationErrors={validationErrors}
         />}
-        {currentStep === 8 && <StepPaperForm
+        {currentStep === 7 && <StepPaperForm
           formData={formData}
           paperFormVersion={paperFormVersion} setPaperFormVersion={setPaperFormVersion}
           applicationDate={applicationDate} setApplicationDate={setApplicationDate}
@@ -1050,7 +938,7 @@ export default function AddMember() {
           dataEnteredBy={dataEnteredBy} setDataEnteredBy={setDataEnteredBy}
           validationErrors={validationErrors}
         />}
-        {currentStep === 9 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} signupDate={signupDate} setSignupDate={setSignupDate} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} mainJoiningFee={mainJoiningFee} jointJoiningFee={jointJoiningFee} proRataAnnualFee={proRataAnnualFee} mainProRataFee={mainProRataFee} jointProRataFee={jointProRataFee} adjustmentValue={adjustmentValue} totalDue={totalDue} coverageEndDate={coverageEndDate} />}
+        {currentStep === 8 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} signupDate={signupDate} setSignupDate={setSignupDate} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} mainJoiningFee={mainJoiningFee} jointJoiningFee={jointJoiningFee} proRataAnnualFee={proRataAnnualFee} mainProRataFee={mainProRataFee} jointProRataFee={jointProRataFee} adjustmentValue={adjustmentValue} totalDue={totalDue} coverageEndDate={coverageEndDate} />}
       </div>
 
           <div className="flex justify-between items-center bg-white rounded-xl shadow-md border border-gray-200 p-6">
@@ -1675,131 +1563,6 @@ function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, se
             )}
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function StepDocuments({
-  formData,
-  documentEmailSent,
-  sendingDocumentEmail,
-  onSendDocumentEmail,
-}: any) {
-  const hasJointMember = formData.app_type === 'joint';
-  const children = formData.children || [];
-  const memberEmail = formData.email;
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <h2 className="text-2xl font-bold text-gray-900">Documents</h2>
-          <InfoTooltip title="Document Requirements">
-            <ul className="space-y-1">
-              <li>• Photo ID: Passport or Driving Licence</li>
-              <li>• Proof of Address: Utility bill, Council tax, Bank statement (within last 3 months)</li>
-              {children.length > 0 && <li>• Children: Birth certificate or Passport required</li>}
-            </ul>
-          </InfoTooltip>
-        </div>
-        <p className="text-sm text-gray-600">
-          Documents will be requested from the member via secure email link
-        </p>
-      </div>
-
-      {/* Email-based document upload info */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="text-center max-w-md mx-auto">
-          <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-            <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-          </div>
-
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Send Document Upload Request
-          </h3>
-
-          <p className="text-sm text-gray-600 mb-4">
-            Click the button below to send a secure email link to <strong>{memberEmail || 'the member'}</strong>.
-            They will be able to upload their documents directly through the link.
-          </p>
-
-          {/* Document requirements list */}
-          <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
-            <p className="text-xs font-semibold text-gray-700 mb-2">Required Documents:</p>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
-                Main Member: Photo ID + Proof of Address
-              </li>
-              {hasJointMember && (
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
-                  Joint Member: Photo ID + Proof of Address
-                </li>
-              )}
-              {children.length > 0 && (
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
-                  {children.length} {children.length === 1 ? 'Child' : 'Children'}: Birth Certificate/Passport
-                </li>
-              )}
-            </ul>
-          </div>
-
-          {documentEmailSent ? (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-              <div className="flex items-center justify-center gap-2 text-emerald-700">
-                <CheckCircle className="h-5 w-5" />
-                <span className="font-medium">Email sent successfully!</span>
-              </div>
-              <p className="text-xs text-emerald-600 mt-1">
-                The member will receive the link shortly. You can resend if needed.
-              </p>
-              <button
-                type="button"
-                onClick={onSendDocumentEmail}
-                disabled={sendingDocumentEmail}
-                className="mt-3 text-sm text-emerald-700 hover:text-emerald-800 underline"
-              >
-                Resend email
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={onSendDocumentEmail}
-              disabled={sendingDocumentEmail || !memberEmail}
-              className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
-            >
-              {sendingDocumentEmail ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  Send Document Upload Email
-                </>
-              )}
-            </button>
-          )}
-
-          {!memberEmail && (
-            <p className="text-xs text-amber-600 mt-2">
-              Please enter the member's email address in Step 2 first
-            </p>
-          )}
-
-          <p className="text-xs text-gray-500 mt-4">
-            The secure link expires after 7 days. Documents can also be uploaded from the member profile after registration.
-          </p>
-        </div>
       </div>
     </div>
   );
