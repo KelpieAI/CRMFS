@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../contexts/ToastContext';
 
 interface EmailTokenStatusProps {
   memberId: string;
@@ -19,6 +20,7 @@ interface TokenData {
 }
 
 export default function EmailTokenStatus({ memberId, memberEmail }: EmailTokenStatusProps) {
+  const { success, error } = useToast();
   const [documentStatus, setDocumentStatus] = useState<TokenData | null>(null);
   const [declarationStatus, setDeclarationStatus] = useState<TokenData | null>(null);
   const [hasDocuments, setHasDocuments] = useState(false);
@@ -111,8 +113,6 @@ export default function EmailTokenStatus({ memberId, memberEmail }: EmailTokenSt
 
   const handleResend = async (type: 'document_upload' | 'declarations_signature') => {
     const isDocument = type === 'document_upload';
-    const wasEmailSent = isDocument ? !!documentStatus : !!declarationStatus;
-
     setResending(isDocument ? 'docs' : 'declarations');
     try {
       // Get the current session
@@ -145,13 +145,10 @@ export default function EmailTokenStatus({ memberId, memberEmail }: EmailTokenSt
 
       // Reload status to show the new token
       await loadTokenStatus();
-      alert(wasEmailSent
-        ? `Email resent successfully to ${memberEmail}`
-        : `Email sent successfully to ${memberEmail}`
-      );
-    } catch (error) {
-      console.error('Resend error:', error);
-      alert('Failed to send email. Please try again.');
+      success(`Email sent to ${memberEmail}`);
+    } catch (err) {
+      console.error('Resend error:', err);
+      error('Failed to send email');
     } finally {
       setResending(null);
     }
