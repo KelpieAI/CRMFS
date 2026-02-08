@@ -18,7 +18,7 @@ interface TokenData {
   status: TokenStatus;
 }
 
-export default function EmailTokenStatus({ memberId, memberEmail }: EmailTokenStatusProps) {
+export default function EmailTokenStatus({ memberId, memberEmail, memberFirstName, memberLastName }: EmailTokenStatusProps) {
   const [documentStatus, setDocumentStatus] = useState<TokenData | null>(null);
   const [declarationStatus, setDeclarationStatus] = useState<TokenData | null>(null);
   const [hasDocuments, setHasDocuments] = useState(false);
@@ -84,12 +84,13 @@ export default function EmailTokenStatus({ memberId, memberEmail }: EmailTokenSt
 
       setHasDocuments((docs?.length || 0) >= 2);
 
-      // TODO: Re-enable once we confirm correct column names in declarations table
-      // For now, just check if any declaration exists
+      // Check if member has actually signed declarations
       const { data: decls } = await supabase
         .from('declarations')
         .select('id')
         .eq('member_id', memberId)
+        .eq('main_medical_consent', true)
+        .eq('main_final_declaration', true)
         .maybeSingle();
 
       setHasDeclarations(!!decls);
@@ -139,7 +140,7 @@ export default function EmailTokenStatus({ memberId, memberEmail }: EmailTokenSt
         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      await response.json();
+      const data = await response.json();
 
       // Reload status to show the new token
       await loadTokenStatus();
