@@ -3,7 +3,7 @@
 > A comprehensive member and payment management system built for Falkirk Central Mosque's death committee (Central Region Muslim Funeral Service).
 
 **Built by:** [Kelpie AI](https://kelpieai.co.uk)  
-**Version:** 0.9.4.0  
+**Version:** 0.9.5.0  
 **Status:** Active Development  
 **Tech Stack:** React + TypeScript + Supabase + Tailwind CSS + Resend
 
@@ -71,7 +71,7 @@ This CRM serves the death committee's operational needs by:
   - Searchable access history per member
 
 ### 👥 Member Management
-- **10-Step Registration Wizard** with professional sidebar navigation:
+- **9-Step Registration Wizard** with professional sidebar navigation:
   - Fixed left sidebar showing all steps with clear progress indicators
   - Green checkmarks for completed steps, dark green for active, gray for pending
   - Click completed steps to navigate back and review
@@ -82,15 +82,26 @@ This CRM serves the death committee's operational needs by:
   - Next of kin details (mandatory fields with relation dropdown)
   - GP information (mandatory)
   - Medical declarations with conditional Yes/No questions
-  - Legal declarations with electronic signatures
-  - Document uploads (Photo ID, Proof of Address, Children certificates)
   - **Paper Form Record (GDPR compliance tracking)**
+  - GDPR Compliance acknowledgment
   - Pro-rata payment calculation with age-based fees
+  - **Email Token System** - Upon completion, committee can send secure email links:
+    - Document upload link (Photo ID + Proof of Address)
+    - Declarations signature link (Medical Consent + Terms & Conditions)
+    - Links expire after 7 days, single-use for security
+    - Members complete documents and signatures remotely
 - **Save Progress Feature** - Resume incomplete registrations
 - **Comprehensive Member Detail Pages** with redesigned interface:
   - Islamic green gradient hero section with member name and status
   - Quick info strip showing phone, email, age, total paid, location
   - Modern card-based layout with hover effects and mosque gold accents
+  - **Email Token Status Widget:**
+    - Shows document upload status (pending/expired/completed)
+    - Shows declarations signature status (pending/expired/completed)
+    - Email sent timestamps and expiry dates
+    - "Send" buttons when no email sent yet
+    - "Resend" buttons for expired or pending links
+    - Real-time status updates with toast notifications
   - Sub-navigation sidebar with 10 information tabs
   - Personal Info tab (editable, redesigned with better visual hierarchy)
   - Joint Member tab (partner details)
@@ -122,13 +133,22 @@ This CRM serves the death committee's operational needs by:
   - Paper form confirmation required
 
 ### 📄 Document Management System
-- **Document Upload During Registration:**
+- **Secure Email Token System:**
+  - Committee sends secure upload link via email after registration
+  - Member uploads documents from home via tokenized link
+  - Token expires after 7 days, single-use for security
+  - Committee can resend expired links from Member Detail page
   - Photo ID (passport/driving licence) for main and joint members
   - Proof of Address (utility bill/council tax) for main and joint members
-  - Birth certificates for all children
   - File validation (JPG, PNG, PDF only, max 5MB)
   - Upload progress indicators
-  - Delete functionality with confirmation
+- **Public Upload Pages:**
+  - Branded upload interface with CRMFS styling
+  - Token validation with expiry checking
+  - Drag & drop file upload or click to browse
+  - Real-time validation and error handling
+  - Success confirmation after upload
+  - Automatic activity logging for audit trail
 - **Document Management in Member Detail:**
   - Upload/manage documents modal with drag & drop interface
   - Browse files button for traditional file selection
@@ -764,7 +784,38 @@ This system handles sensitive personal data. Security measures include:
 
 ## 📈 Version History
 
-### v0.9.4.0 (Current - 01 February 2026)
+### v0.9.5.0 (08 February 2026)
+This release completes the email token system by adding comprehensive admin controls for managing member document uploads and declaration signatures. The registration wizard has been streamlined to 9 steps, removing the redundant in-person document upload step in favour of the more secure and convenient email-based workflow.
+
+- **Admin Email Token Management:**
+  - Email Token Status widget on Member Detail page
+  - Real-time status tracking (pending/expired/completed/not sent)
+  - Send/Resend buttons with intelligent labelling
+  - Toast notifications instead of blocking alerts
+  - Email sent timestamps and expiry date displays
+  - Automatic status updates after member actions
+- **Registration Wizard Streamlined:**
+  - Reduced from 10 steps to 9 steps
+  - Removed Step 6 (Documents) - now handled via email
+  - Success page with manual email send buttons
+  - Committee control over when emails are sent
+  - Clear explanation of each email's purpose
+- **Edge Function Improvements:**
+  - Fixed 401 authentication issues
+  - Removed JWT verification requirement
+  - Added comprehensive logging for debugging
+  - Better error handling and messaging
+- **Public Page Enhancements:**
+  - Fixed RLS policies for anonymous access
+  - Proper token validation on upload pages
+  - Improved error states (invalid/expired/used)
+  - Better visual feedback and messaging
+- **Database Updates:**
+  - RLS policies added for public token validation
+  - RLS policies added for public member lookup
+  - Optimized queries for token status checks
+
+### v0.9.4.0 (05 February 2026)
 🎊 **Instant Email Triggers Complete!** This release completes the email automation system with three instant-trigger emails that fire immediately when key events occur. Combined with the cron-based system from v0.9.0.0, the mosque now has complete automated communication for the entire member lifecycle. The system now handles 11 different email scenarios without any manual intervention.
 
 - **Instant Trigger Emails (Database Triggers):**
@@ -805,7 +856,7 @@ This system handles sensitive personal data. Security measures include:
 
 **Note:** Deceased member workflow enhancement scheduled for future release
 
-### v0.9.3.0 (01 February 2026)
+### v0.9.3.0 (03 February 2026)
 🎨 **Registration Flow Redesign!** This release dramatically improves the user experience of the member registration process by replacing the cramped horizontal progress stepper with a professional sidebar navigation that matches the MemberSubNav styling. The new design provides better visual hierarchy, clearer progress tracking, and improved usability on all screen sizes.
 
 - **Registration Sidebar Navigation:**
@@ -847,6 +898,7 @@ This system handles sensitive personal data. Security measures include:
 - Better understanding of where they are in the process
 - Reduced confusion about next steps
 - More professional appearance increases trust
+
 
 ### v0.9.2.0 (01 February 2026)
 🎨 **Member Detail Interface Revamp!** Following user feedback about the bland and cramped member detail interface, this release introduces a complete visual redesign that transforms the page from boring white boxes into a modern, professional interface with proper Islamic branding and visual hierarchy.
