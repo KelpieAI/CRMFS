@@ -18,7 +18,7 @@ interface TokenData {
   status: TokenStatus;
 }
 
-export default function EmailTokenStatus({ memberId, memberEmail, memberFirstName, memberLastName }: EmailTokenStatusProps) {
+export default function EmailTokenStatus({ memberId, memberEmail }: EmailTokenStatusProps) {
   const [documentStatus, setDocumentStatus] = useState<TokenData | null>(null);
   const [declarationStatus, setDeclarationStatus] = useState<TokenData | null>(null);
   const [hasDocuments, setHasDocuments] = useState(false);
@@ -139,7 +139,7 @@ export default function EmailTokenStatus({ memberId, memberEmail, memberFirstNam
         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json();
+      await response.json();
 
       // Reload status to show the new token
       await loadTokenStatus();

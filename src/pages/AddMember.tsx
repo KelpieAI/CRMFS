@@ -527,15 +527,18 @@ export default function AddMember() {
       // Track declarations email sending result
       let declarationsEmailSent = true;
 
-      // Supabase anon key for Edge Function calls
-      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrcHdpYmlzbWtld3JlemdjaGJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI3NDM2NjAsImV4cCI6MjA1ODMxOTY2MH0.gvJozgHMIqFKxJeUrz7dkH9S6HiIQWBwaKw8WvDK0Hc';
-
       // Send declarations email automatically after member creation
       try {
-        const declarationsResponse = await fetch('https://fkpwibismkewrezgchbq.supabase.co/functions/v1/send-declarations-email', {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!session) {
+          throw new Error('No active session');
+        }
+
+        const declarationsResponse = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-declarations-email`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -547,7 +550,8 @@ export default function AddMember() {
         });
 
         if (!declarationsResponse.ok) {
-          throw new Error('Declarations email failed');
+          const errorData = await declarationsResponse.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Declarations email failed');
         }
       } catch (error) {
         console.error('Failed to send declarations email:', error);
@@ -652,9 +656,6 @@ export default function AddMember() {
     saveProgressMutation.mutate();
   };
 
-  // Supabase anon key for Edge Function calls
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrcHdpYmlzbWtld3JlemdjaGJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI3NDM2NjAsImV4cCI6MjA1ODMxOTY2MH0.gvJozgHMIqFKxJeUrz7dkH9S6HiIQWBwaKw8WvDK0Hc';
-
   const handleSendDocumentEmail = async () => {
     if (!formData.email) {
       alert('Please enter the member\'s email address first');
@@ -663,26 +664,33 @@ export default function AddMember() {
 
     setSendingDocumentEmail(true);
     try {
-      const response = await fetch('https://fkpwibismkewrezgchbq.supabase.co/functions/v1/send-document-upload-email', {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error('No active session');
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-document-upload-email`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          memberId: null, // Will be created after registration
+          memberId: null,
           email: formData.email,
           firstName: formData.first_name,
           lastName: formData.last_name,
-          isPreRegistration: true, // Flag to indicate this is before member creation
+          isPreRegistration: true,
         }),
       });
 
-      if (response.ok) {
-        setDocumentEmailSent(true);
-      } else {
-        throw new Error('Failed to send email');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to send email');
       }
+
+      setDocumentEmailSent(true);
     } catch (error) {
       console.error('Failed to send document upload email:', error);
       alert('Failed to send email. Please try again.');
