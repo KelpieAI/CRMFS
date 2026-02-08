@@ -813,7 +813,7 @@ This release completes the email token system by adding comprehensive admin cont
 - **Database Updates:**
   - RLS policies added for public token validation
   - RLS policies added for public member lookup
-  - Optimized queries for token status checks
+  - Optimised queries for token status checks
 
 ### v0.9.4.0 (05 February 2026)
 🎊 **Instant Email Triggers Complete!** This release completes the email automation system with three instant-trigger emails that fire immediately when key events occur. Combined with the cron-based system from v0.9.0.0, the mosque now has complete automated communication for the entire member lifecycle. The system now handles 11 different email scenarios without any manual intervention.
