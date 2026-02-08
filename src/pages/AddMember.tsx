@@ -659,12 +659,6 @@ export default function AddMember() {
   };
 
   const handleSendDocumentEmail = async () => {
-    // Check if member ID exists
-    if (!createdMemberId) {
-      alert('Please complete the member registration first. You can send document upload links from the member detail page after registration.');
-      return;
-    }
-
     // Check if member email exists
     if (!formData.email) {
       alert('Please enter the member\'s email address first');
@@ -679,6 +673,29 @@ export default function AddMember() {
         throw new Error('No active session');
       }
 
+      // If we have a createdMemberId, use it; otherwise try to find the member by email
+      let memberId = createdMemberId;
+
+      if (!memberId) {
+        // Try to find the member by email
+        const { data: member, error: memberError } = await supabase
+          .from('members')
+          .select('id')
+          .eq('email', formData.email)
+          .maybeSingle();
+
+        if (memberError) {
+          throw new Error('Failed to look up member');
+        }
+
+        if (!member) {
+          alert('Member not found. Please complete the registration first.');
+          return;
+        }
+
+        memberId = member.id;
+      }
+
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resend-member-email`, {
         method: 'POST',
         headers: {
@@ -686,7 +703,7 @@ export default function AddMember() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          memberId: createdMemberId,
+          memberId: memberId,
           emailType: 'document_upload',
         }),
       });
@@ -700,7 +717,7 @@ export default function AddMember() {
       alert('Document upload email sent successfully!');
     } catch (error) {
       console.error('Failed to send document upload email:', error);
-      alert('Failed to send email. Please try again.');
+      alert(error instanceof Error ? error.message : 'Failed to send email. Please try again.');
     } finally {
       setSendingDocumentEmail(false);
     }
