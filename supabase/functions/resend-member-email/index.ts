@@ -33,23 +33,20 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Create Supabase client with user's auth
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: {
-        headers: { Authorization: authHeader },
-      },
-    });
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Verify user is authenticated
-    const { data: { user }, error: userError } = await supabase.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
+    // Create client with service role for database operations (bypasses RLS)
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Verify user is authenticated using their JWT
+    const jwt = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(jwt);
 
     if (userError || !user) {
+      console.error("Auth error:", userError);
       return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
+        JSON.stringify({ error: "Unauthorized", details: userError?.message }),
         {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -72,7 +69,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Get member details
-    const { data: member, error: memberError } = await supabase
+    const { data: member, error: memberError } = await supabaseAdmin
       .from("members")
       .select("id, email, first_name, last_name")
       .eq("id", memberId)
@@ -89,7 +86,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Invalidate old tokens of this type for this member
-    const { error: invalidateError } = await supabase
+    const { error: invalidateError } = await supabaseAdmin
       .from("email_tokens")
       .update({
         is_valid: false,
@@ -110,7 +107,7 @@ Deno.serve(async (req: Request) => {
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
 
     // Create new email token
-    const { error: tokenError } = await supabase
+    const { error: tokenError } = await supabaseAdmin
       .from("email_tokens")
       .insert({
         member_id: memberId,
@@ -135,7 +132,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Log activity
-    await supabase.from("activity_log").insert({
+    await supabaseAdmin.from("activity_log").insert({
       member_id: memberId,
       action_type: emailType === 'document_upload' ? 'email_sent' : 'email_sent',
       description: `Resent ${emailType === 'document_upload' ? 'document upload' : 'declarations signature'} email to ${member.email}`,
