@@ -174,9 +174,9 @@ export default function AddMember() {
   const [gpTelephone, setGpTelephone] = useState('');
   const [gpEmail, setGpEmail] = useState('');
 
-  // Document email tracking
-  const [documentEmailSent, setDocumentEmailSent] = useState(false);
-  const [sendingDocumentEmail, setSendingDocumentEmail] = useState(false);
+  // Document email tracking - currently disabled (pre-registration emails not supported)
+  const [documentEmailSent] = useState(false);
+  const [sendingDocumentEmail] = useState(false);
 
   const [formData, setFormData] = useState<FormData>(savedApplication?.form_data || {
     app_type: 'single',
@@ -535,7 +535,7 @@ export default function AddMember() {
           throw new Error('No active session');
         }
 
-        const declarationsResponse = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-declarations-email`, {
+        const declarationsResponse = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resend-member-email`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
@@ -543,9 +543,7 @@ export default function AddMember() {
           },
           body: JSON.stringify({
             memberId,
-            email: formData.email,
-            firstName: formData.first_name,
-            lastName: formData.last_name,
+            emailType: 'declarations_signature',
           }),
         });
 
@@ -657,46 +655,9 @@ export default function AddMember() {
   };
 
   const handleSendDocumentEmail = async () => {
-    if (!formData.email) {
-      alert('Please enter the member\'s email address first');
-      return;
-    }
-
-    setSendingDocumentEmail(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        throw new Error('No active session');
-      }
-
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-document-upload-email`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          memberId: null,
-          email: formData.email,
-          firstName: formData.first_name,
-          lastName: formData.last_name,
-          isPreRegistration: true,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to send email');
-      }
-
-      setDocumentEmailSent(true);
-    } catch (error) {
-      console.error('Failed to send document upload email:', error);
-      alert('Failed to send email. Please try again.');
-    } finally {
-      setSendingDocumentEmail(false);
-    }
+    // Pre-registration document emails are not currently supported
+    // Members must be created first before sending document upload links
+    alert('Please complete the member registration first. You can send document upload links from the member detail page after registration.');
   };
 
   const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'Medical Info', 'Documents', 'Declarations', 'GDPR Compliance', 'Payment'];
