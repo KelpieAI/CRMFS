@@ -18,7 +18,7 @@ interface TokenData {
   status: TokenStatus;
 }
 
-export default function EmailTokenStatus({ memberId, memberEmail, memberFirstName, memberLastName }: EmailTokenStatusProps) {
+export default function EmailTokenStatus({ memberId, memberEmail }: EmailTokenStatusProps) {
   const [documentStatus, setDocumentStatus] = useState<TokenData | null>(null);
   const [declarationStatus, setDeclarationStatus] = useState<TokenData | null>(null);
   const [hasDocuments, setHasDocuments] = useState(false);
@@ -110,11 +110,14 @@ export default function EmailTokenStatus({ memberId, memberEmail, memberFirstNam
   };
 
   const handleResend = async (type: 'document_upload' | 'declarations_signature') => {
-    setResending(type === 'document_upload' ? 'docs' : 'declarations');
+    const isDocument = type === 'document_upload';
+    const wasEmailSent = isDocument ? !!documentStatus : !!declarationStatus;
+
+    setResending(isDocument ? 'docs' : 'declarations');
     try {
       // Get the current session
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session) {
         throw new Error('No active session');
       }
@@ -140,14 +143,15 @@ export default function EmailTokenStatus({ memberId, memberEmail, memberFirstNam
         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json();
-
       // Reload status to show the new token
       await loadTokenStatus();
-      alert(`Email resent successfully to ${memberEmail}`);
+      alert(wasEmailSent
+        ? `Email resent successfully to ${memberEmail}`
+        : `Email sent successfully to ${memberEmail}`
+      );
     } catch (error) {
       console.error('Resend error:', error);
-      alert('Failed to resend email. Please try again.');
+      alert('Failed to send email. Please try again.');
     } finally {
       setResending(null);
     }
@@ -235,30 +239,53 @@ export default function EmailTokenStatus({ memberId, memberEmail, memberFirstNam
           </div>
         )}
 
-        {(documentStatus?.status === 'expired' || documentStatus?.status === 'pending') && !hasDocuments && (
-          <button
-            onClick={() => handleResend('document_upload')}
-            disabled={resending === 'docs'}
-            style={{
-              marginTop: '12px',
-              padding: '8px 16px',
-              background: resending === 'docs' ? '#9ca3af' : '#2d5016',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: resending === 'docs' ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {resending === 'docs' ? 'Sending...' : '🔄 Resend Upload Link'}
-          </button>
-        )}
-
-        {!documentStatus && (
-          <p style={{ fontSize: '13px', color: '#9ca3af', fontStyle: 'italic', marginTop: '8px' }}>
-            No email sent yet
-          </p>
+        {!hasDocuments && (
+          <>
+            {documentStatus ? (
+              (documentStatus.status === 'expired' || documentStatus.status === 'pending') && (
+                <button
+                  onClick={() => handleResend('document_upload')}
+                  disabled={resending === 'docs'}
+                  style={{
+                    marginTop: '12px',
+                    padding: '8px 16px',
+                    background: resending === 'docs' ? '#9ca3af' : '#2d5016',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: resending === 'docs' ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {resending === 'docs' ? 'Sending...' : '🔄 Resend Upload Link'}
+                </button>
+              )
+            ) : (
+              <>
+                <p style={{ fontSize: '13px', color: '#9ca3af', fontStyle: 'italic', marginTop: '8px' }}>
+                  No email sent yet
+                </p>
+                <button
+                  onClick={() => handleResend('document_upload')}
+                  disabled={resending === 'docs'}
+                  style={{
+                    marginTop: '12px',
+                    padding: '8px 16px',
+                    background: resending === 'docs' ? '#9ca3af' : '#2563eb',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: resending === 'docs' ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {resending === 'docs' ? 'Sending...' : '📧 Send Upload Link'}
+                </button>
+              </>
+            )}
+          </>
         )}
       </div>
 
@@ -295,30 +322,53 @@ export default function EmailTokenStatus({ memberId, memberEmail, memberFirstNam
           </div>
         )}
 
-        {(declarationStatus?.status === 'expired' || declarationStatus?.status === 'pending') && !hasDeclarations && (
-          <button
-            onClick={() => handleResend('declarations_signature')}
-            disabled={resending === 'declarations'}
-            style={{
-              marginTop: '12px',
-              padding: '8px 16px',
-              background: resending === 'declarations' ? '#9ca3af' : '#2d5016',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: resending === 'declarations' ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {resending === 'declarations' ? 'Sending...' : '🔄 Resend Signature Link'}
-          </button>
-        )}
-
-        {!declarationStatus && (
-          <p style={{ fontSize: '13px', color: '#9ca3af', fontStyle: 'italic', marginTop: '8px' }}>
-            No email sent yet
-          </p>
+        {!hasDeclarations && (
+          <>
+            {declarationStatus ? (
+              (declarationStatus.status === 'expired' || declarationStatus.status === 'pending') && (
+                <button
+                  onClick={() => handleResend('declarations_signature')}
+                  disabled={resending === 'declarations'}
+                  style={{
+                    marginTop: '12px',
+                    padding: '8px 16px',
+                    background: resending === 'declarations' ? '#9ca3af' : '#2d5016',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: resending === 'declarations' ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {resending === 'declarations' ? 'Sending...' : '🔄 Resend Signature Link'}
+                </button>
+              )
+            ) : (
+              <>
+                <p style={{ fontSize: '13px', color: '#9ca3af', fontStyle: 'italic', marginTop: '8px' }}>
+                  No email sent yet
+                </p>
+                <button
+                  onClick={() => handleResend('declarations_signature')}
+                  disabled={resending === 'declarations'}
+                  style={{
+                    marginTop: '12px',
+                    padding: '8px 16px',
+                    background: resending === 'declarations' ? '#9ca3af' : '#9333ea',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: resending === 'declarations' ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {resending === 'declarations' ? 'Sending...' : '📧 Send Signature Link'}
+                </button>
+              </>
+            )}
+          </>
         )}
       </div>
     </div>
