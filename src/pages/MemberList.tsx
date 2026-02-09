@@ -186,8 +186,8 @@ export default function MemberList() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Members</h1>
-            <p className="mt-1 text-sm text-gray-600">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Members</h1>
+            <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
               Manage funeral service memberships
             </p>
           </div>
@@ -203,7 +203,7 @@ export default function MemberList() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center space-x-3">
-            <h1 className="text-3xl font-bold text-gray-900">Members</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Members</h1>
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-emerald-100 text-emerald-800">
               {members?.length || 0} Total
             </span>

@@ -181,7 +181,7 @@ export default function DeceasedMembers() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Deceased Members</h1>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
               إِنَّا لِلَّٰهِ وَإِنَّا إِلَيْهِ رَاجِعُونَ - Surely we belong to Allah and to Him we shall return
             </p>
           </div>
@@ -197,12 +197,12 @@ export default function DeceasedMembers() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center space-x-3">
-            <h1 className="text-3xl font-bold text-gray-900">Deceased Members</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Deceased Members</h1>
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gray-100 text-gray-800">
               {deceasedData?.length || 0} Total
             </span>
           </div>
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
             إِنَّا لِلَّٰهِ وَإِنَّا إِلَيْهِ رَاجِعُونَ - Surely we belong to Allah and to Him we shall return
           </p>
         </div>

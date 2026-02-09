@@ -127,7 +127,7 @@ export default function Payments() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Payments</h1>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Manage membership payments and renewals</p>
+            <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">Manage membership payments and renewals</p>
           </div>
         </div>
         <TableSkeleton rows={7} />
@@ -140,8 +140,8 @@ export default function Payments() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Payments</h1>
-          <p className="mt-1 text-sm text-gray-600">Manage membership payments and renewals</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Payments</h1>
+          <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">Manage membership payments and renewals</p>
         </div>
         <button
           onClick={() => setShowAddPayment(true)}
