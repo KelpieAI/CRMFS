@@ -48,10 +48,10 @@ export default function RegistrationSidebar({
   };
 
   return (
-    <div className="w-72 bg-white border-r border-gray-200 h-screen flex flex-col">
+    <div className="w-72 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 h-screen flex flex-col transition-colors">
       {/* Header */}
-      <div className="flex-shrink-0 bg-white px-5 py-4 border-b-2 border-[#2d5016]">
-        <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+      <div className="flex-shrink-0 bg-white dark:bg-gray-900 px-5 py-4 border-b-2 border-[#2d5016] transition-colors">
+        <h2 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
           Registration Steps
         </h2>
       </div>
@@ -75,10 +75,10 @@ export default function RegistrationSidebar({
                   w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all duration-200
                   group relative
                   ${isActive
-                    ? 'bg-emerald-50 text-[#2d5016] font-semibold border-l-3 border-l-[#2d5016] pl-3.5'
+                    ? 'bg-emerald-50 dark:bg-gray-800 text-[#2d5016] dark:text-emerald-400 font-semibold border-l-3 border-l-[#2d5016] pl-3.5'
                     : isCompleted
-                    ? 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 hover:border-l-3 hover:border-l-[#D4AF37] hover:pl-3.5 cursor-pointer'
-                    : 'text-gray-400 cursor-not-allowed opacity-50'
+                    ? 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white hover:border-l-3 hover:border-l-[#D4AF37] hover:pl-3.5 cursor-pointer'
+                    : 'text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50'
                   }
                 `}
               >
@@ -104,38 +104,38 @@ export default function RegistrationSidebar({
         </nav>
 
         {/* Divider */}
-        <div className="mx-5 my-5 border-t border-gray-200"></div>
+        <div className="mx-5 my-5 border-t border-gray-200 dark:border-gray-800"></div>
 
         {/* Quick Actions Section */}
         <div className="px-5 pb-6">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+          <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
             Quick Actions
           </p>
           <div className="space-y-2.5">
             <button
               onClick={onSaveProgress}
-              className="w-full text-left text-[13px] text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 transition-all py-2.5 px-3 rounded-lg flex items-center gap-2.5 font-semibold"
+              className="w-full text-left text-[13px] text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-gray-800 transition-all py-2.5 px-3 rounded-lg flex items-center gap-2.5 font-semibold"
             >
               <Save className="h-4 w-4" />
               Save Progress
             </button>
             <button
               onClick={onBack}
-              className="w-full text-left text-[13px] text-gray-600 hover:text-[#2d5016] hover:bg-gray-50 transition-all py-2.5 px-3 rounded-lg flex items-center gap-2.5 font-medium"
+              className="w-full text-left text-[13px] text-gray-600 dark:text-gray-300 hover:text-[#2d5016] dark:hover:text-emerald-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all py-2.5 px-3 rounded-lg flex items-center gap-2.5 font-medium"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to Members
             </button>
             <button
               onClick={onSendCopy}
-              className="w-full text-left text-[13px] text-gray-600 hover:text-[#2d5016] hover:bg-gray-50 transition-all py-2.5 px-3 rounded-lg flex items-center gap-2.5 font-medium"
+              className="w-full text-left text-[13px] text-gray-600 dark:text-gray-300 hover:text-[#2d5016] dark:hover:text-emerald-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all py-2.5 px-3 rounded-lg flex items-center gap-2.5 font-medium"
             >
               <Mail className="h-4 w-4" />
               Email Copy
             </button>
             <button
               onClick={onPrintProgress}
-              className="w-full text-left text-[13px] text-gray-600 hover:text-[#2d5016] hover:bg-gray-50 transition-all py-2.5 px-3 rounded-lg flex items-center gap-2.5 font-medium"
+              className="w-full text-left text-[13px] text-gray-600 dark:text-gray-300 hover:text-[#2d5016] dark:hover:text-emerald-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all py-2.5 px-3 rounded-lg flex items-center gap-2.5 font-medium"
             >
               <Printer className="h-4 w-4" />
               Print Progress

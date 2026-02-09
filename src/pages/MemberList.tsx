@@ -325,9 +325,9 @@ export default function MemberList() {
       </div>
 
       {/* Members Table */}
-      <div className="bg-white shadow-lg rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gradient-to-r from-emerald-600 to-emerald-700">
               <tr>
                 <th className="px-6 py-3 text-left">
@@ -364,12 +364,12 @@ export default function MemberList() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700 transition-colors">
               {paginatedMembers && paginatedMembers.length > 0 ? (
                 paginatedMembers.map((member) => (
                   <tr
                     key={member.id}
-                    className="hover:bg-emerald-50 transition-colors cursor-pointer"
+                    className="hover:bg-emerald-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
                     onClick={(e) => {
                       // Only select if not clicking on checkbox, menu, or interactive elements
                       if (
