@@ -201,8 +201,8 @@ export default function CollapsibleSidebar() {
 
           {/* Dropdown Menu */}
           {showProfileMenu && (
-            <div 
-              className={'absolute bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50 min-w-[200px] mb-2 ' +
+            <div
+              className={'absolute bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50 min-w-[200px] mb-2 ' +
                 (isExpanded ? 'left-2 right-2 bottom-full' : 'left-16 bottom-2')}
               onClick={(e) => e.stopPropagation()}
             >
@@ -211,18 +211,18 @@ export default function CollapsibleSidebar() {
                   navigate('/settings');
                   setShowProfileMenu(false);
                 }}
-                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center transition-colors"
               >
-                <Settings className="h-4 w-4 mr-3 text-gray-500" />
+                <Settings className="h-4 w-4 mr-3 text-gray-500 dark:text-gray-400" />
                 Settings
               </button>
-              
+
               <button
                 onClick={() => {
                   handleSignOut();
                   setShowProfileMenu(false);
                 }}
-                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center border-t border-gray-100 transition-colors"
+                className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center border-t border-gray-100 dark:border-gray-700 transition-colors"
               >
                 <LogOut className="h-4 w-4 mr-3" />
                 Sign Out

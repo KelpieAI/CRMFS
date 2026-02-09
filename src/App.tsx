@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from './contexts/ToastContext';
 import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import CompactLayout from './components/CompactLayout';
@@ -55,10 +56,11 @@ function App() {
         <BrowserRouter>
           {/* Scroll to top on route change */}
           <ScrollToTop />
-          <AuthProvider>
-            <ToastProvider>
-              {/* Command Palette - OUTSIDE Routes */}
-              <CommandPalette />
+          <ThemeProvider>
+            <AuthProvider>
+              <ToastProvider>
+                {/* Command Palette - OUTSIDE Routes */}
+                <CommandPalette />
               
               <Routes>
                 {/* Public Routes — no login required */}
@@ -90,8 +92,9 @@ function App() {
                 <Route path="/404" element={<NotFound />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
-            </ToastProvider>
-          </AuthProvider>
+              </ToastProvider>
+            </AuthProvider>
+          </ThemeProvider>
         </BrowserRouter>
       </QueryClientProvider>
     </ErrorBoundary>

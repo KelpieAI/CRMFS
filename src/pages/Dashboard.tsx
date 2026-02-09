@@ -152,8 +152,8 @@ export default function Dashboard() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-            <p className="mt-1 text-sm text-gray-600">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
               Welcome back! Here's what's happening today.
             </p>
           </div>
@@ -177,8 +177,8 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-600">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
             {getGreeting()}, {userName}! Here's what's happening today.
           </p>
         </div>
@@ -199,7 +199,7 @@ export default function Dashboard() {
             className={`inline-flex items-center px-4 py-2 rounded-lg transition-all shadow-sm hover:shadow ${
               showSuccess
                 ? 'bg-green-600 border-green-600 text-white'
-                : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
             } disabled:opacity-75 disabled:cursor-not-allowed`}
           >
             {showSuccess ? (
@@ -234,20 +234,20 @@ export default function Dashboard() {
           return (
             <div
               key={stat.name}
-              className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100 hover:shadow-xl transition-shadow"
+              className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-shadow"
             >
               <div className="p-5">
                 <div className="flex items-center">
-                  <div className={`flex-shrink-0 rounded-lg p-3 ${stat.bgColor}`}>
+                  <div className={`flex-shrink-0 rounded-lg p-3 ${stat.bgColor} dark:bg-opacity-20`}>
                     <Icon className={`h-6 w-6 ${stat.iconColor}`} />
                   </div>
                   <div className="ml-5 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
                         {stat.name}
                       </dt>
                       <dd className="flex items-baseline">
-                        <div className="text-2xl font-semibold text-gray-900">
+                        <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                           {stat.value}
                         </div>
                       </dd>
@@ -263,17 +263,17 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {/* Recent Members */}
-        <div className="bg-white shadow-lg rounded-xl border border-gray-100 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
           <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-4">
             <h2 className="text-lg font-semibold text-white">Recent Members</h2>
           </div>
-          <div className="divide-y divide-gray-200">
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {recentMembers && recentMembers.length > 0 ? (
               recentMembers.map((member) => (
                 <Link
                   key={member.id}
                   to={`/members/${member.id}`}
-                  className="px-6 py-4 hover:bg-emerald-50 transition-colors block"
+                  className="px-6 py-4 hover:bg-emerald-50 dark:hover:bg-gray-700 transition-colors block"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
@@ -284,10 +284,10 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           {member.first_name} {member.last_name}
                         </p>
-                        <p className="text-xs text-gray-500">{member.email}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{member.email}</p>
                       </div>
                     </div>
                     <span
@@ -305,12 +305,12 @@ export default function Dashboard() {
                 </Link>
               ))
             ) : (
-              <div className="px-6 py-8 text-center text-gray-500">
+              <div className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                 No recent members
               </div>
             )}
           </div>
-          <div className="bg-gray-50 px-6 py-3">
+          <div className="bg-gray-50 dark:bg-gray-900 px-6 py-3">
             <Link
               to="/members"
               className="text-sm font-medium text-emerald-600 hover:text-emerald-700"
@@ -321,7 +321,7 @@ export default function Dashboard() {
         </div>
 
         {/* Alerts */}
-        <div className="bg-white shadow-lg rounded-xl border border-gray-100 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
           <div className="bg-gradient-to-r from-orange-600 to-amber-600 px-6 py-4">
             <h2 className="text-lg font-semibold text-white flex items-center">
               <AlertTriangle className="h-5 w-5 mr-2" />
@@ -333,31 +333,31 @@ export default function Dashboard() {
               )}
             </h2>
           </div>
-          <div className="divide-y divide-gray-200">
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {alerts && alerts.totalAlerts > 0 ? (
               <>
                 {alerts.documentsPending > 0 && (
                   <Link
                     to="/members?filter=documents_pending"
-                    className="px-6 py-4 hover:bg-orange-50 transition-colors block"
+                    className="px-6 py-4 hover:bg-orange-50 dark:hover:bg-gray-700 transition-colors block"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <div className="flex-shrink-0">
-                          <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
-                            <FileText className="h-5 w-5 text-orange-600" />
+                          <div className="h-10 w-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                            <FileText className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                           </div>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                             Documents Pending
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Members need to upload documents
                           </p>
                         </div>
                       </div>
-                      <span className="text-2xl font-bold text-orange-600">
+                      <span className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                         {alerts.documentsPending}
                       </span>
                     </div>
@@ -366,25 +366,25 @@ export default function Dashboard() {
                 {alerts.declarationsPending > 0 && (
                   <Link
                     to="/members?filter=declarations_pending"
-                    className="px-6 py-4 hover:bg-orange-50 transition-colors block"
+                    className="px-6 py-4 hover:bg-orange-50 dark:hover:bg-gray-700 transition-colors block"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <div className="flex-shrink-0">
-                          <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
-                            <PenSquare className="h-5 w-5 text-amber-600" />
+                          <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                            <PenSquare className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                           </div>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                             Declarations Pending
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Members need to sign declarations
                           </p>
                         </div>
                       </div>
-                      <span className="text-2xl font-bold text-amber-600">
+                      <span className="text-2xl font-bold text-amber-600 dark:text-amber-400">
                         {alerts.declarationsPending}
                       </span>
                     </div>
@@ -393,25 +393,25 @@ export default function Dashboard() {
                 {alerts.paymentsOverdue > 0 && (
                   <Link
                     to="/members?filter=payments_overdue"
-                    className="px-6 py-4 hover:bg-orange-50 transition-colors block"
+                    className="px-6 py-4 hover:bg-orange-50 dark:hover:bg-gray-700 transition-colors block"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <div className="flex-shrink-0">
-                          <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
-                            <CreditCard className="h-5 w-5 text-red-600" />
+                          <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                            <CreditCard className="h-5 w-5 text-red-600 dark:text-red-400" />
                           </div>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                             Payments Overdue
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Members with overdue payments
                           </p>
                         </div>
                       </div>
-                      <span className="text-2xl font-bold text-red-600">
+                      <span className="text-2xl font-bold text-red-600 dark:text-red-400">
                         {alerts.paymentsOverdue}
                       </span>
                     </div>
@@ -420,25 +420,25 @@ export default function Dashboard() {
                 {alerts.emailsFailed > 0 && (
                   <Link
                     to="/members?filter=emails_failed"
-                    className="px-6 py-4 hover:bg-orange-50 transition-colors block"
+                    className="px-6 py-4 hover:bg-orange-50 dark:hover:bg-gray-700 transition-colors block"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <div className="flex-shrink-0">
-                          <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
-                            <Mail className="h-5 w-5 text-gray-600" />
+                          <div className="h-10 w-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                            <Mail className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                           </div>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                             Emails Failed
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Email delivery issues
                           </p>
                         </div>
                       </div>
-                      <span className="text-2xl font-bold text-gray-600">
+                      <span className="text-2xl font-bold text-gray-600 dark:text-gray-400">
                         {alerts.emailsFailed}
                       </span>
                     </div>
@@ -448,20 +448,20 @@ export default function Dashboard() {
             ) : (
               <div className="px-6 py-8 text-center">
                 <div className="flex flex-col items-center space-y-2">
-                  <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
-                    <Check className="h-6 w-6 text-green-600" />
+                  <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                    <Check className="h-6 w-6 text-green-600 dark:text-green-400" />
                   </div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                     No alerts - all members up to date
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     Everything is looking good!
                   </p>
                 </div>
               </div>
             )}
           </div>
-          <div className="bg-gray-50 px-6 py-3">
+          <div className="bg-gray-50 dark:bg-gray-900 px-6 py-3">
             <Link
               to="/members"
               className="text-sm font-medium text-orange-600 hover:text-orange-700"

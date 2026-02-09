@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { Shield, FileText, Trash2, CheckCircle, XCircle, Clock, Download } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
+import { Shield, FileText, Trash2, CheckCircle, XCircle, Clock, Download, Palette, Moon, Sun } from 'lucide-react';
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState('gdpr');
+  const [activeTab, setActiveTab] = useState('appearance');
+  const { theme, toggleTheme } = useTheme();
 
   // Fetch deletion requests
   const { data: deletionRequests, refetch } = useQuery({
@@ -62,17 +64,28 @@ export default function Settings() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Settings</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Settings</h1>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 mb-6">
+      <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
         <nav className="flex space-x-8">
           <button
+            onClick={() => setActiveTab('appearance')}
+            className={'pb-4 px-1 border-b-2 font-medium text-sm transition-colors ' + (
+              activeTab === 'appearance'
+                ? 'border-mosque-green-600 text-mosque-green-600'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+            )}
+          >
+            <Palette className="h-4 w-4 inline mr-2" />
+            Appearance
+          </button>
+          <button
             onClick={() => setActiveTab('gdpr')}
-            className={'pb-4 px-1 border-b-2 font-medium text-sm ' + (
+            className={'pb-4 px-1 border-b-2 font-medium text-sm transition-colors ' + (
               activeTab === 'gdpr'
                 ? 'border-mosque-green-600 text-mosque-green-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
             )}
           >
             <Shield className="h-4 w-4 inline mr-2" />
@@ -81,31 +94,79 @@ export default function Settings() {
         </nav>
       </div>
 
+      {/* Appearance Tab */}
+      {activeTab === 'appearance' && (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+              <Palette className="h-5 w-5 mr-2 text-mosque-green-600" />
+              Theme
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+              Choose your preferred color theme for the application.
+            </p>
+
+            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg transition-colors">
+              <div className="flex items-center space-x-3">
+                {theme === 'dark' ? (
+                  <Moon className="h-5 w-5 text-gray-300" />
+                ) : (
+                  <Sun className="h-5 w-5 text-yellow-600" />
+                )}
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Dark Mode</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {theme === 'dark' ? 'Enabled' : 'Disabled'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={toggleTheme}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  theme === 'dark' ? 'bg-mosque-green-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    theme === 'dark' ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
+              Your theme preference is saved locally and will persist across sessions.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* GDPR Tab */}
       {activeTab === 'gdpr' && (
         <div className="space-y-6">
           {/* Privacy Policy */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
               <FileText className="h-5 w-5 mr-2 text-mosque-green-600" />
               Privacy Policy
             </h2>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Download the current privacy policy for members. This should be provided to all new members during registration.
             </p>
-            <button className="px-4 py-2 border border-mosque-green-600 text-mosque-green-600 rounded-lg hover:bg-mosque-green-50 text-sm font-medium flex items-center">
+            <button className="px-4 py-2 border border-mosque-green-600 text-mosque-green-600 rounded-lg hover:bg-mosque-green-50 dark:hover:bg-mosque-green-900/20 text-sm font-medium flex items-center transition-colors">
               <Download className="h-4 w-4 mr-2" />
               Download Privacy Policy (PDF)
             </button>
-            <p className="text-xs text-gray-500 mt-3">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
               Privacy policy must be reviewed annually and updated as needed. Last updated: January 2025
             </p>
           </div>
 
           {/* Deletion Requests */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center">
                 <Trash2 className="h-5 w-5 mr-2 text-red-600" />
                 Deletion Requests
               </h2>

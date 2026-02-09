@@ -11,7 +11,7 @@ interface CompactLayoutProps {
 
 export default function CompactLayout({ children, showSubNav = false, subNav }: CompactLayoutProps) {
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex transition-colors">
       {/* Main Collapsible Sidebar */}
       <CollapsibleSidebar />
 
