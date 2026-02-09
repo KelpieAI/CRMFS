@@ -126,8 +126,8 @@ export default function Payments() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Payments</h1>
-            <p className="mt-1 text-sm text-gray-600">Manage membership payments and renewals</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Payments</h1>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Manage membership payments and renewals</p>
           </div>
         </div>
         <TableSkeleton rows={7} />
@@ -215,17 +215,17 @@ export default function Payments() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-green-100">
-                <PoundSterling className="h-6 w-6 text-green-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-green-100 dark:bg-green-900/30">
+                <PoundSterling className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Revenue</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Revenue</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">£{stats.totalRevenue.toFixed(2)}</div>
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">£{stats.totalRevenue.toFixed(2)}</div>
                   </dd>
                 </dl>
               </div>
@@ -234,17 +234,17 @@ export default function Payments() {
           <div className="h-2 bg-gradient-to-r from-green-500 to-green-600"></div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-yellow-100">
-                <Clock className="h-6 w-6 text-yellow-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-yellow-100 dark:bg-yellow-900/30">
+                <Clock className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Pending Payments</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Pending Payments</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">{stats.pendingPayments}</div>
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{stats.pendingPayments}</div>
                   </dd>
                 </dl>
               </div>
@@ -253,17 +253,17 @@ export default function Payments() {
           <div className="h-2 bg-gradient-to-r from-yellow-500 to-yellow-600"></div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-blue-100">
-                <TrendingUp className="h-6 w-6 text-blue-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-blue-100 dark:bg-blue-900/30">
+                <TrendingUp className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Completed Today</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Completed Today</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">{stats.completedToday}</div>
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{stats.completedToday}</div>
                   </dd>
                 </dl>
               </div>
@@ -272,17 +272,17 @@ export default function Payments() {
           <div className="h-2 bg-gradient-to-r from-blue-500 to-blue-600"></div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-red-100">
-                <AlertCircle className="h-6 w-6 text-red-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-red-100 dark:bg-red-900/30">
+                <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Overdue Payments</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Overdue Payments</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">{stats.overdueRenewals}</div>
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{stats.overdueRenewals}</div>
                   </dd>
                 </dl>
               </div>
@@ -293,7 +293,7 @@ export default function Payments() {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200">
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 transition-colors">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1 relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -377,9 +377,9 @@ export default function Payments() {
       </div>
 
       {/* Payments List */}
-      <div className="bg-white shadow-lg rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gradient-to-r from-emerald-600 to-emerald-700">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
@@ -405,10 +405,10 @@ export default function Payments() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700 transition-colors">
               {filteredPayments && filteredPayments.length > 0 ? (
                 filteredPayments.map((payment: any) => (
-                  <tr key={payment.id} className="hover:bg-emerald-50 transition-colors">
+                  <tr key={payment.id} className="hover:bg-emerald-50 dark:hover:bg-gray-700 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">

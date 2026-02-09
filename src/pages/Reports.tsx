@@ -45,8 +45,8 @@ export default function Reports() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Reports & Analytics</h1>
-            <p className="mt-1 text-sm text-gray-600">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Reports & Analytics</h1>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
               Comprehensive insights into membership and financials
             </p>
           </div>
@@ -252,20 +252,20 @@ export default function Reports() {
 
       {/* Overview Stats */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-emerald-100">
-                <Users className="h-6 w-6 text-emerald-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-emerald-100 dark:bg-emerald-900/30">
+                <Users className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Members</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Members</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                       {membershipStats.total}
                     </div>
-                    <div className="ml-2 text-sm text-emerald-600">
+                    <div className="ml-2 text-sm text-emerald-600 dark:text-emerald-400">
                       {membershipStats.active} active
                     </div>
                   </dd>
@@ -276,17 +276,17 @@ export default function Reports() {
           <div className="h-2 bg-gradient-to-r from-emerald-500 to-emerald-600"></div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-green-100">
-                <PoundSterling className="h-6 w-6 text-green-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-green-100 dark:bg-green-900/30">
+                <PoundSterling className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Revenue</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Revenue</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                       £{financialStats.totalRevenue.toFixed(0)}
                     </div>
                   </dd>
@@ -297,17 +297,17 @@ export default function Reports() {
           <div className="h-2 bg-gradient-to-r from-green-500 to-green-600"></div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-yellow-100">
-                <AlertCircle className="h-6 w-6 text-yellow-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-yellow-100 dark:bg-yellow-900/30">
+                <AlertCircle className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Pending Revenue</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Pending Revenue</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                       £{financialStats.pendingRevenue.toFixed(0)}
                     </div>
                   </dd>
@@ -318,17 +318,17 @@ export default function Reports() {
           <div className="h-2 bg-gradient-to-r from-yellow-500 to-yellow-600"></div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-blue-100">
-                <TrendingUp className="h-6 w-6 text-blue-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-blue-100 dark:bg-blue-900/30">
+                <TrendingUp className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Avg Payment</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Avg Payment</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                       £{financialStats.averagePayment.toFixed(0)}
                     </div>
                   </dd>
@@ -342,11 +342,11 @@ export default function Reports() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Membership Breakdown */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
               <PieChart className="h-5 w-5 text-emerald-600 mr-2" />
-              <h2 className="text-lg font-semibold text-gray-900">Membership Breakdown</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Membership Breakdown</h2>
             </div>
             <button
               onClick={exportMembersReport}
@@ -421,10 +421,10 @@ export default function Reports() {
         </div>
 
         {/* Age Distribution */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
           <div className="flex items-center mb-6">
             <BarChart3 className="h-5 w-5 text-emerald-600 mr-2" />
-            <h2 className="text-lg font-semibold text-gray-900">Age Distribution</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Age Distribution</h2>
           </div>
 
           <div className="space-y-4">
@@ -456,10 +456,10 @@ export default function Reports() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Registration Trend */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
           <div className="flex items-center mb-6">
             <Activity className="h-5 w-5 text-emerald-600 mr-2" />
-            <h2 className="text-lg font-semibold text-gray-900">Registration Trend (6 Months)</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Registration Trend (6 Months)</h2>
           </div>
 
           <div className="space-y-3">
@@ -487,11 +487,11 @@ export default function Reports() {
         </div>
 
         {/* Payment Methods */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
               <PoundSterling className="h-5 w-5 text-emerald-600 mr-2" />
-              <h2 className="text-lg font-semibold text-gray-900">Payment Methods</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Payment Methods</h2>
             </div>
             <button
               onClick={exportPaymentsReport}

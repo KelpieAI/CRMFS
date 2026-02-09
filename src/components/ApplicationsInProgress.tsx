@@ -39,11 +39,11 @@ export default function ApplicationsInProgress() {
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Applications In Progress</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Applications In Progress</h2>
         <div className="animate-pulse space-y-3">
-          <div className="h-16 bg-gray-200 rounded"></div>
-          <div className="h-16 bg-gray-200 rounded"></div>
+          <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+          <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
         </div>
       </div>
     );
@@ -54,39 +54,39 @@ export default function ApplicationsInProgress() {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-colors">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
-          <Clock className="h-5 w-5 text-yellow-600 mr-2" />
-          <h2 className="text-lg font-semibold text-gray-900">Applications In Progress</h2>
+          <Clock className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mr-2" />
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Applications In Progress</h2>
         </div>
-        <span className="text-sm text-gray-500">{applications.length} saved</span>
+        <span className="text-sm text-gray-500 dark:text-gray-400">{applications.length} saved</span>
       </div>
 
       <div className="space-y-3">
         {applications.map((app: any) => (
           <div
             key={app.id}
-            className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-emerald-300 transition-colors"
+            className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-emerald-300 dark:hover:border-emerald-600 transition-colors"
           >
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <p className="font-medium text-gray-900">
+                <p className="font-medium text-gray-900 dark:text-gray-100">
                   {app.main_first_name} {app.main_last_name}
                   {app.app_type === 'joint' && app.joint_first_name && (
-                    <span className="text-gray-600"> & {app.joint_first_name} {app.joint_last_name}</span>
+                    <span className="text-gray-600 dark:text-gray-400"> & {app.joint_first_name} {app.joint_last_name}</span>
                   )}
                 </p>
-                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">
                   {app.app_type}
                 </span>
               </div>
-              <p className="text-sm text-gray-600 mt-1">
-                {app.application_reference} • Step {app.current_step + 1}/10 • 
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                {app.application_reference} • Step {app.current_step + 1}/10 •
                 <span className="ml-1">
-                  {new Date(app.last_saved_at).toLocaleDateString('en-GB', { 
-                    day: 'numeric', 
-                    month: 'short', 
+                  {new Date(app.last_saved_at).toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
                     year: 'numeric',
                     hour: '2-digit',
                     minute: '2-digit'
@@ -105,7 +105,7 @@ export default function ApplicationsInProgress() {
               </button>
               <button
                 onClick={() => deleteApplication(app.application_reference)}
-                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
