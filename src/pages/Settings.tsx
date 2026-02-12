@@ -1,12 +1,72 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../contexts/ThemeContext';
-import { Shield, FileText, Trash2, CheckCircle, XCircle, Clock, Download, Palette, Moon, Sun } from 'lucide-react';
+import { useToast } from '../contexts/ToastContext';
+import { Shield, FileText, Trash2, CheckCircle, XCircle, Clock, Download, Palette, Moon, Sun, Mail, Save } from 'lucide-react';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('appearance');
   const { theme, toggleTheme } = useTheme();
+  const { showToast } = useToast();
+
+  const [emailPreferences, setEmailPreferences] = useState({
+    senderName: 'Central Region Muslim Funeral Service',
+    emailSignature: 'Central Region Muslim Funeral Service\nFalkirk Central Mosque\nPhone: [committee phone]\nEmail: crmfs@kelpieai.co.uk',
+    ccCommitteeOnMemberEmails: false,
+    memberActionNotifications: true,
+  });
+  const [isSavingEmail, setIsSavingEmail] = useState(false);
+
+  // Load email preferences on mount
+  useEffect(() => {
+    loadEmailPreferences();
+  }, []);
+
+  const loadEmailPreferences = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'email_preferences')
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data?.setting_value) {
+        setEmailPreferences(data.setting_value as any);
+      }
+    } catch (error) {
+      console.error('Error loading email preferences:', error);
+    }
+  };
+
+  const saveEmailPreferences = async () => {
+    setIsSavingEmail(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({
+          setting_key: 'email_preferences',
+          setting_value: emailPreferences,
+          updated_at: new Date().toISOString(),
+          updated_by: user?.id,
+        }, {
+          onConflict: 'setting_key'
+        });
+
+      if (error) throw error;
+
+      showToast('Email preferences saved successfully', 'success');
+    } catch (error) {
+      console.error('Error saving email preferences:', error);
+      showToast('Failed to save email preferences', 'error');
+    } finally {
+      setIsSavingEmail(false);
+    }
+  };
 
   // Fetch deletion requests
   const { data: deletionRequests, refetch } = useQuery({
@@ -81,6 +141,17 @@ export default function Settings() {
             Appearance
           </button>
           <button
+            onClick={() => setActiveTab('email')}
+            className={'pb-4 px-1 border-b-2 font-medium text-sm transition-colors ' + (
+              activeTab === 'email'
+                ? 'border-mosque-green-600 text-mosque-green-600'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+            )}
+          >
+            <Mail className="h-4 w-4 inline mr-2" />
+            Email Preferences
+          </button>
+          <button
             onClick={() => setActiveTab('gdpr')}
             className={'pb-4 px-1 border-b-2 font-medium text-sm transition-colors ' + (
               activeTab === 'gdpr'
@@ -138,6 +209,130 @@ export default function Settings() {
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
               Your theme preference is saved locally and will persist across sessions.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Email Preferences Tab */}
+      {activeTab === 'email' && (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+              <Mail className="h-5 w-5 mr-2 text-mosque-green-600" />
+              Email Preferences
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+              Configure how automated emails are sent to members and committee.
+            </p>
+
+            <div className="space-y-6">
+              {/* Email Sender Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Email Sender Name
+                </label>
+                <input
+                  type="text"
+                  value={emailPreferences.senderName}
+                  onChange={(e) => setEmailPreferences({ ...emailPreferences, senderName: e.target.value })}
+                  disabled={isSavingEmail}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-mosque-green-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  placeholder="Central Region Muslim Funeral Service"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  This name will appear as the sender on all automated emails
+                </p>
+              </div>
+
+              {/* Email Signature */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Email Signature
+                </label>
+                <textarea
+                  value={emailPreferences.emailSignature}
+                  onChange={(e) => setEmailPreferences({ ...emailPreferences, emailSignature: e.target.value })}
+                  disabled={isSavingEmail}
+                  rows={5}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-mosque-green-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-mono text-sm"
+                  placeholder="Central Region Muslim Funeral Service&#10;Falkirk Central Mosque&#10;Phone: [committee phone]&#10;Email: crmfs@kelpieai.co.uk"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Added to the footer of all automated emails
+                </p>
+              </div>
+
+              {/* CC Committee on Member Emails */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg transition-colors">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    Copy committee on document upload and declaration emails
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    When enabled, committee will receive a copy of all emails sent to members
+                  </p>
+                </div>
+                <button
+                  onClick={() => setEmailPreferences({ ...emailPreferences, ccCommitteeOnMemberEmails: !emailPreferences.ccCommitteeOnMemberEmails })}
+                  disabled={isSavingEmail}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    emailPreferences.ccCommitteeOnMemberEmails ? 'bg-mosque-green-600' : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      emailPreferences.ccCommitteeOnMemberEmails ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Member Action Notifications */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg transition-colors">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    Notify committee when members complete actions
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Receive emails when members upload documents or sign declarations
+                  </p>
+                </div>
+                <button
+                  onClick={() => setEmailPreferences({ ...emailPreferences, memberActionNotifications: !emailPreferences.memberActionNotifications })}
+                  disabled={isSavingEmail}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    emailPreferences.memberActionNotifications ? 'bg-mosque-green-600' : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      emailPreferences.memberActionNotifications ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Save Button */}
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={saveEmailPreferences}
+                  disabled={isSavingEmail}
+                  className="w-full px-4 py-3 bg-mosque-green-600 text-white rounded-lg hover:bg-mosque-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center font-medium"
+                >
+                  {isSavingEmail ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
