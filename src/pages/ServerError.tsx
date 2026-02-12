@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { VERSION_STRING } from '../lib/version';
 
 export default function ServerError() {
   const navigate = useNavigate();
@@ -191,12 +192,12 @@ Timestamp: ${errorDetails.timestamp}`;
           borderTop: '1px solid #e5e7eb',
           textAlign: 'center',
         }}>
-          <p style={{ 
-            fontSize: '13px', 
+          <p style={{
+            fontSize: '13px',
             color: '#9ca3af',
             margin: 0,
           }}>
-            Powered by Kelpie AI | v0.9.5.449
+            Powered by Kelpie AI | {VERSION_STRING}
           </p>
         </div>
       </div>

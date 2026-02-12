@@ -1,4 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
+import { VERSION_STRING } from '../lib/version';
 
 interface Props {
   children: ReactNode;
@@ -251,7 +252,7 @@ Timestamp: ${errorDetails.timestamp}`;
                 color: '#9ca3af',
                 margin: 0,
               }}>
-                Powered by Kelpie AI | v0.9.5.449
+                Powered by Kelpie AI | {VERSION_STRING}
               </p>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { VERSION_STRING } from '../lib/version';
 
 export default function NotFound() {
   const navigate = useNavigate();
@@ -196,7 +197,7 @@ Timestamp: ${errorDetails.timestamp}`;
             color: '#9ca3af',
             margin: 0,
           }}>
-            Powered by Kelpie AI | v0.9.5.449
+            Powered by Kelpie AI | {VERSION_STRING}
           </p>
         </div>
       </div>

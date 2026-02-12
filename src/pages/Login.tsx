@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { LogIn, AlertCircle, Loader2 } from 'lucide-react';
+import { FULL_VERSION_STRING } from '../lib/version';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -209,7 +210,8 @@ export default function Login() {
             </a>
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 transition-colors">
-            Version 0.9.5.449 | Built for Falkirk Central Mosque          </p>
+            {FULL_VERSION_STRING} | Built for Falkirk Central Mosque
+          </p>
         </div>
       </div>
     </div>
