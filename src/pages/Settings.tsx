@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
-import { Shield, FileText, Trash2, CheckCircle, XCircle, Clock, Download, Palette, Moon, Sun, Mail, Save } from 'lucide-react';
+import { Shield, FileText, Trash2, CheckCircle, XCircle, Clock, Download, Palette, Moon, Sun, Mail, Save, DollarSign } from 'lucide-react';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('appearance');
@@ -18,9 +18,28 @@ export default function Settings() {
   });
   const [isSavingEmail, setIsSavingEmail] = useState(false);
 
-  // Load email preferences on mount
+  const [paymentSettings, setPaymentSettings] = useState({
+    annual_fee: 350,
+    joining_fees: {
+      '18-25': 75,
+      '26-35': 100,
+      '36-45': 200,
+      '46-55': 300,
+      '56-65+': 500,
+    },
+    grace_period_days: 30,
+    reminder_schedule: [30, 14, 7, 0],
+  });
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const [paymentSettingsMetadata, setPaymentSettingsMetadata] = useState<{
+    updated_by?: string;
+    updated_at?: string;
+  }>({});
+
+  // Load preferences on mount
   useEffect(() => {
     loadEmailPreferences();
+    loadPaymentSettings();
   }, []);
 
   const loadEmailPreferences = async () => {
@@ -66,6 +85,95 @@ export default function Settings() {
     } finally {
       setIsSavingEmail(false);
     }
+  };
+
+  const loadPaymentSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('setting_value, updated_at, updated_by')
+        .eq('setting_key', 'payment_settings')
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data?.setting_value) {
+        setPaymentSettings(data.setting_value as any);
+
+        if (data.updated_by) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('full_name, email')
+            .eq('id', data.updated_by)
+            .maybeSingle();
+
+          setPaymentSettingsMetadata({
+            updated_by: userData?.full_name || userData?.email || 'Unknown',
+            updated_at: data.updated_at,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading payment settings:', error);
+    }
+  };
+
+  const savePaymentSettings = async () => {
+    if (paymentSettings.annual_fee <= 0) {
+      showToast('Annual fee must be a positive number', 'error');
+      return;
+    }
+
+    const joiningFeesValues = Object.values(paymentSettings.joining_fees);
+    if (joiningFeesValues.some((fee) => fee <= 0)) {
+      showToast('All joining fees must be positive numbers', 'error');
+      return;
+    }
+
+    if (paymentSettings.grace_period_days <= 0) {
+      showToast('Grace period must be a positive number', 'error');
+      return;
+    }
+
+    setIsSavingPayment(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({
+          setting_key: 'payment_settings',
+          setting_value: paymentSettings,
+          updated_at: new Date().toISOString(),
+          updated_by: user?.id,
+        }, {
+          onConflict: 'setting_key'
+        });
+
+      if (error) throw error;
+
+      showToast('Payment settings saved successfully', 'success');
+      await loadPaymentSettings();
+    } catch (error) {
+      console.error('Error saving payment settings:', error);
+      showToast('Failed to save payment settings', 'error');
+    } finally {
+      setIsSavingPayment(false);
+    }
+  };
+
+  const toggleReminderDay = (day: number) => {
+    const schedule = [...paymentSettings.reminder_schedule];
+    const index = schedule.indexOf(day);
+
+    if (index > -1) {
+      schedule.splice(index, 1);
+    } else {
+      schedule.push(day);
+      schedule.sort((a, b) => b - a);
+    }
+
+    setPaymentSettings({ ...paymentSettings, reminder_schedule: schedule });
   };
 
   // Fetch deletion requests
@@ -150,6 +258,17 @@ export default function Settings() {
           >
             <Mail className="h-4 w-4 inline mr-2" />
             Email Preferences
+          </button>
+          <button
+            onClick={() => setActiveTab('payment')}
+            className={'pb-4 px-1 border-b-2 font-medium text-sm transition-colors ' + (
+              activeTab === 'payment'
+                ? 'border-mosque-green-600 text-mosque-green-600'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+            )}
+          >
+            <DollarSign className="h-4 w-4 inline mr-2" />
+            Payment Configuration
           </button>
           <button
             onClick={() => setActiveTab('gdpr')}
@@ -331,6 +450,254 @@ export default function Settings() {
                     </>
                   )}
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Configuration Tab */}
+      {activeTab === 'payment' && (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+              <DollarSign className="h-5 w-5 mr-2 text-mosque-green-600" />
+              Payment Configuration
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+              Configure membership fees, joining fees, and payment reminder settings.
+            </p>
+
+            <div className="space-y-6">
+              {/* Annual Membership Fee */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Annual Membership Fee
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">£</span>
+                  <input
+                    type="number"
+                    value={paymentSettings.annual_fee}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, annual_fee: Number(e.target.value) })}
+                    disabled={isSavingPayment}
+                    min="0"
+                    step="1"
+                    className="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-mosque-green-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  The annual fee charged to all active members (pro-rated for new joiners)
+                </p>
+              </div>
+
+              {/* Age-Based Joining Fees */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  Age-Based Joining Fees
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ages 18-25</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">£</span>
+                      <input
+                        type="number"
+                        value={paymentSettings.joining_fees['18-25']}
+                        onChange={(e) => setPaymentSettings({
+                          ...paymentSettings,
+                          joining_fees: { ...paymentSettings.joining_fees, '18-25': Number(e.target.value) }
+                        })}
+                        disabled={isSavingPayment}
+                        min="0"
+                        step="1"
+                        className="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-mosque-green-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ages 26-35</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">£</span>
+                      <input
+                        type="number"
+                        value={paymentSettings.joining_fees['26-35']}
+                        onChange={(e) => setPaymentSettings({
+                          ...paymentSettings,
+                          joining_fees: { ...paymentSettings.joining_fees, '26-35': Number(e.target.value) }
+                        })}
+                        disabled={isSavingPayment}
+                        min="0"
+                        step="1"
+                        className="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-mosque-green-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ages 36-45</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">£</span>
+                      <input
+                        type="number"
+                        value={paymentSettings.joining_fees['36-45']}
+                        onChange={(e) => setPaymentSettings({
+                          ...paymentSettings,
+                          joining_fees: { ...paymentSettings.joining_fees, '36-45': Number(e.target.value) }
+                        })}
+                        disabled={isSavingPayment}
+                        min="0"
+                        step="1"
+                        className="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-mosque-green-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ages 46-55</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">£</span>
+                      <input
+                        type="number"
+                        value={paymentSettings.joining_fees['46-55']}
+                        onChange={(e) => setPaymentSettings({
+                          ...paymentSettings,
+                          joining_fees: { ...paymentSettings.joining_fees, '46-55': Number(e.target.value) }
+                        })}
+                        disabled={isSavingPayment}
+                        min="0"
+                        step="1"
+                        className="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-mosque-green-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Ages 56-65+</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">£</span>
+                      <input
+                        type="number"
+                        value={paymentSettings.joining_fees['56-65+']}
+                        onChange={(e) => setPaymentSettings({
+                          ...paymentSettings,
+                          joining_fees: { ...paymentSettings.joining_fees, '56-65+': Number(e.target.value) }
+                        })}
+                        disabled={isSavingPayment}
+                        min="0"
+                        step="1"
+                        className="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-mosque-green-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  One-time joining fee based on age when member registers
+                </p>
+              </div>
+
+              {/* Late Payment Grace Period */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Late Payment Grace Period
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={paymentSettings.grace_period_days}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, grace_period_days: Number(e.target.value) })}
+                    disabled={isSavingPayment}
+                    min="0"
+                    step="1"
+                    className="w-full pr-14 pl-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-mosque-green-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm">days</span>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Days after renewal date before payment is marked as overdue
+                </p>
+              </div>
+
+              {/* Payment Reminder Schedule */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  Payment Reminder Schedule
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center p-3 bg-gray-50 dark:bg-gray-900 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={paymentSettings.reminder_schedule.includes(30)}
+                      onChange={() => toggleReminderDay(30)}
+                      disabled={isSavingPayment}
+                      className="w-4 h-4 text-mosque-green-600 border-gray-300 rounded focus:ring-mosque-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    <span className="ml-3 text-sm text-gray-900 dark:text-gray-100">Send reminder 30 days before renewal</span>
+                  </label>
+                  <label className="flex items-center p-3 bg-gray-50 dark:bg-gray-900 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={paymentSettings.reminder_schedule.includes(14)}
+                      onChange={() => toggleReminderDay(14)}
+                      disabled={isSavingPayment}
+                      className="w-4 h-4 text-mosque-green-600 border-gray-300 rounded focus:ring-mosque-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    <span className="ml-3 text-sm text-gray-900 dark:text-gray-100">Send reminder 14 days before renewal</span>
+                  </label>
+                  <label className="flex items-center p-3 bg-gray-50 dark:bg-gray-900 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={paymentSettings.reminder_schedule.includes(7)}
+                      onChange={() => toggleReminderDay(7)}
+                      disabled={isSavingPayment}
+                      className="w-4 h-4 text-mosque-green-600 border-gray-300 rounded focus:ring-mosque-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    <span className="ml-3 text-sm text-gray-900 dark:text-gray-100">Send reminder 7 days before renewal</span>
+                  </label>
+                  <label className="flex items-center p-3 bg-gray-50 dark:bg-gray-900 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={paymentSettings.reminder_schedule.includes(0)}
+                      onChange={() => toggleReminderDay(0)}
+                      disabled={isSavingPayment}
+                      className="w-4 h-4 text-mosque-green-600 border-gray-300 rounded focus:ring-mosque-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    <span className="ml-3 text-sm text-gray-900 dark:text-gray-100">Send reminder on renewal date</span>
+                  </label>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  Configure when automated payment reminders are sent
+                </p>
+              </div>
+
+              {/* Save Button */}
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={savePaymentSettings}
+                  disabled={isSavingPayment}
+                  className="w-full px-4 py-3 bg-mosque-green-600 text-white rounded-lg hover:bg-mosque-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center font-medium"
+                >
+                  {isSavingPayment ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
+                </button>
+                {paymentSettingsMetadata.updated_at && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
+                    Last updated by {paymentSettingsMetadata.updated_by} on{' '}
+                    {new Date(paymentSettingsMetadata.updated_at).toLocaleString('en-GB', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
+                )}
               </div>
             </div>
           </div>
