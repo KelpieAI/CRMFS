@@ -353,7 +353,12 @@ export default function Settings() {
                   <Sun className="h-5 w-5 text-yellow-600" />
                 )}
                 <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Dark Mode</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Dark Mode</p>
+                    <span className="px-2 py-0.5 text-xs font-semibold text-orange-700 bg-orange-100 dark:text-orange-300 dark:bg-orange-900/30 rounded-full border border-orange-300 dark:border-orange-700">
+                      EXPERIMENTAL
+                    </span>
+                  </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {theme === 'dark' ? 'Enabled' : 'Disabled'}
                   </p>
