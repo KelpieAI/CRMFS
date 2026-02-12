@@ -21,6 +21,7 @@ import RegistrationSuccess from './pages/RegistrationSuccess';
 import Settings from './pages/Settings';
 import DeletionRequests from './pages/DeletionRequests';
 import NotFound from './pages/NotFound';
+import ServerError from './pages/ServerError';
 import CommandPalette from './components/CommandPalette';
 import UploadDocuments from './pages/UploadDocuments';
 import SignDeclarations from './pages/SignDeclarations';
@@ -88,8 +89,9 @@ function App() {
                   <Route path="registration-success" element={<RegistrationSuccess />} />
                 </Route>
 
-                {/* 404 Not Found */}
+                {/* Error Pages */}
                 <Route path="/404" element={<NotFound />} />
+                <Route path="/500" element={<ServerError />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
               </ToastProvider>

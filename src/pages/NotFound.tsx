@@ -1,92 +1,205 @@
 import { useNavigate } from 'react-router-dom';
-import { Home, ArrowLeft, Search } from 'lucide-react';
-import PoweredByBadge from '../components/PoweredByBadge';
 
 export default function NotFound() {
   const navigate = useNavigate();
 
+  const errorDetails = {
+    hostname: window.location.hostname,
+    logRef: `404-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+    errorType: 'PageNotFound',
+    attemptedPath: window.location.pathname,
+    timestamp: new Date().toISOString(),
+  };
+
+  const copyErrorDetails = () => {
+    const text = `Hostname: ${errorDetails.hostname}
+Log Ref: ${errorDetails.logRef}
+Error Type: ${errorDetails.errorType}
+Attempted Path: ${errorDetails.attemptedPath}
+Timestamp: ${errorDetails.timestamp}`;
+
+    navigator.clipboard.writeText(text);
+    alert('Error details copied to clipboard!');
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-yellow-50 flex items-center justify-center p-6">
-      <div className="max-w-2xl w-full text-center">
-        {/* 404 Illustration */}
-        <div className="mb-8">
-          <div className="inline-flex items-center justify-center">
-            <span className="text-9xl font-bold text-emerald-600">4</span>
-            <div className="relative mx-4">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center animate-pulse">
-                <Search className="h-12 w-12 text-white" />
-              </div>
-            </div>
-            <span className="text-9xl font-bold text-emerald-600">4</span>
-          </div>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
+      padding: '20px',
+    }}>
+      <div style={{
+        maxWidth: '600px',
+        background: '#fff',
+        borderRadius: '12px',
+        padding: '40px',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+      }}>
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+          <div style={{ fontSize: '72px', marginBottom: '10px' }}>🤦</div>
+          <h1 style={{
+            fontSize: '28px',
+            fontWeight: 700,
+            color: '#1f2937',
+            marginBottom: '10px',
+          }}>
+            Oh no! That wasn't supposed to happen...
+          </h1>
+          <p style={{
+            fontSize: '18px',
+            color: '#6b7280',
+            fontWeight: 600,
+          }}>
+            Error 404: Page Not Found
+          </p>
         </div>
 
-        {/* Content */}
-        <div className="bg-white rounded-2xl shadow-2xl border border-emerald-200 overflow-hidden p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">
-            Page Not Found
-          </h1>
-          <p className="text-lg text-gray-600 mb-8">
-            Sorry, we couldn't find the page you're looking for. The page may have been moved, deleted, or never existed.
+        {/* Explanation */}
+        <div style={{
+          background: '#fef3c7',
+          border: '2px solid #fbbf24',
+          borderRadius: '8px',
+          padding: '20px',
+          marginBottom: '30px',
+        }}>
+          <p style={{
+            fontSize: '15px',
+            color: '#92400e',
+            margin: 0,
+            lineHeight: '1.6',
+          }}>
+            The page you're looking for doesn't exist. You might have followed a broken link,
+            or the committee may have moved things around without telling anyone.
+          </p>
+        </div>
+
+        {/* Instructions */}
+        <div style={{ marginBottom: '30px' }}>
+          <p style={{
+            fontSize: '15px',
+            color: '#374151',
+            marginBottom: '15px',
+            lineHeight: '1.6',
+          }}>
+            If you think this page <strong>should</strong> exist, please send a screenshot of this page to{' '}
+            <a
+              href="mailto:sami@kelpieai.co.uk"
+              style={{ color: '#2d5016', fontWeight: 600, textDecoration: 'underline' }}
+            >
+              Kelpie AI
+            </a>
+            {' '}and describe in as much detail as possible how you came to{' '}
+            <span style={{
+              textDecoration: 'line-through',
+              color: '#ef4444',
+            }}>
+              break CRMFS
+            </span>
+            {' '}see this error page.
           </p>
 
-          {/* Suggestions */}
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-6 mb-8 text-left">
-            <h3 className="text-md font-semibold text-emerald-900 mb-3">
-              Here's what you can do:
-            </h3>
-            <ul className="space-y-2 text-sm text-emerald-800">
-              <li className="flex items-start">
-                <span className="inline-block w-2 h-2 bg-emerald-600 rounded-full mt-1.5 mr-3 flex-shrink-0"></span>
-                <span>Double-check the URL for typos</span>
-              </li>
-              <li className="flex items-start">
-                <span className="inline-block w-2 h-2 bg-emerald-600 rounded-full mt-1.5 mr-3 flex-shrink-0"></span>
-                <span>Go back to the previous page</span>
-              </li>
-              <li className="flex items-start">
-                <span className="inline-block w-2 h-2 bg-emerald-600 rounded-full mt-1.5 mr-3 flex-shrink-0"></span>
-                <span>Return to the homepage</span>
-              </li>
-              <li className="flex items-start">
-                <span className="inline-block w-2 h-2 bg-emerald-600 rounded-full mt-1.5 mr-3 flex-shrink-0"></span>
-                <span>Use the navigation menu to find what you need</span>
-              </li>
-            </ul>
+          <p style={{
+            fontSize: '14px',
+            fontWeight: 600,
+            color: '#374151',
+            marginBottom: '10px',
+          }}>
+            Copy and attach the following message into the email:
+          </p>
+
+          <div style={{
+            background: '#f3f4f6',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            padding: '16px',
+            fontFamily: 'monospace',
+            fontSize: '13px',
+            color: '#1f2937',
+            position: 'relative',
+          }}>
+            <div style={{ marginBottom: '4px' }}>• Hostname: {errorDetails.hostname}</div>
+            <div style={{ marginBottom: '4px' }}>• Log Ref: {errorDetails.logRef}</div>
+            <div style={{ marginBottom: '4px' }}>• Error Type: {errorDetails.errorType}</div>
+            <div style={{ marginBottom: '4px' }}>• Attempted Path: {errorDetails.attemptedPath}</div>
+            <div>• Timestamp: {errorDetails.timestamp}</div>
           </div>
 
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <button
-              onClick={() => navigate(-1)}
-              className="inline-flex items-center justify-center px-6 py-3 border-2 border-emerald-600 text-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              Go Back
-            </button>
-            <button
-              onClick={() => navigate('/')}
-              className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md"
-            >
-              <Home className="h-5 w-5 mr-2" />
-              Go to Dashboard
-            </button>
-          </div>
+          <button
+            onClick={copyErrorDetails}
+            style={{
+              marginTop: '12px',
+              padding: '8px 16px',
+              background: '#2d5016',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            📋 Copy Error Details
+          </button>
+        </div>
+
+        {/* Actions */}
+        <div style={{
+          display: 'flex',
+          gap: '12px',
+          justifyContent: 'center',
+        }}>
+          <button
+            onClick={() => navigate(-1)}
+            style={{
+              padding: '12px 24px',
+              background: '#f3f4f6',
+              color: '#374151',
+              border: '1px solid #d1d5db',
+              borderRadius: '8px',
+              fontSize: '15px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            ← Go Back
+          </button>
+          <button
+            onClick={() => navigate('/dashboard')}
+            style={{
+              padding: '12px 24px',
+              background: '#2d5016',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '15px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            🏠 Go to Dashboard
+          </button>
         </div>
 
         {/* Footer */}
-        <p className="mt-8 text-sm text-gray-600">
-          Need help? Contact us at{' '}
-          <a
-            href="mailto:support@crmfs.org"
-            className="text-emerald-600 hover:text-emerald-700 font-medium"
-          >
-            support@crmfs.org
-          </a>
-        </p>
+        <div style={{
+          marginTop: '30px',
+          paddingTop: '20px',
+          borderTop: '1px solid #e5e7eb',
+          textAlign: 'center',
+        }}>
+          <p style={{
+            fontSize: '13px',
+            color: '#9ca3af',
+            margin: 0,
+          }}>
+            Powered by Kelpie AI | v0.9.5.449
+          </p>
+        </div>
       </div>
-
-      <PoweredByBadge />
     </div>
   );
 }
