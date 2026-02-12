@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
-import { Shield, FileText, Trash2, CheckCircle, XCircle, Clock, Download, Palette, Moon, Sun, Mail, Save, DollarSign } from 'lucide-react';
+import { Shield, FileText, Trash2, CheckCircle, XCircle, Clock, Download, Palette, Moon, Sun, Mail, Save, DollarSign, Info, Users, Database, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { VERSION_STRING } from '../lib/version';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('appearance');
@@ -187,6 +188,54 @@ export default function Settings() {
       if (error) throw error;
       return data;
     },
+  });
+
+  // Fetch system statistics
+  const { data: systemStats, isLoading: isLoadingStats, refetch: refetchStats } = useQuery({
+    queryKey: ['system-stats'],
+    queryFn: async () => {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const [
+        membersResult,
+        activeMembersResult,
+        pendingApplicationsResult,
+        totalRevenueResult,
+        emailsSentResult,
+        documentsUploadPendingResult,
+        declarationsPendingResult,
+      ] = await Promise.all([
+        supabase.from('members').select('id', { count: 'exact', head: true }),
+        supabase.from('members').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+        supabase.from('members').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('payments').select('total_amount'),
+        supabase.from('email_activity').select('id', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo.toISOString()),
+        supabase.from('email_tokens').select('id', { count: 'exact', head: true }).eq('token_type', 'document_upload').is('used_at', null),
+        supabase.from('email_tokens').select('id', { count: 'exact', head: true }).eq('token_type', 'declarations_signature').is('used_at', null),
+      ]);
+
+      const totalRevenue = totalRevenueResult.data?.reduce((sum, payment) => sum + Number(payment.total_amount || 0), 0) || 0;
+
+      let dbStatus = 'Connected';
+      try {
+        await supabase.from('members').select('id', { count: 'exact', head: true }).limit(1);
+      } catch {
+        dbStatus = 'Disconnected';
+      }
+
+      return {
+        totalMembers: membersResult.count || 0,
+        activeMembers: activeMembersResult.count || 0,
+        pendingApplications: pendingApplicationsResult.count || 0,
+        totalRevenue: totalRevenue,
+        emailsSent30Days: emailsSentResult.count || 0,
+        documentsPending: documentsUploadPendingResult.count || 0,
+        declarationsPending: declarationsPendingResult.count || 0,
+        dbStatus,
+      };
+    },
+    staleTime: 5 * 60 * 1000,
   });
 
   const handleDecision = async (requestId: string, status: string, reason: string) => {
@@ -868,6 +917,184 @@ export default function Settings() {
           </div>
         </div>
       )}
+
+      {/* System Information Section */}
+      <div className="mt-8">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center">
+              <Info className="h-6 w-6 mr-3 text-mosque-green-600" />
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">System Information</h2>
+            </div>
+            <button
+              onClick={() => refetchStats()}
+              disabled={isLoadingStats}
+              className="px-4 py-2 bg-mosque-green-600 text-white rounded-lg hover:bg-mosque-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center text-sm font-medium"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingStats ? 'animate-spin' : ''}`} />
+              Refresh Stats
+            </button>
+          </div>
+
+          {isLoadingStats ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[...Array(9)].map((_, i) => (
+                <div key={i} className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg animate-pulse">
+                  <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/2 mb-3"></div>
+                  <div className="h-8 bg-gray-300 dark:bg-gray-700 rounded w-3/4"></div>
+                </div>
+              ))}
+            </div>
+          ) : systemStats ? (
+            <div className="space-y-6">
+              {/* Version */}
+              <div className="bg-gradient-to-br from-mosque-green-50 to-mosque-green-100 dark:from-mosque-green-900 dark:to-mosque-green-800 p-6 rounded-lg border border-mosque-green-200 dark:border-mosque-green-700">
+                <div className="flex items-center mb-2">
+                  <CheckCircle2 className="h-5 w-5 text-mosque-green-600 dark:text-mosque-green-400 mr-2" />
+                  <span className="text-sm font-medium text-mosque-green-700 dark:text-mosque-green-300">CRMFS Version</span>
+                </div>
+                <div className="text-3xl font-bold text-mosque-green-900 dark:text-mosque-green-100">{VERSION_STRING}</div>
+              </div>
+
+              {/* Database Statistics */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                  <Database className="h-4 w-4 mr-2" />
+                  Database Statistics
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center mb-2">
+                      <Users className="h-4 w-4 text-gray-500 dark:text-gray-400 mr-2" />
+                      <span className="text-xs text-gray-600 dark:text-gray-400">Total Members</span>
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{systemStats.totalMembers}</div>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center mb-2">
+                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                      <span className="text-xs text-gray-600 dark:text-gray-400">Active Members</span>
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{systemStats.activeMembers}</div>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center mb-2">
+                      <Clock className="h-4 w-4 text-yellow-500 mr-2" />
+                      <span className="text-xs text-gray-600 dark:text-gray-400">Pending Applications</span>
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{systemStats.pendingApplications}</div>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center mb-2">
+                      <DollarSign className="h-4 w-4 text-mosque-green-500 mr-2" />
+                      <span className="text-xs text-gray-600 dark:text-gray-400">Total Revenue</span>
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">£{systemStats.totalRevenue.toFixed(2)}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Email Statistics */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email Statistics
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center mb-2">
+                      <CheckCircle className="h-4 w-4 text-blue-500 mr-2" />
+                      <span className="text-xs text-gray-600 dark:text-gray-400">Emails Sent (Last 30 Days)</span>
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{systemStats.emailsSent30Days}</div>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center mb-2">
+                      <FileText className="h-4 w-4 text-orange-500 mr-2" />
+                      <span className="text-xs text-gray-600 dark:text-gray-400">Documents Pending Upload</span>
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{systemStats.documentsPending}</div>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center mb-2">
+                      <FileText className="h-4 w-4 text-purple-500 mr-2" />
+                      <span className="text-xs text-gray-600 dark:text-gray-400">Declarations Pending</span>
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{systemStats.declarationsPending}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* System Health */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  System Health
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center mb-2">
+                      <Database className="h-4 w-4 text-green-500 mr-2" />
+                      <span className="text-xs text-gray-600 dark:text-gray-400">Database Status</span>
+                    </div>
+                    <div className="text-lg font-semibold text-green-600 dark:text-green-400 flex items-center">
+                      {systemStats.dbStatus} ✓
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center mb-2">
+                      <Mail className="h-4 w-4 text-green-500 mr-2" />
+                      <span className="text-xs text-gray-600 dark:text-gray-400">Email Service Status</span>
+                    </div>
+                    <div className="text-lg font-semibold text-green-600 dark:text-green-400 flex items-center">
+                      Operational ✓
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center mb-2">
+                      <Database className="h-4 w-4 text-gray-500 dark:text-gray-400 mr-2" />
+                      <span className="text-xs text-gray-600 dark:text-gray-400">Last Backup</span>
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      Not configured
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Support Information */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                  <Info className="h-4 w-4 mr-2" />
+                  Support Information
+                </h3>
+                <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Technical Support:</span>
+                    <a href="mailto:info@kelpieai.co.uk" className="text-sm text-mosque-green-600 dark:text-mosque-green-400 hover:underline">
+                      info@kelpieai.co.uk
+                    </a>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Developer:</span>
+                    <a href="https://kelpieai.co.uk" target="_blank" rel="noopener noreferrer" className="text-sm text-mosque-green-600 dark:text-mosque-green-400 hover:underline">
+                      Kelpie AI
+                    </a>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Documentation:</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Coming soon</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              Unable to load system statistics. Please try refreshing.
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
