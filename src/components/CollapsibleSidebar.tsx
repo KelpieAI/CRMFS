@@ -127,7 +127,7 @@ export default function CollapsibleSidebar() {
         onMouseLeave={() => window.innerWidth >= 768 && setIsExpanded(false)}
       >
         {/* Logo Section */}
-        <div className="h-16 flex items-center justify-centre border-b border-mosque-green-700 overflow-hidden flex-shrink-0">
+        <div className="h-16 flex items-center justify-center border-b border-mosque-green-700 overflow-hidden flex-shrink-0">
           <div className={'transition-opacity duration-200 ' + (isExpanded ? 'opacity-100' : 'opacity-0 absolute')}>
             <div className="px-4 py-2">
               <h1 className="text-lg font-bold text-mosque-gold-500 whitespace-nowrap">Kelpie AI</h1>
