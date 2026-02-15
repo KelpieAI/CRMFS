@@ -153,14 +153,15 @@ export default function CollapsibleSidebar() {
               <Link
                 key={item.name}
                 to={item.to}
-                className={'relative flex items-center rounded-lg transition-all duration-200 overflow-hidden pl-3 pr-3 py-3 ' +
+                className={'relative flex items-center rounded-lg transition-all duration-200 overflow-hidden py-3 ' +
+                  (isExpanded ? 'pl-3 pr-3' : 'justify-center') + ' ' +
                   (isActive
                     ? 'bg-mosque-gold-600 text-white'
                     : 'text-gray-300 hover:bg-mosque-green-700 hover:text-white')}
               >
                 <Icon className="h-5 w-5 flex-shrink-0 relative z-10" />
                 <span className={'font-medium whitespace-nowrap transition-all duration-200 ml-3 ' +
-                  (isExpanded ? 'opacity-100' : 'opacity-0')}>
+                  (isExpanded ? 'opacity-100' : 'opacity-0 absolute')}>
                   {item.name}
                 </span>
               </Link>
@@ -175,28 +176,29 @@ export default function CollapsibleSidebar() {
               e.stopPropagation();
               setShowProfileMenu(!showProfileMenu);
             }}
-            className="w-full flex items-center px-3 py-3 text-white hover:bg-mosque-green-700 rounded-lg transition-colors relative"
+            className={'w-full flex items-center py-3 text-white hover:bg-mosque-green-700 rounded-lg transition-colors relative ' +
+              (isExpanded ? 'px-3' : 'justify-center')}
           >
             {/* Profile Picture */}
             <div className="w-10 h-10 rounded-full bg-mosque-gold-500 flex items-center justify-center text-mosque-green-900 font-bold text-sm flex-shrink-0">
               {getInitial()}
             </div>
-            
+
             {/* Name (show when expanded) */}
-            <div className={'ml-3 flex-1 text-left transition-all duration-200 ' + 
-              (isExpanded ? 'opacity-100' : 'opacity-0')}>
+            <div className={'ml-3 flex-1 text-left transition-all duration-200 min-w-0 ' +
+              (isExpanded ? 'opacity-100' : 'opacity-0 absolute')}>
               <p className="text-sm font-medium text-white truncate">
                 {getDisplayName()}
               </p>
-              <p className="text-xs text-mosque-green-200">
+              <p className="text-xs text-mosque-green-200 truncate">
                 Committee Member
               </p>
             </div>
-            
+
             {/* Dropdown Icon */}
-            <ChevronDown className={'h-4 w-4 text-mosque-green-200 transition-all duration-200 ' +
+            <ChevronDown className={'h-4 w-4 text-mosque-green-200 transition-all duration-200 flex-shrink-0 ' +
               (showProfileMenu ? 'rotate-180 ' : '') +
-              (isExpanded ? 'opacity-100' : 'opacity-0')} />
+              (isExpanded ? 'opacity-100' : 'opacity-0 absolute')} />
           </button>
 
           {/* Dropdown Menu */}
@@ -213,8 +215,8 @@ export default function CollapsibleSidebar() {
                 }}
                 className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center transition-colors"
               >
-                <Settings className="h-4 w-4 mr-3 text-gray-500 dark:text-gray-400" />
-                Settings
+                <Settings className="h-4 w-4 mr-3 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                <span className="truncate">Settings</span>
               </button>
 
               <button
@@ -224,8 +226,8 @@ export default function CollapsibleSidebar() {
                 }}
                 className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center border-t border-gray-100 dark:border-gray-700 transition-colors"
               >
-                <LogOut className="h-4 w-4 mr-3" />
-                Sign Out
+                <LogOut className="h-4 w-4 mr-3 flex-shrink-0" />
+                <span className="truncate">Sign Out</span>
               </button>
             </div>
           )}
