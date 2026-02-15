@@ -120,29 +120,29 @@ export default function CollapsibleSidebar() {
 
       {/* Sidebar */}
       <div
-        className={'fixed top-0 left-0 h-full bg-mosque-green-600 text-white z-40 transition-all duration-300 ease-in-out flex flex-col ' + 
+        className={'fixed top-0 left-0 h-full bg-mosque-green-600 text-white z-40 transition-all duration-300 ease-in-out flex flex-col ' +
           (isExpanded ? 'w-64' : 'w-16') + ' ' +
           (isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0')}
         onMouseEnter={() => window.innerWidth >= 768 && setIsExpanded(true)}
         onMouseLeave={() => window.innerWidth >= 768 && setIsExpanded(false)}
       >
         {/* Logo Section */}
-        <div className="h-16 flex items-center justify-center border-b border-mosque-green-700 overflow-hidden flex-shrink-0">
-          <div className={'transition-opacity duration-200 ' + (isExpanded ? 'opacity-100' : 'opacity-0 absolute')}>
-            <div className="px-4 py-2">
-              <h1 className="text-lg font-bold text-mosque-gold-500 whitespace-nowrap">Kelpie AI</h1>
-              <p className="text-xs text-gray-400 whitespace-nowrap">CRMFS</p>
-            </div>
-          </div>
-          <div className={'transition-opacity duration-200 ' + (!isExpanded ? 'opacity-100' : 'opacity-0 absolute')}>
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-mosque-gold-500 to-mosque-gold-700 flex items-center justify-center font-bold text-white">
+        <div className="h-16 flex items-center border-b border-mosque-green-700 overflow-hidden flex-shrink-0">
+          {/* K avatar - always at fixed left position via w-16 container */}
+          <div className="w-16 flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-mosque-gold-500 to-mosque-gold-700 flex items-center justify-center font-bold text-white flex-shrink-0">
               K
             </div>
+          </div>
+          {/* Expanded text - appears to the right of K */}
+          <div className={'transition-opacity duration-200 whitespace-nowrap ' + (isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
+            <h1 className="text-lg font-bold text-mosque-gold-500">Kelpie AI</h1>
+            <p className="text-xs text-gray-400">CRMFS</p>
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 py-4 space-y-1 overflow-y-auto">
           {navigation.map((item) => {
             const Icon = item.icon;
             const isActive = item.to === '/'
@@ -153,13 +153,15 @@ export default function CollapsibleSidebar() {
               <Link
                 key={item.name}
                 to={item.to}
-                className={'relative flex items-center justify-center rounded-lg transition-all duration-200 overflow-hidden py-3 ' +
+                className={'relative flex items-center rounded-lg transition-all duration-200 overflow-hidden mx-2 py-3 ' +
                   (isActive
                     ? 'bg-mosque-gold-600 text-white'
                     : 'text-gray-300 hover:bg-mosque-green-700 hover:text-white')}
               >
-                <Icon className="h-5 w-5 flex-shrink-0 relative z-10" />
-                <span className={'font-medium whitespace-nowrap absolute left-14 transition-all duration-200 ' +
+                <div className="w-12 flex items-center justify-center flex-shrink-0">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <span className={'font-medium whitespace-nowrap transition-opacity duration-200 ' +
                   (isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
                   {item.name}
                 </span>
@@ -175,15 +177,17 @@ export default function CollapsibleSidebar() {
               e.stopPropagation();
               setShowProfileMenu(!showProfileMenu);
             }}
-            className="w-full flex items-center justify-center py-3 text-white hover:bg-mosque-green-700 rounded-lg transition-colors relative"
+            className="w-full flex items-center py-3 text-white hover:bg-mosque-green-700 rounded-lg transition-colors relative"
           >
-            {/* Profile Picture */}
-            <div className="w-10 h-10 rounded-full bg-mosque-gold-500 flex items-center justify-center text-mosque-green-900 font-bold text-sm flex-shrink-0">
-              {getInitial()}
+            {/* Profile Picture - fixed left via w-12 container */}
+            <div className="w-12 flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-mosque-gold-500 flex items-center justify-center text-mosque-green-900 font-bold text-sm flex-shrink-0">
+                {getInitial()}
+              </div>
             </div>
 
             {/* Name (show when expanded) */}
-            <div className={'absolute left-14 right-10 text-left transition-all duration-200 ' +
+            <div className={'flex-1 text-left transition-opacity duration-200 ' +
               (isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
               <p className="text-sm font-medium text-white truncate">
                 {getDisplayName()}
@@ -194,7 +198,7 @@ export default function CollapsibleSidebar() {
             </div>
 
             {/* Dropdown Icon */}
-            <ChevronDown className={'h-4 w-4 text-mosque-green-200 absolute right-3 transition-all duration-200 ' +
+            <ChevronDown className={'h-4 w-4 text-mosque-green-200 mr-2 transition-opacity duration-200 ' +
               (showProfileMenu ? 'rotate-180 ' : '') +
               (isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none')} />
           </button>
