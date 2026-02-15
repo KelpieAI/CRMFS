@@ -153,13 +153,13 @@ export default function CollapsibleSidebar() {
               <Link
                 key={item.name}
                 to={item.to}
-                className={'relative flex items-center rounded-lg transition-all duration-200 overflow-hidden py-3 ' +
+                className={'relative flex items-center justify-center rounded-lg transition-all duration-200 overflow-hidden py-3 ' +
                   (isActive
                     ? 'bg-mosque-gold-600 text-white'
                     : 'text-gray-300 hover:bg-mosque-green-700 hover:text-white')}
               >
-                <Icon className="h-5 w-5 flex-shrink-0 absolute left-3" />
-                <span className={'font-medium whitespace-nowrap absolute left-11 transition-all duration-200 ' +
+                <Icon className="h-5 w-5 flex-shrink-0 relative z-10" />
+                <span className={'font-medium whitespace-nowrap absolute left-14 transition-all duration-200 ' +
                   (isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
                   {item.name}
                 </span>
@@ -175,10 +175,10 @@ export default function CollapsibleSidebar() {
               e.stopPropagation();
               setShowProfileMenu(!showProfileMenu);
             }}
-            className="w-full flex items-center py-3 text-white hover:bg-mosque-green-700 rounded-lg transition-colors relative"
+            className="w-full flex items-center justify-center py-3 text-white hover:bg-mosque-green-700 rounded-lg transition-colors relative"
           >
             {/* Profile Picture */}
-            <div className="w-10 h-10 rounded-full bg-mosque-gold-500 flex items-center justify-center text-mosque-green-900 font-bold text-sm flex-shrink-0 absolute left-1">
+            <div className="w-10 h-10 rounded-full bg-mosque-gold-500 flex items-center justify-center text-mosque-green-900 font-bold text-sm flex-shrink-0">
               {getInitial()}
             </div>
 
