@@ -153,7 +153,7 @@ export default function CollapsibleSidebar() {
               <Link
                 key={item.name}
                 to={item.to}
-                className={'relative flex items-center justify-center rounded-lg transition-all duration-200 overflow-hidden py-3 ' +
+                className={'relative flex items-center justify-left rounded-lg transition-all duration-200 overflow-hidden py-3 ' +
                   (isActive
                     ? 'bg-mosque-gold-600 text-white'
                     : 'text-gray-300 hover:bg-mosque-green-700 hover:text-white')}
