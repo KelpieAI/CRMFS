@@ -153,15 +153,14 @@ export default function CollapsibleSidebar() {
               <Link
                 key={item.name}
                 to={item.to}
-                className={'relative flex items-center rounded-lg transition-all duration-200 overflow-hidden py-3 ' +
-                  (isExpanded ? 'pl-3 pr-3' : 'justify-center') + ' ' +
+                className={'relative flex items-center justify-center rounded-lg transition-all duration-200 overflow-hidden py-3 ' +
                   (isActive
                     ? 'bg-mosque-gold-600 text-white'
                     : 'text-gray-300 hover:bg-mosque-green-700 hover:text-white')}
               >
                 <Icon className="h-5 w-5 flex-shrink-0 relative z-10" />
-                <span className={'font-medium whitespace-nowrap transition-all duration-200 ml-3 ' +
-                  (isExpanded ? 'opacity-100' : 'opacity-0 absolute')}>
+                <span className={'font-medium whitespace-nowrap absolute left-14 transition-all duration-200 ' +
+                  (isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
                   {item.name}
                 </span>
               </Link>
@@ -176,8 +175,7 @@ export default function CollapsibleSidebar() {
               e.stopPropagation();
               setShowProfileMenu(!showProfileMenu);
             }}
-            className={'w-full flex items-center py-3 text-white hover:bg-mosque-green-700 rounded-lg transition-colors relative ' +
-              (isExpanded ? 'px-3' : 'justify-center')}
+            className="w-full flex items-center justify-center py-3 text-white hover:bg-mosque-green-700 rounded-lg transition-colors relative"
           >
             {/* Profile Picture */}
             <div className="w-10 h-10 rounded-full bg-mosque-gold-500 flex items-center justify-center text-mosque-green-900 font-bold text-sm flex-shrink-0">
@@ -185,8 +183,8 @@ export default function CollapsibleSidebar() {
             </div>
 
             {/* Name (show when expanded) */}
-            <div className={'ml-3 flex-1 text-left transition-all duration-200 min-w-0 ' +
-              (isExpanded ? 'opacity-100' : 'opacity-0 absolute')}>
+            <div className={'absolute left-14 right-10 text-left transition-all duration-200 ' +
+              (isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
               <p className="text-sm font-medium text-white truncate">
                 {getDisplayName()}
               </p>
@@ -196,9 +194,9 @@ export default function CollapsibleSidebar() {
             </div>
 
             {/* Dropdown Icon */}
-            <ChevronDown className={'h-4 w-4 text-mosque-green-200 transition-all duration-200 flex-shrink-0 ' +
+            <ChevronDown className={'h-4 w-4 text-mosque-green-200 absolute right-3 transition-all duration-200 ' +
               (showProfileMenu ? 'rotate-180 ' : '') +
-              (isExpanded ? 'opacity-100' : 'opacity-0 absolute')} />
+              (isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none')} />
           </button>
 
           {/* Dropdown Menu */}
