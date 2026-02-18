@@ -46,13 +46,12 @@ export default function Profile() {
     setIsUploadingImage(true);
 
     try {
-      // Upload to Supabase Storage
       const fileExt = file.name.split('.').pop();
       const fileName = `${user?.id}-${Date.now()}.${fileExt}`;
-      const filePath = `profile-pictures/${fileName}`;
+      const filePath = `${user?.id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('member-documents')
+        .from('profile-pictures')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: true,
@@ -60,14 +59,12 @@ export default function Profile() {
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: urlData } = supabase.storage
-        .from('member-documents')
+        .from('profile-pictures')
         .getPublicUrl(filePath);
 
       const publicUrl = urlData.publicUrl;
 
-      // Update form data
       setFormData((prev) => ({ ...prev, profile_picture_url: publicUrl }));
 
       showToast('Profile picture uploaded successfully', 'success');

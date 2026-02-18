@@ -1,0 +1,65 @@
+/*
+  # Create profile pictures storage bucket
+
+  1. Storage
+    - Create `profile-pictures` bucket for user profile pictures
+    - Set bucket to public access for easy image loading
+    - Configure RLS policies for secure uploads
+  
+  2. Security
+    - Users can only upload their own profile pictures
+    - Users can update/delete their own profile pictures
+    - All users can view profile pictures (public bucket)
+*/
+
+-- Create the profile-pictures bucket
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'profile-pictures',
+  'profile-pictures',
+  true,
+  5242880, -- 5MB limit
+  ARRAY['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- Allow authenticated users to upload their own profile pictures
+CREATE POLICY "Users can upload own profile picture"
+ON storage.objects
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'profile-pictures' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Allow authenticated users to update their own profile pictures
+CREATE POLICY "Users can update own profile picture"
+ON storage.objects
+FOR UPDATE
+TO authenticated
+USING (
+  bucket_id = 'profile-pictures' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+)
+WITH CHECK (
+  bucket_id = 'profile-pictures' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Allow authenticated users to delete their own profile pictures
+CREATE POLICY "Users can delete own profile picture"
+ON storage.objects
+FOR DELETE
+TO authenticated
+USING (
+  bucket_id = 'profile-pictures' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Allow everyone to view profile pictures (public bucket)
+CREATE POLICY "Anyone can view profile pictures"
+ON storage.objects
+FOR SELECT
+TO public
+USING (bucket_id = 'profile-pictures');
