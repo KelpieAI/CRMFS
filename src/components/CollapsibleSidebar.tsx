@@ -33,13 +33,16 @@ export default function CollapsibleSidebar() {
     const savedMode = localStorage.getItem('sidebarMode') as SidebarMode;
     if (savedMode) {
       setSidebarMode(savedMode);
-      if (savedMode === 'expanded') {
-        setIsExpanded(true);
-      } else if (savedMode === 'collapsed') {
-        setIsExpanded(false);
-      }
     }
   }, []);
+
+  useEffect(() => {
+    if (sidebarMode === 'expanded') {
+      setIsExpanded(true);
+    } else if (sidebarMode === 'collapsed') {
+      setIsExpanded(false);
+    }
+  }, [sidebarMode]);
 
   const navigation = [
     { name: 'Dashboard', to: '/', icon: LayoutDashboard },
@@ -104,13 +107,6 @@ export default function CollapsibleSidebar() {
   const handleSidebarModeChange = (mode: SidebarMode) => {
     setSidebarMode(mode);
     localStorage.setItem('sidebarMode', mode);
-
-    if (mode === 'expanded') {
-      setIsExpanded(true);
-    } else if (mode === 'collapsed') {
-      setIsExpanded(false);
-    }
-
     setShowSidebarMenu(false);
   };
 
