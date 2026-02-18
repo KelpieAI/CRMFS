@@ -11,17 +11,35 @@ import {
   X,
   ChevronDown,
   Settings,
+  SlidersHorizontal,
+  Check,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
+type SidebarMode = 'hover' | 'expanded' | 'collapsed';
+
 export default function CollapsibleSidebar() {
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>('hover');
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showSidebarMenu, setShowSidebarMenu] = useState(false);
   const { user, profile } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const savedMode = localStorage.getItem('sidebarMode') as SidebarMode;
+    if (savedMode) {
+      setSidebarMode(savedMode);
+      if (savedMode === 'expanded') {
+        setIsExpanded(true);
+      } else if (savedMode === 'collapsed') {
+        setIsExpanded(false);
+      }
+    }
+  }, []);
 
   const navigation = [
     { name: 'Dashboard', to: '/', icon: LayoutDashboard },
@@ -38,6 +56,8 @@ export default function CollapsibleSidebar() {
 
   // Handle hover expansion on desktop
   useEffect(() => {
+    if (sidebarMode !== 'hover') return;
+
     const handleMouseMove = (e: MouseEvent) => {
       const hoverZoneWidth = window.innerWidth * 0.05;
       if (e.clientX <= hoverZoneWidth) {
@@ -54,29 +74,45 @@ export default function CollapsibleSidebar() {
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
     };
-  }, []);
+  }, [sidebarMode]);
 
   // Close mobile menu when route changes
   useEffect(() => {
     setIsMobileOpen(false);
   }, [location.pathname]);
 
-  // Close profile menu when clicking outside
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = () => {
       if (showProfileMenu) {
         setShowProfileMenu(false);
       }
+      if (showSidebarMenu) {
+        setShowSidebarMenu(false);
+      }
     };
 
-    if (showProfileMenu) {
+    if (showProfileMenu || showSidebarMenu) {
       document.addEventListener('click', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('click', handleClickOutside);
     };
-  }, [showProfileMenu]);
+  }, [showProfileMenu, showSidebarMenu]);
+
+  const handleSidebarModeChange = (mode: SidebarMode) => {
+    setSidebarMode(mode);
+    localStorage.setItem('sidebarMode', mode);
+
+    if (mode === 'expanded') {
+      setIsExpanded(true);
+    } else if (mode === 'collapsed') {
+      setIsExpanded(false);
+    }
+
+    setShowSidebarMenu(false);
+  };
 
   const getInitial = () => {
     if (profile?.full_name) {
@@ -179,8 +215,58 @@ export default function CollapsibleSidebar() {
           })}
         </nav>
 
+        {/* Sidebar Control Section */}
+        <div className="p-2 mt-auto flex-shrink-0 relative">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowSidebarMenu(!showSidebarMenu);
+            }}
+            className="w-full flex items-center py-2 text-white hover:bg-mosque-green-700 rounded-lg transition-colors relative"
+          >
+            <div className="w-12 flex items-center justify-center flex-shrink-0">
+              <SlidersHorizontal className="h-4 w-4 text-mosque-green-200" />
+            </div>
+            <span className={'text-xs font-medium text-mosque-green-200 whitespace-nowrap transition-opacity duration-200 ' +
+              (isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
+              Sidebar control
+            </span>
+          </button>
+
+          {/* Sidebar Control Menu */}
+          {showSidebarMenu && (
+            <div
+              className={'absolute bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50 min-w-[200px] mb-2 ' +
+                (isExpanded ? 'left-2 right-2 bottom-full' : 'left-16 bottom-2')}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => handleSidebarModeChange('expanded')}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between transition-colors"
+              >
+                <span>Expanded</span>
+                {sidebarMode === 'expanded' && <Check className="h-4 w-4 text-mosque-green-600 dark:text-mosque-green-400" />}
+              </button>
+              <button
+                onClick={() => handleSidebarModeChange('collapsed')}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between transition-colors"
+              >
+                <span>Collapsed</span>
+                {sidebarMode === 'collapsed' && <Check className="h-4 w-4 text-mosque-green-600 dark:text-mosque-green-400" />}
+              </button>
+              <button
+                onClick={() => handleSidebarModeChange('hover')}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between transition-colors"
+              >
+                <span>Expand on hover</span>
+                {sidebarMode === 'hover' && <Check className="h-4 w-4 text-mosque-green-600 dark:text-mosque-green-400" />}
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Profile Section at Bottom */}
-        <div className="border-t border-mosque-green-700 p-2 mt-auto flex-shrink-0 relative">
+        <div className="border-t border-mosque-green-700 p-2 flex-shrink-0 relative">
           <button
             onClick={(e) => {
               e.stopPropagation();
