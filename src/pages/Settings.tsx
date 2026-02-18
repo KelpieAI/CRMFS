@@ -3,11 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
-import { Shield, FileText, Trash2, CheckCircle, XCircle, Clock, Download, Palette, Moon, Sun, Mail, Save, DollarSign, Info, Users, Database, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Shield, FileText, Trash2, CheckCircle, XCircle, Clock, Download, Palette, Moon, Sun, Mail, Save, DollarSign, Info, Users, Database, RefreshCw, CheckCircle2, AlertCircle, User } from 'lucide-react';
 import { VERSION_STRING } from '../lib/version';
+import Profile from './Profile';
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState('appearance');
+  const [activeTab, setActiveTab] = useState('profile');
   const { theme, toggleTheme } = useTheme();
   const { showToast } = useToast();
 
@@ -287,6 +288,17 @@ export default function Settings() {
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
         <nav className="flex space-x-8">
           <button
+            onClick={() => setActiveTab('profile')}
+            className={'pb-4 px-1 border-b-2 font-medium text-sm transition-colors ' + (
+              activeTab === 'profile'
+                ? 'border-mosque-green-600 text-mosque-green-600'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+            )}
+          >
+            <User className="h-4 w-4 inline mr-2" />
+            Profile
+          </button>
+          <button
             onClick={() => setActiveTab('appearance')}
             className={'pb-4 px-1 border-b-2 font-medium text-sm transition-colors ' + (
               activeTab === 'appearance'
@@ -332,6 +344,11 @@ export default function Settings() {
           </button>
         </nav>
       </div>
+
+      {/* Profile Tab */}
+      {activeTab === 'profile' && (
+        <Profile />
+      )}
 
       {/* Appearance Tab */}
       {activeTab === 'appearance' && (
