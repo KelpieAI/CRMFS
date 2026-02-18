@@ -12,13 +12,14 @@ import {
   ChevronDown,
   Settings,
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
 export default function CollapsibleSidebar() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const { user, profile } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -29,19 +30,6 @@ export default function CollapsibleSidebar() {
     { name: 'Deceased', to: '/deceased', icon: Heart },
     { name: 'Reports', to: '/reports', icon: FileText },
   ];
-
-  // Get current user
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -91,13 +79,34 @@ export default function CollapsibleSidebar() {
   }, [showProfileMenu]);
 
   const getInitial = () => {
-    if (!user?.email) return 'U';
-    return user.email.charAt(0).toUpperCase();
+    if (profile?.full_name) {
+      return profile.full_name.charAt(0).toUpperCase();
+    }
+    if (user?.email) {
+      return user.email.charAt(0).toUpperCase();
+    }
+    return 'U';
   };
 
   const getDisplayName = () => {
-    if (!user?.email) return 'User';
-    return user.email.split('@')[0];
+    if (profile?.full_name) {
+      return profile.full_name;
+    }
+    if (user?.email) {
+      return user.email.split('@')[0];
+    }
+    return 'User';
+  };
+
+  const getRoleLabel = () => {
+    if (!profile?.role) return 'Committee Member';
+    const roleMap: Record<string, string> = {
+      admin: 'Admin',
+      chairman: 'Chairman',
+      treasurer: 'Treasurer',
+      developer: 'Developer',
+    };
+    return roleMap[profile.role] || 'Committee Member';
   };
 
   return (
@@ -181,9 +190,17 @@ export default function CollapsibleSidebar() {
           >
             {/* Profile Picture - fixed left via w-12 container */}
             <div className="w-12 flex items-center justify-center flex-shrink-0">
-              <div className="w-10 h-10 rounded-full bg-mosque-gold-500 flex items-center justify-center text-mosque-green-900 font-bold text-sm flex-shrink-0">
-                {getInitial()}
-              </div>
+              {profile?.profile_picture_url ? (
+                <img
+                  src={profile.profile_picture_url}
+                  alt={getDisplayName()}
+                  className="w-10 h-10 rounded-full object-cover flex-shrink-0 border-2 border-mosque-gold-500"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-mosque-gold-500 flex items-center justify-center text-mosque-green-900 font-bold text-sm flex-shrink-0">
+                  {getInitial()}
+                </div>
+              )}
             </div>
 
             {/* Name (show when expanded) */}
@@ -193,7 +210,7 @@ export default function CollapsibleSidebar() {
                 {getDisplayName()}
               </p>
               <p className="text-xs text-mosque-green-200 truncate">
-                Committee Member
+                {getRoleLabel()}
               </p>
             </div>
 
