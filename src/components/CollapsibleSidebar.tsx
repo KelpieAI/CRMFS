@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -17,11 +17,15 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
-type SidebarMode = 'hover' | 'expanded' | 'collapsed';
+export type SidebarMode = 'hover' | 'expanded' | 'collapsed';
+
+export function getSidebarMode(): SidebarMode {
+  return (localStorage.getItem('sidebarMode') as SidebarMode) || 'hover';
+}
 
 export default function CollapsibleSidebar() {
-  const [sidebarMode, setSidebarMode] = useState<SidebarMode>('hover');
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>(getSidebarMode);
+  const [hoverExpanded, setHoverExpanded] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showSidebarMenu, setShowSidebarMenu] = useState(false);
@@ -29,20 +33,7 @@ export default function CollapsibleSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const savedMode = localStorage.getItem('sidebarMode') as SidebarMode;
-    if (savedMode) {
-      setSidebarMode(savedMode);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (sidebarMode === 'expanded') {
-      setIsExpanded(true);
-    } else if (sidebarMode === 'collapsed') {
-      setIsExpanded(false);
-    }
-  }, [sidebarMode]);
+  const isExpanded = sidebarMode === 'expanded' || (sidebarMode === 'hover' && hoverExpanded);
 
   const navigation = [
     { name: 'Dashboard', to: '/', icon: LayoutDashboard },
@@ -57,42 +48,26 @@ export default function CollapsibleSidebar() {
     navigate('/login');
   };
 
-  // Handle hover expansion on desktop
-  useEffect(() => {
-    if (sidebarMode !== 'hover') return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const hoverZoneWidth = window.innerWidth * 0.05;
-      if (e.clientX <= hoverZoneWidth) {
-        setIsExpanded(true);
-      } else if (e.clientX > 250) {
-        setIsExpanded(false);
-      }
-    };
-
-    if (window.innerWidth >= 768) {
-      window.addEventListener('mousemove', handleMouseMove);
+  const handleMouseEnter = useCallback(() => {
+    if (sidebarMode === 'hover' && window.innerWidth >= 768) {
+      setHoverExpanded(true);
     }
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-    };
   }, [sidebarMode]);
 
-  // Close mobile menu when route changes
+  const handleMouseLeave = useCallback(() => {
+    if (sidebarMode === 'hover' && window.innerWidth >= 768) {
+      setHoverExpanded(false);
+    }
+  }, [sidebarMode]);
+
   useEffect(() => {
     setIsMobileOpen(false);
   }, [location.pathname]);
 
-  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = () => {
-      if (showProfileMenu) {
-        setShowProfileMenu(false);
-      }
-      if (showSidebarMenu) {
-        setShowSidebarMenu(false);
-      }
+      if (showProfileMenu) setShowProfileMenu(false);
+      if (showSidebarMenu) setShowSidebarMenu(false);
     };
 
     if (showProfileMenu || showSidebarMenu) {
@@ -107,26 +82,20 @@ export default function CollapsibleSidebar() {
   const handleSidebarModeChange = (mode: SidebarMode) => {
     setSidebarMode(mode);
     localStorage.setItem('sidebarMode', mode);
+    setHoverExpanded(false);
     setShowSidebarMenu(false);
+    window.dispatchEvent(new CustomEvent('sidebarModeChange', { detail: mode }));
   };
 
   const getInitial = () => {
-    if (profile?.full_name) {
-      return profile.full_name.charAt(0).toUpperCase();
-    }
-    if (user?.email) {
-      return user.email.charAt(0).toUpperCase();
-    }
+    if (profile?.full_name) return profile.full_name.charAt(0).toUpperCase();
+    if (user?.email) return user.email.charAt(0).toUpperCase();
     return 'U';
   };
 
   const getDisplayName = () => {
-    if (profile?.full_name) {
-      return profile.full_name;
-    }
-    if (user?.email) {
-      return user.email.split('@')[0];
-    }
+    if (profile?.full_name) return profile.full_name;
+    if (user?.email) return user.email.split('@')[0];
     return 'User';
   };
 
@@ -140,6 +109,9 @@ export default function CollapsibleSidebar() {
     };
     return roleMap[profile.role] || 'Committee Member';
   };
+
+  const sidebarWidth = isExpanded ? 'w-64' : 'w-16';
+  const isOverlay = sidebarMode === 'hover' && hoverExpanded;
 
   return (
     <>
@@ -162,20 +134,18 @@ export default function CollapsibleSidebar() {
       {/* Sidebar */}
       <div
         className={'fixed top-0 left-0 h-full bg-mosque-green-600 text-white z-40 transition-all duration-300 ease-in-out flex flex-col ' +
-          (isExpanded ? 'w-64' : 'w-16') + ' ' +
+          sidebarWidth + ' ' +
           (isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0')}
-        onMouseEnter={() => window.innerWidth >= 768 && setIsExpanded(true)}
-        onMouseLeave={() => window.innerWidth >= 768 && setIsExpanded(false)}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
         {/* Logo Section */}
         <div className="h-16 flex items-center border-b border-mosque-green-700 overflow-hidden flex-shrink-0">
-          {/* K avatar - always at fixed left position via w-16 container */}
           <div className="w-16 flex items-center justify-center flex-shrink-0">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-mosque-gold-500 to-mosque-gold-700 flex items-center justify-center font-bold text-white flex-shrink-0">
               K
             </div>
           </div>
-          {/* Expanded text - appears to the right of K */}
           <div className={'transition-opacity duration-200 whitespace-nowrap ' + (isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
             <h1 className="text-lg font-bold text-mosque-gold-500">Kelpie AI</h1>
             <p className="text-xs text-gray-400">CRMFS</p>
@@ -229,7 +199,6 @@ export default function CollapsibleSidebar() {
             </span>
           </button>
 
-          {/* Sidebar Control Menu */}
           {showSidebarMenu && (
             <div
               className={'absolute bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50 min-w-[200px] mb-2 ' +
@@ -270,7 +239,6 @@ export default function CollapsibleSidebar() {
             }}
             className="w-full flex items-center py-3 text-white hover:bg-mosque-green-700 rounded-lg transition-colors relative"
           >
-            {/* Profile Picture - fixed left via w-12 container */}
             <div className="w-12 flex items-center justify-center flex-shrink-0">
               {profile?.profile_picture_url ? (
                 <img
@@ -285,7 +253,6 @@ export default function CollapsibleSidebar() {
               )}
             </div>
 
-            {/* Name (show when expanded) */}
             <div className={'flex-1 text-left transition-opacity duration-200 ' +
               (isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
               <p className="text-sm font-medium text-white truncate">
@@ -296,13 +263,11 @@ export default function CollapsibleSidebar() {
               </p>
             </div>
 
-            {/* Dropdown Icon */}
             <ChevronDown className={'h-4 w-4 text-mosque-green-200 mr-2 transition-opacity duration-200 ' +
               (showProfileMenu ? 'rotate-180 ' : '') +
               (isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none')} />
           </button>
 
-          {/* Dropdown Menu */}
           {showProfileMenu && (
             <div
               className={'absolute bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50 min-w-[200px] mb-2 ' +
@@ -335,8 +300,14 @@ export default function CollapsibleSidebar() {
         </div>
       </div>
 
-      {/* Spacer for collapsed sidebar on desktop */}
-      <div className="hidden md:block w-16" />
+      {/* Spacer - matches sidebar width in non-overlay modes */}
+      {!isOverlay && (
+        <div className={'hidden md:block flex-shrink-0 transition-all duration-300 ' +
+          (sidebarMode === 'expanded' ? 'w-64' : 'w-16')} />
+      )}
+      {isOverlay && (
+        <div className="hidden md:block w-16 flex-shrink-0" />
+      )}
     </>
   );
 }
