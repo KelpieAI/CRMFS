@@ -90,11 +90,11 @@ export default function Reports() {
 
   // Age distribution (mock data)
   const ageDistribution = [
-    { range: '0-17', count: 45, joiningFee: 50 },
-    { range: '18-39', count: 120, joiningFee: 100 },
-    { range: '40-59', count: 85, joiningFee: 150 },
-    { range: '60-74', count: 62, joiningFee: 200 },
-    { range: '75+', count: 28, joiningFee: 250 },
+    { range: '0-17', count: 14, joiningFee: 50 },
+    { range: '18-39', count: 4, joiningFee: 100 },
+    { range: '40-59', count: 8, joiningFee: 150 },
+    { range: '60-74', count: 2, joiningFee: 200 },
+    { range: '75+', count: 3, joiningFee: 250 },
   ];
 
   // Payment method breakdown
