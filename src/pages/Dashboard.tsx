@@ -228,7 +228,7 @@ export default function Dashboard() {
       <ApplicationsInProgress />
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => {
           const Icon = stat.icon;
           return (
@@ -236,18 +236,18 @@ export default function Dashboard() {
               key={stat.name}
               className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-shadow"
             >
-              <div className="p-5">
+              <div className="p-4">
                 <div className="flex items-center">
-                  <div className={`flex-shrink-0 rounded-lg p-3 ${stat.bgColor} dark:bg-opacity-20`}>
-                    <Icon className={`h-6 w-6 ${stat.iconColor}`} />
+                  <div className={`flex-shrink-0 rounded-lg p-2.5 ${stat.bgColor} dark:bg-opacity-20`}>
+                    <Icon className={`h-5 w-5 ${stat.iconColor}`} />
                   </div>
-                  <div className="ml-5 w-0 flex-1">
+                  <div className="ml-4 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                      <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate">
                         {stat.name}
                       </dt>
                       <dd className="flex items-baseline">
-                        <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                        <div className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                           {stat.value}
                         </div>
                       </dd>
@@ -255,30 +255,30 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-              <div className={`h-2 bg-gradient-to-r ${stat.color}`}></div>
+              <div className={`h-1.5 bg-gradient-to-r ${stat.color}`}></div>
             </div>
           );
         })}
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Recent Members */}
         <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-4">
-            <h2 className="text-lg font-semibold text-white">Recent Members</h2>
+          <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 px-5 py-3">
+            <h2 className="text-base font-semibold text-white">Recent Members</h2>
           </div>
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-64 overflow-y-auto">
             {recentMembers && recentMembers.length > 0 ? (
               recentMembers.map((member) => (
                 <Link
                   key={member.id}
                   to={`/members/${member.id}`}
-                  className="px-6 py-4 hover:bg-emerald-50 dark:hover:bg-gray-700 transition-colors block"
+                  className="px-5 py-3 hover:bg-emerald-50 dark:hover:bg-gray-700 transition-colors block"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2.5">
                       <div className="flex-shrink-0">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-semibold">
+                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-xs font-semibold">
                           {member.first_name[0]}
                           {member.last_name[0]}
                         </div>
@@ -291,7 +291,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                         member.status === 'active'
                           ? 'bg-mosque-gold-100 text-mosque-gold-800'
                           : member.status === 'pending'
@@ -305,12 +305,12 @@ export default function Dashboard() {
                 </Link>
               ))
             ) : (
-              <div className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+              <div className="px-5 py-6 text-center text-gray-500 dark:text-gray-400">
                 No recent members
               </div>
             )}
           </div>
-          <div className="bg-gray-50 dark:bg-gray-900 px-6 py-3">
+          <div className="bg-gray-50 dark:bg-gray-900 px-5 py-2.5">
             <Link
               to="/members"
               className="text-sm font-medium text-emerald-600 hover:text-emerald-700"
@@ -322,9 +322,9 @@ export default function Dashboard() {
 
         {/* Alerts */}
         <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <div className="bg-gradient-to-r from-orange-600 to-amber-600 px-6 py-4">
-            <h2 className="text-lg font-semibold text-white flex items-center">
-              <AlertTriangle className="h-5 w-5 mr-2" />
+          <div className="bg-gradient-to-r from-orange-600 to-amber-600 px-5 py-3">
+            <h2 className="text-base font-semibold text-white flex items-center">
+              <AlertTriangle className="h-4 w-4 mr-2" />
               Alerts
               {alerts && alerts.totalAlerts > 0 && (
                 <span className="ml-2 px-2 py-0.5 bg-white text-orange-600 text-xs font-bold rounded-full">
@@ -333,19 +333,19 @@ export default function Dashboard() {
               )}
             </h2>
           </div>
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-64 overflow-y-auto">
             {alerts && alerts.totalAlerts > 0 ? (
               <>
                 {alerts.documentsPending > 0 && (
                   <Link
                     to="/members?filter=documents_pending"
-                    className="px-6 py-4 hover:bg-orange-50 dark:hover:bg-gray-700 transition-colors block"
+                    className="px-5 py-3 hover:bg-orange-50 dark:hover:bg-gray-700 transition-colors block"
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-2.5">
                         <div className="flex-shrink-0">
-                          <div className="h-10 w-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
-                            <FileText className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                          <div className="h-8 w-8 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                            <FileText className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                           </div>
                         </div>
                         <div>
@@ -357,7 +357,7 @@ export default function Dashboard() {
                           </p>
                         </div>
                       </div>
-                      <span className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                      <span className="text-xl font-bold text-orange-600 dark:text-orange-400">
                         {alerts.documentsPending}
                       </span>
                     </div>
@@ -366,13 +366,13 @@ export default function Dashboard() {
                 {alerts.declarationsPending > 0 && (
                   <Link
                     to="/members?filter=declarations_pending"
-                    className="px-6 py-4 hover:bg-orange-50 dark:hover:bg-gray-700 transition-colors block"
+                    className="px-5 py-3 hover:bg-orange-50 dark:hover:bg-gray-700 transition-colors block"
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-2.5">
                         <div className="flex-shrink-0">
-                          <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                            <PenSquare className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                          <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                            <PenSquare className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                           </div>
                         </div>
                         <div>
@@ -384,7 +384,7 @@ export default function Dashboard() {
                           </p>
                         </div>
                       </div>
-                      <span className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                      <span className="text-xl font-bold text-amber-600 dark:text-amber-400">
                         {alerts.declarationsPending}
                       </span>
                     </div>
@@ -393,13 +393,13 @@ export default function Dashboard() {
                 {alerts.paymentsOverdue > 0 && (
                   <Link
                     to="/members?filter=payments_overdue"
-                    className="px-6 py-4 hover:bg-orange-50 dark:hover:bg-gray-700 transition-colors block"
+                    className="px-5 py-3 hover:bg-orange-50 dark:hover:bg-gray-700 transition-colors block"
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-2.5">
                         <div className="flex-shrink-0">
-                          <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                            <CreditCard className="h-5 w-5 text-red-600 dark:text-red-400" />
+                          <div className="h-8 w-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                            <CreditCard className="h-4 w-4 text-red-600 dark:text-red-400" />
                           </div>
                         </div>
                         <div>
@@ -411,7 +411,7 @@ export default function Dashboard() {
                           </p>
                         </div>
                       </div>
-                      <span className="text-2xl font-bold text-red-600 dark:text-red-400">
+                      <span className="text-xl font-bold text-red-600 dark:text-red-400">
                         {alerts.paymentsOverdue}
                       </span>
                     </div>
@@ -420,13 +420,13 @@ export default function Dashboard() {
                 {alerts.emailsFailed > 0 && (
                   <Link
                     to="/members?filter=emails_failed"
-                    className="px-6 py-4 hover:bg-orange-50 dark:hover:bg-gray-700 transition-colors block"
+                    className="px-5 py-3 hover:bg-orange-50 dark:hover:bg-gray-700 transition-colors block"
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-2.5">
                         <div className="flex-shrink-0">
-                          <div className="h-10 w-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                            <Mail className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                          <div className="h-8 w-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                            <Mail className="h-4 w-4 text-gray-600 dark:text-gray-400" />
                           </div>
                         </div>
                         <div>
@@ -438,7 +438,7 @@ export default function Dashboard() {
                           </p>
                         </div>
                       </div>
-                      <span className="text-2xl font-bold text-gray-600 dark:text-gray-400">
+                      <span className="text-xl font-bold text-gray-600 dark:text-gray-400">
                         {alerts.emailsFailed}
                       </span>
                     </div>
@@ -446,10 +446,10 @@ export default function Dashboard() {
                 )}
               </>
             ) : (
-              <div className="px-6 py-8 text-center">
+              <div className="px-5 py-6 text-center">
                 <div className="flex flex-col items-center space-y-2">
-                  <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                    <Check className="h-6 w-6 text-green-600 dark:text-green-400" />
+                  <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                    <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
                   </div>
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                     No alerts - all members up to date
@@ -461,7 +461,7 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-          <div className="bg-gray-50 dark:bg-gray-900 px-6 py-3">
+          <div className="bg-gray-50 dark:bg-gray-900 px-5 py-2.5">
             <Link
               to="/members"
               className="text-sm font-medium text-orange-600 hover:text-orange-700"
