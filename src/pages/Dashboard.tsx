@@ -293,7 +293,7 @@ export default function Dashboard() {
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                         member.status === 'active'
-                          ? 'bg-mosque-gold-100 text-mosque-gold-800'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                           : member.status === 'pending'
                           ? 'bg-yellow-100 text-yellow-800'
                           : 'bg-gray-100 text-gray-800'
@@ -446,7 +446,7 @@ export default function Dashboard() {
                 )}
               </>
             ) : (
-              <div className="px-5 py-6 text-center">
+              <div className="px-5 py-6 text-center flex items-center justify-center flex-1">
                 <div className="flex flex-col items-center space-y-2">
                   <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                     <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
