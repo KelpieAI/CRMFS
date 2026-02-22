@@ -333,7 +333,7 @@ export default function Dashboard() {
               )}
             </h2>
           </div>
-          <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-64 overflow-y-auto flex-1">
+          <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-64 overflow-y-auto flex-1 flex flex-col">
             {alerts && alerts.totalAlerts > 0 ? (
               <>
                 {alerts.documentsPending > 0 && (
@@ -446,7 +446,7 @@ export default function Dashboard() {
                 )}
               </>
             ) : (
-              <div className="px-5 py-6 text-center flex items-center justify-center flex-1">
+              <div className="flex items-center justify-center flex-1">
                 <div className="flex flex-col items-center space-y-2">
                   <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                     <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
