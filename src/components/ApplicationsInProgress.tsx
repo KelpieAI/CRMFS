@@ -77,7 +77,7 @@ export default function ApplicationsInProgress() {
                     <span className="text-gray-600 dark:text-gray-400"> & {app.joint_first_name} {app.joint_last_name}</span>
                   )}
                 </p>
-                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">
+                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 capitalize">
                   {app.app_type}
                 </span>
               </div>
