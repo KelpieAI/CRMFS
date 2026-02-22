@@ -321,8 +321,8 @@ export default function Dashboard() {
         </div>
 
         {/* Alerts */}
-        <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <div className="bg-gradient-to-r from-orange-600 to-amber-600 px-5 py-3">
+        <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col">
+          <div className="bg-orange-600 px-5 py-3">
             <h2 className="text-base font-semibold text-white flex items-center">
               <AlertTriangle className="h-4 w-4 mr-2" />
               Alerts
@@ -333,7 +333,7 @@ export default function Dashboard() {
               )}
             </h2>
           </div>
-          <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-64 overflow-y-auto">
+          <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-64 overflow-y-auto flex-1">
             {alerts && alerts.totalAlerts > 0 ? (
               <>
                 {alerts.documentsPending > 0 && (
@@ -461,7 +461,7 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-          <div className="bg-gray-50 dark:bg-gray-900 px-5 py-2.5">
+          <div className="bg-gray-50 dark:bg-gray-900 px-5 py-2.5 mt-auto">
             <Link
               to="/members"
               className="text-sm font-medium text-orange-600 hover:text-orange-700"
