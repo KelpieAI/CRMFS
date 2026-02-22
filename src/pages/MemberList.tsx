@@ -163,16 +163,16 @@ export default function MemberList() {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      active: 'bg-mosque-gold-100 text-mosque-gold-800 border-mosque-gold-200',
-      pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      inactive: 'bg-gray-100 text-gray-800 border-gray-200',
-      paused: 'bg-red-100 text-red-800 border-red-200',
-      deceased: 'bg-gray-100 text-gray-800 border-gray-200',
+      active: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700',
+      pending: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700',
+      inactive: 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600',
+      paused: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700',
+      deceased: 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600',
     };
 
     return (
       <span
-        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+        className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium border min-w-[70px] ${
           styles[status as keyof typeof styles] || styles.inactive
         }`}
       >
