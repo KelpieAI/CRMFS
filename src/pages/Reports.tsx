@@ -375,7 +375,7 @@ export default function Reports() {
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
           <div className="flex items-center mb-6">
             <BarChart3 className="h-5 w-5 text-emerald-600 mr-2" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Age Distribution (Active Members)</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Age Distribution</h2>
           </div>
 
           <div className="space-y-4">
@@ -383,7 +383,7 @@ export default function Reports() {
               <div key={tier.range}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-gray-700">
-                    {tier.range} years (£{tier.joiningFee} joining)
+                    {tier.range} years
                   </span>
                   <span className="text-sm font-bold text-emerald-600">{tier.count}</span>
                 </div>
