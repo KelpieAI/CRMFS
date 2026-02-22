@@ -103,8 +103,10 @@ export default function Reports() {
     return age;
   };
 
+  const activeMembers = members?.filter((m: any) => m.status === 'active') || [];
+
   const ageDistribution = feeStructure?.map((tier: any) => {
-    const count = members?.filter((m: any) => {
+    const count = activeMembers?.filter((m: any) => {
       const age = calculateAge(m.dob);
       return age >= tier.age_min && age <= tier.age_max;
     }).length || 0;
@@ -200,6 +202,14 @@ export default function Reports() {
       { Metric: 'Pending Members', Value: membershipStats.pending },
     ];
     downloadCSV(data, 'financial_summary');
+  };
+
+  const exportRegistrationTrend = () => {
+    const data = last6Months.map((month) => ({
+      Month: month.month,
+      Registrations: month.count,
+    }));
+    downloadCSV(data, 'registration_trend');
   };
 
   return (
@@ -341,6 +351,81 @@ export default function Reports() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Registration Trend */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center">
+              <Activity className="h-5 w-5 text-emerald-600 mr-2" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Registration Trend (6 Months)</h2>
+            </div>
+            <button
+              onClick={exportRegistrationTrend}
+              className="text-sm text-emerald-600 hover:text-emerald-700 flex items-center"
+            >
+              <Download className="h-4 w-4 mr-1" />
+              Export
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {last6Months.map((month) => (
+              <div key={month.month}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">{month.month}</span>
+                  <span className="text-sm font-bold text-blue-600">{month.count}</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all"
+                    style={{
+                      width: `${
+                        Math.max(...last6Months.map((m) => m.count)) > 0
+                          ? (month.count / Math.max(...last6Months.map((m) => m.count))) * 100
+                          : 0
+                      }%`,
+                    }}
+                  ></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Age Distribution */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+          <div className="flex items-center mb-6">
+            <BarChart3 className="h-5 w-5 text-emerald-600 mr-2" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Age Distribution (Active Members)</h2>
+          </div>
+
+          <div className="space-y-4">
+            {ageDistribution.map((tier: any) => (
+              <div key={tier.range}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    {tier.range} years (£{tier.joiningFee} joining)
+                  </span>
+                  <span className="text-sm font-bold text-emerald-600">{tier.count}</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-2 rounded-full transition-all"
+                    style={{
+                      width: `${
+                        membershipStats.active > 0
+                          ? (tier.count / membershipStats.active) * 100
+                          : 0
+                      }%`,
+                    }}
+                  ></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Membership Breakdown */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
           <div className="flex items-center justify-between mb-6">
@@ -417,72 +502,6 @@ export default function Reports() {
                 <p className="text-2xl font-bold text-pink-600">{membershipStats.totalChildren}</p>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Age Distribution */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
-          <div className="flex items-center mb-6">
-            <BarChart3 className="h-5 w-5 text-emerald-600 mr-2" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Age Distribution</h2>
-          </div>
-
-          <div className="space-y-4">
-            {ageDistribution.map((tier: any) => (
-              <div key={tier.range}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">
-                    {tier.range} years (£{tier.joiningFee} joining)
-                  </span>
-                  <span className="text-sm font-bold text-emerald-600">{tier.count}</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-2 rounded-full transition-all"
-                    style={{
-                      width: `${
-                        membershipStats.total > 0
-                          ? (tier.count / membershipStats.total) * 100
-                          : 0
-                      }%`,
-                    }}
-                  ></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Registration Trend */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
-          <div className="flex items-center mb-6">
-            <Activity className="h-5 w-5 text-emerald-600 mr-2" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Registration Trend (6 Months)</h2>
-          </div>
-
-          <div className="space-y-3">
-            {last6Months.map((month) => (
-              <div key={month.month}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">{month.month}</span>
-                  <span className="text-sm font-bold text-blue-600">{month.count}</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all"
-                    style={{
-                      width: `${
-                        Math.max(...last6Months.map((m) => m.count)) > 0
-                          ? (month.count / Math.max(...last6Months.map((m) => m.count))) * 100
-                          : 0
-                      }%`,
-                    }}
-                  ></div>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
 
