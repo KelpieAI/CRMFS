@@ -458,7 +458,7 @@ export default function MemberDetail() {
           quickActions={{
             onPrint: () => window.print(),
             onExport: exportMemberData,
-            onEmail: () => window.location.href = `mailto:${member.email}`,
+            onEmail: () => setShowEmailPanel(true),
             onDeleteRequest: () => setShowDeletionRequestModal(true),
           }}
         />
