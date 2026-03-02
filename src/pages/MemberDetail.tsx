@@ -8,6 +8,7 @@ import MemberSubNav from '../components/MemberSubNav';
 import { ProfileHeaderSkeleton, FormSkeleton } from '../components/SkeletonComponents';
 import { useMemberStatusUpdate } from '../hooks/useOptimisticUpdates';
 import EmailTokenStatus from '../components/EmailTokenStatus';
+import SendEmailPanel from '../components/SendEmailPanel';
 import {
   ArrowLeft,
   User,
@@ -71,6 +72,9 @@ export default function MemberDetail() {
   
   // Actions menu dropdown
   const [showActionsMenu, setShowActionsMenu] = useState(false);
+
+  // Email panel
+  const [showEmailPanel, setShowEmailPanel] = useState(false);
 
   // Tabs that support inline editing via the Edit Member button
   // Other tabs (children, nok, medical, gp, declarations) use their own modals
@@ -600,7 +604,7 @@ export default function MemberDetail() {
 
                         <button
                           onClick={() => {
-                            window.location.href = `mailto:${member.email}`;
+                            setShowEmailPanel(true);
                             setShowActionsMenu(false);
                           }}
                           className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
@@ -829,6 +833,7 @@ export default function MemberDetail() {
             isEditing={isEditing}
             updateField={updateField}
             setActiveTab={setActiveTab}
+            setShowEmailPanel={setShowEmailPanel}
           />
         )}
 
@@ -1376,12 +1381,19 @@ export default function MemberDetail() {
           </div>
         </div>
       )}
+
+      {showEmailPanel && (
+        <SendEmailPanel
+          member={member}
+          onClose={() => setShowEmailPanel(false)}
+        />
+      )}
     </CompactLayout>
   );
 }
 
 // Personal Info Tab Component
-function PersonalInfoTab({ member, isEditing, updateField, setActiveTab }: any) {
+function PersonalInfoTab({ member, isEditing, updateField, setActiveTab, setShowEmailPanel }: any) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Personal Details Card - Featured */}
@@ -1621,7 +1633,7 @@ function PersonalInfoTab({ member, isEditing, updateField, setActiveTab }: any) 
         {!isEditing && (
           <div className="mt-6 pt-5 border-t border-gray-100 flex gap-3">
             <button
-              onClick={() => window.location.href = `mailto:${member?.email}`}
+              onClick={() => setShowEmailPanel(true)}
               className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
             >
               <Upload className="h-4 w-4" />
