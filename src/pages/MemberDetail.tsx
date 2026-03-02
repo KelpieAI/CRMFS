@@ -9,39 +9,7 @@ import { ProfileHeaderSkeleton, FormSkeleton } from '../components/SkeletonCompo
 import { useMemberStatusUpdate } from '../hooks/useOptimisticUpdates';
 import EmailTokenStatus from '../components/EmailTokenStatus';
 import SendEmailPanel from '../components/SendEmailPanel';
-import {
-  ArrowLeft,
-  User,
-  Users,
-  Baby,
-  Heart,
-  Calendar,
-  Phone,
-  MapPin,
-  Edit,
-  Save,
-  X,
-  Trash2,
-  Pause,
-  CreditCard,
-  AlertTriangle,
-  PoundSterling,
-  Stethoscope,
-  CheckSquare,
-  CheckCircle,
-  FileText,
-  Upload,
-  AlertCircle,
-  Eye,
-  Download,
-  Info,
-  PlayCircle,
-  Shield,
-  MoreVertical,
-  ChevronDown,
-  ChevronUp,
-  Clock,
-} from 'lucide-react';
+import { ArrowLeft, User, Users, Baby, Heart, Calendar, Phone, MapPin, CreditCard as Edit, Save, X, Trash2, Pause, CreditCard, AlertTriangle, PoundSterling, Stethoscope, CheckSquare, CheckCircle, FileText, Upload, AlertCircle, Eye, Download, Info, PlayCircle, Shield, MoreVertical, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 
 export default function MemberDetail() {
   const { id } = useParams();
