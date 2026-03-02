@@ -3,7 +3,7 @@
 > A comprehensive member and payment management system built for Falkirk Central Mosque's death committee (Central Region Muslim Funeral Service).
 
 **Built by:** [Kelpie AI](https://kelpieai.co.uk)  
-**Version:** 0.9.5.0  
+**Version:** 0.9.6.0  
 **Status:** Active Development  
 **Tech Stack:** React + TypeScript + Supabase + Tailwind CSS + Resend
 
@@ -47,10 +47,29 @@ This CRM serves the death committee's operational needs by:
   - Dropdown menu (Settings + Sign Out)
   - Committee member identification
 - **Settings & Privacy:**
-  - Dedicated Settings page for GDPR administration
-  - Privacy Policy download section
-  - Deletion Requests management interface
-  - Data protection obligations guidance
+  - **Profile Tab** - User information and role display
+  - **Appearance Tab** - Dark mode toggle (experimental feature)
+  - **Email Preferences Tab:**
+    - Customizable email sender name
+    - Email signature configuration
+    - CC committee on member emails toggle
+    - Member action notification settings
+  - **Payment Configuration Tab** (read-only):
+    - View annual membership fee (£350)
+    - View age-based joining fees (£75-£500)
+    - View late payment grace period
+    - View payment reminder schedule
+    - "Request Changes" button to contact developer
+  - **GDPR & Privacy Tab:**
+    - Privacy Policy download section
+    - Deletion Requests management interface
+    - Data protection obligations guidance
+  - **About Tab** - System information:
+    - CRMFS version number
+    - Database statistics (members, revenue, activity)
+    - Email statistics (sent, pending actions)
+    - System health status
+    - Technical support contact
 - **Member Data Rights:**
   - Export Member Data function (GDPR Article 15 compliance)
   - One-click JSON export of complete member records
@@ -223,10 +242,13 @@ This CRM serves the death committee's operational needs by:
   - Paused members
   - Total revenue
 - **Applications In Progress** - Shows saved registrations
-- **Upcoming Renewals** (30-day advance warning):
-  - Colour-coded urgency (Red: ≤7 days, Orange: 8–14 days, Yellow: 15–30 days)
-  - Automatic anniversary calculation
-  - Direct links to member profiles
+- **Alerts Widget** (action-required items):
+  - 📄 Documents Pending - members who haven't uploaded documents
+  - ✍️ Declarations Pending - members who haven't signed declarations
+  - 💰 Payments Overdue - members with late payments
+  - 📧 Emails Failed - bounced emails requiring attention
+  - Clickable rows navigate to filtered Members List
+  - Shows "No alerts - all members up to date ✓" when empty
 - Recent member activity feed
 - Command Palette (Cmd+K / Ctrl+K) for quick navigation
 
@@ -356,6 +378,12 @@ This CRM serves the death committee's operational needs by:
   - Accents: Mosque Gold (#D4AF37)
   - Clean white content areas
   - Professional typography
+- **Dark Mode (Experimental):**
+  - Toggle switch in Settings > Appearance
+  - App-wide theme context with localStorage persistence
+  - Dark variants for Dashboard, Members, Member Detail
+  - Islamic green and gold branding maintained in both themes
+  - Marked as "EXPERIMENTAL" - ongoing polish in progress
 - **Navigation System:**
   - Collapsible main sidebar (64px collapsed, 256px expanded)
   - Profile button with avatar at bottom
@@ -387,8 +415,12 @@ This CRM serves the death committee's operational needs by:
 - **Polish:**
   - Toast notifications for user feedback
   - Empty states with helpful guidance
-  - Error boundaries for graceful failure handling
-  - Custom 404 page
+  - React Error Boundary for crash handling
+  - Custom error pages with personality:
+    - 404 Not Found - "break CRMFS" humour with error details
+    - 500 Server Error - professional error reporting
+    - Application Crash - detailed stack trace with copy button
+    - All include email support link and unique log references
   - Proper spacing and breathing room
 
 ### 📈 Reports (Basic)
@@ -783,6 +815,57 @@ This system handles sensitive personal data. Security measures include:
 ---
 
 ## 📈 Version History
+
+### v0.9.6.0 (15 February 2026)
+This release focuses on administrative experience improvements with an expanded Settings page, actionable dashboard alerts, and comprehensive error handling. The committee now has better visibility into pending member actions and more control over system configuration, while dark mode provides a modern alternative interface for late-night administrative work.
+
+- **Dashboard Alerts Widget:**
+  - Replaced redundant "Upcoming Renewals" with actionable "Alerts" widget
+  - Shows 4 categories: Documents Pending, Declarations Pending, Payments Overdue, Emails Failed
+  - Each alert type displays member count and is clickable to filter Members List
+  - Shows "No alerts - all members up to date ✓" when everything is current
+  - Orange/amber theme with warning icon for visibility
+  - Real-time updates based on email token status and payment data
+- **Settings Page Expansion:**
+  - Redesigned with 6 organised tabs: Profile, Appearance, Email Preferences, Payment Configuration, GDPR & Privacy, About
+  - **Email Preferences:** Customisable sender name, email signature, CC toggles, notification settings
+  - **Payment Configuration:** Read-only display of fees and schedules with "Request Changes" button (prevents accidental modifications)
+  - **About Tab:** System version, database statistics, email metrics, system health indicators
+  - All settings stored in new `system_settings` table with proper audit trail
+- **Dark Mode (Experimental):**
+  - Toggle switch in Settings > Appearance
+  - App-wide dark theme with localStorage persistence
+  - Dark variants for Dashboard, Members List, Member Detail, AddMember wizard
+  - Islamic green (#2d5016) and mosque gold (#D4AF37) branding maintained in both themes
+  - Secondary sidebars (registration steps, member detail tabs) support dark mode
+  - Marked as "EXPERIMENTAL" badge - ongoing polish for remaining white backgrounds
+  - Form inputs, cards, and tables styled for dark theme
+- **Error Pages with Personality:**
+  - Custom 404 Not Found page with humorous "break CRMFS" messaging
+  - Custom 500 Server Error page with professional error reporting
+  - React Error Boundary component catches application crashes
+  - All error pages include:
+    - Copy-able error details with unique log reference
+    - Email link to sami.mustafa@kelpieai.co.uk for support
+    - Timestamp and context for debugging
+    - Action buttons (Go Back, Reload, Go to Dashboard)
+  - Strikethrough "break CRMFS" joke inspired by corporate error messages
+- **UI/UX Improvements:**
+  - Toast notifications replace blocking alert() calls throughout app
+  - Better visual hierarchy in Settings with tabbed navigation
+  - Improved form styling for dark mode compatibility
+  - Enhanced card layouts for better readability
+- **Database Updates:**
+  - Created `system_settings` table for storing configuration
+  - JSONB columns for flexible settings storage
+  - Audit trail columns (updated_by, updated_at) for all settings changes
+
+**Committee Impact:**
+- Dashboard now shows what needs attention instead of redundant renewal info
+- Settings page provides transparency into system configuration
+- Dark mode reduces eye strain for evening administrative work
+- Error pages provide clear support pathway when issues occur
+- More professional, polished interface increases committee confidence
 
 ### v0.9.5.0 (08 February 2026)
 This release completes the email token system by adding comprehensive admin controls for managing member document uploads and declaration signatures. The registration wizard has been streamlined to 9 steps, removing the redundant in-person document upload step in favour of the more secure and convenient email-based workflow.
