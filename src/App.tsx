@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from './contexts/ToastContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { NavigationGuardProvider } from './contexts/NavigationGuardContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import CompactLayout from './components/CompactLayout';
@@ -60,9 +61,10 @@ function App() {
           <ThemeProvider>
             <AuthProvider>
               <ToastProvider>
+                <NavigationGuardProvider>
                 {/* Command Palette - OUTSIDE Routes */}
                 <CommandPalette />
-              
+
               <Routes>
                 {/* Public Routes — no login required */}
                 <Route path="/login" element={<Login />} />
@@ -94,6 +96,7 @@ function App() {
                 <Route path="/500" element={<ServerError />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+                </NavigationGuardProvider>
               </ToastProvider>
             </AuthProvider>
           </ThemeProvider>

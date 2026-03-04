@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { logActivity, ActivityTypes, getCurrentUserInfo } from '../lib/activityLogger';
@@ -9,6 +9,9 @@ import { ProfileHeaderSkeleton, FormSkeleton } from '../components/SkeletonCompo
 import { useMemberStatusUpdate } from '../hooks/useOptimisticUpdates';
 import EmailTokenStatus from '../components/EmailTokenStatus';
 import SendEmailPanel from '../components/SendEmailPanel';
+import ChangeReasonModal from '../components/ChangeReasonModal';
+import { useNavigationGuard } from '../contexts/NavigationGuardContext';
+import { compareObjects } from '../hooks/useFormChangeTracker';
 import { ArrowLeft, User, Users, Baby, Heart, Calendar, Phone, MapPin, CreditCard as Edit, Save, X, Trash2, Pause, CreditCard, AlertTriangle, PoundSterling, Stethoscope, CheckSquare, CheckCircle, FileText, Upload, AlertCircle, Eye, Download, Info, PlayCircle, Shield, MoreVertical, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 
 export default function MemberDetail() {
@@ -43,6 +46,21 @@ export default function MemberDetail() {
 
   // Email panel
   const [showEmailPanel, setShowEmailPanel] = useState(false);
+
+  // Change tracking for navigation guard
+  const {
+    hasUnsavedChanges,
+    changedFields,
+    pendingNavigation,
+    setUnsavedChanges,
+    clearUnsavedChanges,
+    confirmNavigation,
+    cancelNavigation,
+  } = useNavigationGuard();
+
+  const originalMemberDataRef = useRef<any>(null);
+  const [showChangeReasonModal, setShowChangeReasonModal] = useState(false);
+  const [isSavingWithReason, setIsSavingWithReason] = useState(false);
 
   // Tabs that support inline editing via the Edit Member button
   // Other tabs (children, nok, medical, gp, declarations) use their own modals
@@ -123,19 +141,24 @@ export default function MemberDetail() {
 
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
+      const changes = originalMemberDataRef.current
+        ? compareObjects(originalMemberDataRef.current, data)
+        : [];
+
       const { error } = await supabase
         .from('members')
         .update(data)
         .eq('id', id);
       if (error) throw error;
-      
-      // Log the update
+
       await logActivity(
         id!,
         ActivityTypes.MEMBER_UPDATED,
         {
-          fields_updated: Object.keys(data),
+          fields_updated: changes.map(c => c.field),
           member_name: `${memberData?.member?.first_name} ${memberData?.member?.last_name}`,
+          old_values: Object.fromEntries(changes.map(c => [c.field, c.oldValue])),
+          new_values: Object.fromEntries(changes.map(c => [c.field, c.newValue])),
         }
       );
     },
@@ -143,6 +166,8 @@ export default function MemberDetail() {
       queryClient.invalidateQueries({ queryKey: ['member-detail', id] });
       setIsEditing(false);
       setEditedData(null);
+      originalMemberDataRef.current = null;
+      clearUnsavedChanges();
     },
   });
 
@@ -197,7 +222,9 @@ export default function MemberDetail() {
   });
 
   const handleEdit = () => {
-    setEditedData({ ...memberData?.member });
+    const memberCopy = { ...memberData?.member };
+    originalMemberDataRef.current = JSON.parse(JSON.stringify(memberCopy));
+    setEditedData(memberCopy);
     setIsEditing(true);
   };
 
@@ -208,6 +235,114 @@ export default function MemberDetail() {
   const handleCancel = () => {
     setIsEditing(false);
     setEditedData(null);
+    originalMemberDataRef.current = null;
+    clearUnsavedChanges();
+  };
+
+  const getMemberFullName = useCallback(() => {
+    if (memberData?.member) {
+      return `${memberData.member.first_name} ${memberData.member.last_name}`;
+    }
+    return null;
+  }, [memberData?.member]);
+
+  const detectChanges = useCallback(() => {
+    if (!isEditing || !originalMemberDataRef.current || !editedData) {
+      return [];
+    }
+    return compareObjects(originalMemberDataRef.current, editedData);
+  }, [isEditing, editedData]);
+
+  useEffect(() => {
+    if (isEditing && editedData) {
+      const changes = detectChanges();
+      const memberFullName = getMemberFullName();
+      setUnsavedChanges(changes.length > 0, changes, memberFullName, id || null);
+    }
+  }, [isEditing, editedData, detectChanges, getMemberFullName, setUnsavedChanges, id]);
+
+  useEffect(() => {
+    if (!isEditing) {
+      clearUnsavedChanges();
+    }
+  }, [isEditing, clearUnsavedChanges]);
+
+  useEffect(() => {
+    if (pendingNavigation && hasUnsavedChanges) {
+      setShowChangeReasonModal(true);
+    }
+  }, [pendingNavigation, hasUnsavedChanges]);
+
+  const handleSaveWithReason = async (reason: string) => {
+    if (!editedData || !originalMemberDataRef.current) return;
+
+    setIsSavingWithReason(true);
+    try {
+      const changes = detectChanges();
+
+      const { error } = await supabase
+        .from('members')
+        .update(editedData)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      await logActivity(
+        id!,
+        ActivityTypes.MEMBER_UPDATED,
+        {
+          fields_updated: changes.map(c => c.field),
+          member_name: getMemberFullName(),
+          change_reason: reason || undefined,
+          old_values: Object.fromEntries(changes.map(c => [c.field, c.oldValue])),
+          new_values: Object.fromEntries(changes.map(c => [c.field, c.newValue])),
+        }
+      );
+
+      queryClient.invalidateQueries({ queryKey: ['member-detail', id] });
+      setIsEditing(false);
+      setEditedData(null);
+      originalMemberDataRef.current = null;
+      clearUnsavedChanges();
+      setShowChangeReasonModal(false);
+
+      if (pendingNavigation) {
+        const targetPath = pendingNavigation.to;
+        confirmNavigation();
+        if (targetPath === 'back') {
+          navigate(-1);
+        } else {
+          navigate(targetPath);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to save:', error);
+    } finally {
+      setIsSavingWithReason(false);
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setIsEditing(false);
+    setEditedData(null);
+    originalMemberDataRef.current = null;
+    clearUnsavedChanges();
+    setShowChangeReasonModal(false);
+
+    if (pendingNavigation) {
+      const targetPath = pendingNavigation.to;
+      confirmNavigation();
+      if (targetPath === 'back') {
+        navigate(-1);
+      } else {
+        navigate(targetPath);
+      }
+    }
+  };
+
+  const handleCloseChangeModal = () => {
+    setShowChangeReasonModal(false);
+    cancelNavigation();
   };
 
   // Cancel editing when switching away from editable tabs + scroll to top
@@ -473,13 +608,19 @@ export default function MemberDetail() {
         <div className="bg-gradient-to-r from-[#2d5016] to-[#3d6622] rounded-lg shadow-lg p-8 text-white">
           {/* Top Bar */}
           <div className="flex items-center justify-between mb-6">
-            <Link
-              to="/members"
+            <button
+              onClick={() => {
+                if (hasUnsavedChanges) {
+                  setShowChangeReasonModal(true);
+                } else {
+                  navigate('/members');
+                }
+              }}
               className="inline-flex items-center gap-2 text-white/90 hover:text-white transition-colors text-sm font-medium"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to Members
-            </Link>
+            </button>
 
             {/* Actions Menu */}
             <div className="relative">
@@ -1364,6 +1505,16 @@ export default function MemberDetail() {
           onClose={() => setShowEmailPanel(false)}
         />
       )}
+
+      <ChangeReasonModal
+        isOpen={showChangeReasonModal}
+        onClose={handleCloseChangeModal}
+        onDiscard={handleDiscardChanges}
+        onSaveWithReason={handleSaveWithReason}
+        changedFields={changedFields}
+        memberName={getMemberFullName() || undefined}
+        isSaving={isSavingWithReason}
+      />
     </CompactLayout>
   );
 }
@@ -3573,6 +3724,7 @@ function PaymentsTab({ payments, memberId }: any) {
 function ActivityLogTab({ memberId }: any) {
   const [expandedView, setExpandedView] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
+  const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null);
 
   const { data: activityLog, isLoading } = useQuery({
     queryKey: ['activity-log', memberId],
@@ -3842,44 +3994,110 @@ function ActivityLogTab({ memberId }: any) {
                                           activity.performed_by_user?.email?.split('@')[0] ||
                                           'System';
                   const date = new Date(activity.created_at);
+                  const hasDetails = activity.details?.old_values || activity.details?.new_values || activity.details?.change_reason;
+                  const isExpanded = expandedActivityId === activity.id;
 
                   return (
-                    <div
-                      key={activity.id}
-                      className="grid grid-cols-12 gap-4 px-3 py-3 hover:bg-gray-50 transition-colors items-center"
-                    >
-                      <div className="col-span-5 flex items-center gap-2">
-                        <div className={`w-7 h-7 rounded flex items-center justify-center flex-shrink-0 ${getActionColor(activity.action_type)}`}>
-                          <Icon className="h-3.5 w-3.5" />
+                    <div key={activity.id}>
+                      <div
+                        className={`grid grid-cols-12 gap-4 px-3 py-3 hover:bg-gray-50 transition-colors items-center ${hasDetails ? 'cursor-pointer' : ''}`}
+                        onClick={() => hasDetails && setExpandedActivityId(isExpanded ? null : activity.id)}
+                      >
+                        <div className="col-span-5 flex items-center gap-2">
+                          <div className={`w-7 h-7 rounded flex items-center justify-center flex-shrink-0 ${getActionColor(activity.action_type)}`}>
+                            <Icon className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm text-gray-900 truncate block">
+                              {activity.description}
+                            </span>
+                            {activity.details?.change_reason && (
+                              <span className="text-xs text-gray-500 italic truncate block">
+                                Reason: {activity.details.change_reason}
+                              </span>
+                            )}
+                          </div>
+                          {hasDetails && (
+                            <div className="flex-shrink-0">
+                              {isExpanded ? (
+                                <ChevronUp className="h-4 w-4 text-gray-400" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-gray-400" />
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <span className="text-sm text-gray-900 truncate">
-                          {activity.description}
-                        </span>
-                      </div>
-                      <div className="col-span-3">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {performedByName}
-                        </p>
-                        {activity.performed_by_user?.email && (
-                          <p className="text-xs text-gray-500 truncate">
-                            {activity.performed_by_user.email}
+                        <div className="col-span-3">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {performedByName}
                           </p>
-                        )}
+                          {activity.performed_by_user?.email && (
+                            <p className="text-xs text-gray-500 truncate">
+                              {activity.performed_by_user.email}
+                            </p>
+                          )}
+                        </div>
+                        <div className="col-span-2 text-sm text-gray-700">
+                          {date.toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric'
+                          })}
+                        </div>
+                        <div className="col-span-2 text-sm text-gray-700 font-mono">
+                          {date.toLocaleTimeString('en-GB', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                          })}
+                        </div>
                       </div>
-                      <div className="col-span-2 text-sm text-gray-700">
-                        {date.toLocaleDateString('en-GB', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric'
-                        })}
-                      </div>
-                      <div className="col-span-2 text-sm text-gray-700 font-mono">
-                        {date.toLocaleTimeString('en-GB', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit'
-                        })}
-                      </div>
+
+                      {isExpanded && hasDetails && (
+                        <div className="bg-gray-50 px-3 py-3 border-t border-gray-100">
+                          {activity.details?.change_reason && (
+                            <div className="mb-3 p-2 bg-amber-50 rounded-lg border border-amber-200">
+                              <p className="text-xs font-medium text-amber-800">Reason for change:</p>
+                              <p className="text-sm text-amber-900">{activity.details.change_reason}</p>
+                            </div>
+                          )}
+
+                          {(activity.details?.old_values || activity.details?.new_values) && (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm">
+                                <thead className="bg-gray-100">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-600 text-xs">Field</th>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-600 text-xs">Before</th>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-600 text-xs">After</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                  {Object.keys(activity.details?.old_values || activity.details?.new_values || {}).map((field) => {
+                                    const oldVal = activity.details?.old_values?.[field];
+                                    const newVal = activity.details?.new_values?.[field];
+                                    const fieldLabel = field.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+
+                                    return (
+                                      <tr key={field} className="hover:bg-white">
+                                        <td className="px-3 py-2 font-medium text-gray-900 text-xs">
+                                          {fieldLabel}
+                                        </td>
+                                        <td className="px-3 py-2 text-red-600 text-xs">
+                                          {oldVal === null || oldVal === undefined ? '(empty)' : String(oldVal)}
+                                        </td>
+                                        <td className="px-3 py-2 text-green-600 text-xs">
+                                          {newVal === null || newVal === undefined ? '(empty)' : String(newVal)}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

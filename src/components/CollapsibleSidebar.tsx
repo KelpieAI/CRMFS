@@ -15,6 +15,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigationGuard } from '../contexts/NavigationGuardContext';
 import { supabase } from '../lib/supabase';
 
 export type SidebarMode = 'hover' | 'expanded' | 'collapsed';
@@ -32,6 +33,7 @@ export default function CollapsibleSidebar() {
   const { user, profile } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const { hasUnsavedChanges, requestNavigation } = useNavigationGuard();
 
   const isExpanded = sidebarMode === 'expanded' || (sidebarMode === 'hover' && hoverExpanded);
 
@@ -160,10 +162,18 @@ export default function CollapsibleSidebar() {
               ? location.pathname === '/'
               : location.pathname.startsWith(item.to);
 
+            const handleNavClick = (e: React.MouseEvent) => {
+              if (hasUnsavedChanges) {
+                e.preventDefault();
+                requestNavigation(item.to);
+              }
+            };
+
             return (
               <Link
                 key={item.name}
                 to={item.to}
+                onClick={handleNavClick}
                 className={'relative flex items-center rounded-lg transition-all duration-200 overflow-hidden mx-2 py-3 ' +
                   (isActive
                     ? 'bg-mosque-gold-600 text-white'
@@ -276,8 +286,12 @@ export default function CollapsibleSidebar() {
             >
               <button
                 onClick={() => {
-                  navigate('/settings');
                   setShowProfileMenu(false);
+                  if (hasUnsavedChanges) {
+                    requestNavigation('/settings');
+                  } else {
+                    navigate('/settings');
+                  }
                 }}
                 className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center transition-colors"
               >
