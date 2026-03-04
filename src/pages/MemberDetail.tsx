@@ -366,11 +366,15 @@ export default function MemberDetail() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
+      const { data: { user } } = await supabase.auth.getUser();
+
       await supabase.from('activity_log').insert({
         member_id: member.id,
         action_type: 'data_export',
         entity_type: 'member',
         description: 'Committee exported member data for GDPR Right to Access request',
+        user_id: user?.id,
+        user_email: user?.email,
       });
 
       await supabase.from('access_log').insert({
@@ -1243,11 +1247,15 @@ export default function MemberDetail() {
 
                   if (error) throw error;
 
+                  const { data: { user } } = await supabase.auth.getUser();
+
                   await supabase.from('activity_log').insert({
                     member_id: member?.id,
                     action_type: 'deletion_request',
                     entity_type: 'member',
                     description: `Committee created deletion request on behalf of member (requested via ${deletionRequestedBy})`,
+                    user_id: user?.id,
+                    user_email: user?.email,
                   });
 
                   setShowDeletionRequestModal(false);
@@ -3577,7 +3585,7 @@ function ActivityLogTab({ memberId }: any) {
       if (!logs || logs.length === 0) return [];
 
       // Get unique user IDs from logs
-      const userIds = [...new Set(logs.map((log: any) => log.performed_by).filter(Boolean))];
+      const userIds = [...new Set(logs.map((log: any) => log.user_id).filter(Boolean))];
 
       // Fetch user details for all users
       let userMap: Record<string, any> = {};
@@ -3598,7 +3606,10 @@ function ActivityLogTab({ memberId }: any) {
       // Attach user info to each log
       return logs.map((log: any) => ({
         ...log,
-        performed_by_user: userMap[log.performed_by] || null,
+        performed_by_user: userMap[log.user_id] || {
+          full_name: log.user_name,
+          email: log.user_email,
+        },
       }));
     },
   });
@@ -3731,7 +3742,17 @@ function ActivityLogTab({ memberId }: any) {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-900">{activity.description}</p>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-gray-500">
+                    <span
+                      className="text-xs text-gray-500"
+                      title={new Date(activity.created_at).toLocaleString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                      })}
+                    >
                       {formatRelativeTime(activity.created_at)}
                     </span>
                     <span className="text-xs text-gray-400">•</span>

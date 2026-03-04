@@ -111,12 +111,14 @@ export default function SignDeclarations() {
         used_from_ip: 'client-side',
       }).eq('id', tokenData.id);
 
-      // Activity log
+      // Activity log (member is self-signing, no authenticated user)
       await supabase.from('activity_log').insert({
         member_id: member.id,
         action_type: 'member_edited',
         entity_type: 'declaration',
         description: `Declarations signed by member via secure email link. Digital signature: "${signature}"`,
+        user_name: `${member.first_name} ${member.last_name}`,
+        user_email: member.email,
       });
 
       setState('success');

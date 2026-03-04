@@ -141,12 +141,14 @@ export default function UploadDocuments() {
         used_from_ip: 'client-side', // Can't get real IP client-side
       }).eq('id', tokenData.id);
 
-      // Log activity
+      // Log activity (member is self-uploading, no authenticated user)
       await supabase.from('activity_log').insert({
         member_id: member.id,
         action_type: 'document_uploaded',
         entity_type: 'document',
         description: 'Member uploaded Photo ID and Proof of Address via secure email link',
+        user_name: `${member.first_name} ${member.last_name}`,
+        user_email: member.email,
       });
 
       setState('success');
