@@ -236,52 +236,48 @@ export default function EmailTokenStatus({ memberId, memberEmail }: EmailTokenSt
           </div>
         )}
 
-        {!hasDocuments && (
+        {documentStatus ? (
+          !hasDocuments && (
+            <button
+              onClick={() => handleResend('document_upload')}
+              disabled={resending === 'docs'}
+              style={{
+                marginTop: '12px',
+                padding: '8px 16px',
+                background: resending === 'docs' ? '#9ca3af' : '#2d5016',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: resending === 'docs' ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {resending === 'docs' ? 'Sending...' : '🔄 Resend Upload Link'}
+            </button>
+          )
+        ) : (
           <>
-            {documentStatus ? (
-              (documentStatus.status === 'expired' || documentStatus.status === 'pending') && (
-                <button
-                  onClick={() => handleResend('document_upload')}
-                  disabled={resending === 'docs'}
-                  style={{
-                    marginTop: '12px',
-                    padding: '8px 16px',
-                    background: resending === 'docs' ? '#9ca3af' : '#2d5016',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: resending === 'docs' ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {resending === 'docs' ? 'Sending...' : '🔄 Resend Upload Link'}
-                </button>
-              )
-            ) : (
-              <>
-                <p style={{ fontSize: '13px', color: '#9ca3af', fontStyle: 'italic', marginTop: '8px' }}>
-                  No email sent yet
-                </p>
-                <button
-                  onClick={() => handleResend('document_upload')}
-                  disabled={resending === 'docs'}
-                  style={{
-                    marginTop: '12px',
-                    padding: '8px 16px',
-                    background: resending === 'docs' ? '#9ca3af' : '#2563eb',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: resending === 'docs' ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {resending === 'docs' ? 'Sending...' : '📧 Send Upload Link'}
-                </button>
-              </>
-            )}
+            <p style={{ fontSize: '13px', color: '#9ca3af', fontStyle: 'italic', marginTop: '8px' }}>
+              No email sent yet
+            </p>
+            <button
+              onClick={() => handleResend('document_upload')}
+              disabled={resending === 'docs'}
+              style={{
+                marginTop: '12px',
+                padding: '8px 16px',
+                background: resending === 'docs' ? '#9ca3af' : '#2563eb',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: resending === 'docs' ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {resending === 'docs' ? 'Sending...' : '📧 Send Upload Link'}
+            </button>
           </>
         )}
       </div>
@@ -319,52 +315,48 @@ export default function EmailTokenStatus({ memberId, memberEmail }: EmailTokenSt
           </div>
         )}
 
-        {!hasDeclarations && (
+        {declarationStatus ? (
+          !hasDeclarations && (
+            <button
+              onClick={() => handleResend('declarations_signature')}
+              disabled={resending === 'declarations'}
+              style={{
+                marginTop: '12px',
+                padding: '8px 16px',
+                background: resending === 'declarations' ? '#9ca3af' : '#2d5016',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: resending === 'declarations' ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {resending === 'declarations' ? 'Sending...' : '🔄 Resend Signature Link'}
+            </button>
+          )
+        ) : (
           <>
-            {declarationStatus ? (
-              (declarationStatus.status === 'expired' || declarationStatus.status === 'pending') && (
-                <button
-                  onClick={() => handleResend('declarations_signature')}
-                  disabled={resending === 'declarations'}
-                  style={{
-                    marginTop: '12px',
-                    padding: '8px 16px',
-                    background: resending === 'declarations' ? '#9ca3af' : '#2d5016',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: resending === 'declarations' ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {resending === 'declarations' ? 'Sending...' : '🔄 Resend Signature Link'}
-                </button>
-              )
-            ) : (
-              <>
-                <p style={{ fontSize: '13px', color: '#9ca3af', fontStyle: 'italic', marginTop: '8px' }}>
-                  No email sent yet
-                </p>
-                <button
-                  onClick={() => handleResend('declarations_signature')}
-                  disabled={resending === 'declarations'}
-                  style={{
-                    marginTop: '12px',
-                    padding: '8px 16px',
-                    background: resending === 'declarations' ? '#9ca3af' : '#9333ea',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: resending === 'declarations' ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {resending === 'declarations' ? 'Sending...' : '📧 Send Signature Link'}
-                </button>
-              </>
-            )}
+            <p style={{ fontSize: '13px', color: '#9ca3af', fontStyle: 'italic', marginTop: '8px' }}>
+              No email sent yet
+            </p>
+            <button
+              onClick={() => handleResend('declarations_signature')}
+              disabled={resending === 'declarations'}
+              style={{
+                marginTop: '12px',
+                padding: '8px 16px',
+                background: resending === 'declarations' ? '#9ca3af' : '#9333ea',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: resending === 'declarations' ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {resending === 'declarations' ? 'Sending...' : '📧 Send Signature Link'}
+            </button>
           </>
         )}
       </div>
