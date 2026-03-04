@@ -501,22 +501,7 @@ export default function AddMember() {
         notes: adjustmentReason ? `Adjustment: ${adjustmentReason}` : null,
       });
 
-      // Log the application submission with details
-      await logActivity(
-        memberId,
-        ActivityTypes.APPLICATION_SUBMITTED,
-        {
-          application_type: formData.app_type,
-          member_name: `${formData.first_name} ${formData.last_name}`,
-          joint_member_name: formData.app_type === 'joint' ? `${formData.joint_first_name} ${formData.joint_last_name}` : null,
-          total_amount: submitTotalDue,
-          payment_status: paymentStatus,
-          payment_received: paymentReceived,
-          data_entered_by: dataEnteredBy,
-          paper_form_version: paperFormVersion,
-          application_date: applicationDate,
-        }
-      );
+      await logActivity(memberId, ActivityTypes.APPLICATION_SUBMITTED);
 
       return memberId;
     },

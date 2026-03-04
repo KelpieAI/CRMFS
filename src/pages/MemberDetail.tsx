@@ -140,27 +140,29 @@ export default function MemberDetail() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: any & { _changeReason?: string }) => {
+      const { _changeReason, ...updateData } = data;
       const changes = originalMemberDataRef.current
-        ? compareObjects(originalMemberDataRef.current, data)
+        ? compareObjects(originalMemberDataRef.current, updateData)
         : [];
 
       const { error } = await supabase
         .from('members')
-        .update(data)
+        .update(updateData)
         .eq('id', id);
       if (error) throw error;
 
-      await logActivity(
-        id!,
-        ActivityTypes.MEMBER_UPDATED,
-        {
-          fields_updated: changes.map(c => c.field),
-          member_name: `${memberData?.member?.first_name} ${memberData?.member?.last_name}`,
-          old_values: Object.fromEntries(changes.map(c => [c.field, c.oldValue])),
-          new_values: Object.fromEntries(changes.map(c => [c.field, c.newValue])),
-        }
-      );
+      if (changes.length > 0) {
+        await logActivity(
+          id!,
+          ActivityTypes.MEMBER_UPDATED,
+          {
+            oldValues: Object.fromEntries(changes.map(c => [c.field, c.oldValue])),
+            newValues: Object.fromEntries(changes.map(c => [c.field, c.newValue])),
+            changeReason: _changeReason,
+          }
+        );
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['member-detail', id] });
@@ -173,16 +175,7 @@ export default function MemberDetail() {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      // Log the deletion BEFORE deleting (so we still have the member ID in activity_log)
-      await logActivity(
-        id!,
-        ActivityTypes.MEMBER_DELETED,
-        {
-          member_name: `${memberData?.member?.first_name} ${memberData?.member?.last_name}`,
-          member_email: memberData?.member?.email,
-          deletion_reason: 'Manual deletion by committee member',
-        }
-      );
+      await logActivity(id!, ActivityTypes.MEMBER_DELETED);
 
       // Delete all related records first
       await Promise.all([
@@ -287,17 +280,17 @@ export default function MemberDetail() {
 
       if (error) throw error;
 
-      await logActivity(
-        id!,
-        ActivityTypes.MEMBER_UPDATED,
-        {
-          fields_updated: changes.map(c => c.field),
-          member_name: getMemberFullName(),
-          change_reason: reason || undefined,
-          old_values: Object.fromEntries(changes.map(c => [c.field, c.oldValue])),
-          new_values: Object.fromEntries(changes.map(c => [c.field, c.newValue])),
-        }
-      );
+      if (changes.length > 0) {
+        await logActivity(
+          id!,
+          ActivityTypes.MEMBER_UPDATED,
+          {
+            oldValues: Object.fromEntries(changes.map(c => [c.field, c.oldValue])),
+            newValues: Object.fromEntries(changes.map(c => [c.field, c.newValue])),
+            changeReason: reason || undefined,
+          }
+        );
+      }
 
       queryClient.invalidateQueries({ queryKey: ['member-detail', id] });
       setIsEditing(false);
@@ -416,15 +409,7 @@ export default function MemberDetail() {
           accessed_at: new Date().toISOString(),
         });
 
-        // Log to activity_log for audit trail
-        await logActivity(
-          memberData.member.id,
-          ActivityTypes.DATA_ACCESSED,
-          {
-            accessed_by: userName,
-            member_name: `${memberData.member.first_name} ${memberData.member.last_name}`,
-          }
-        );
+        await logActivity(memberData.member.id, ActivityTypes.DATA_ACCESSED);
       } catch (error) {
         console.error('Failed to log access:', error);
       }
@@ -3994,7 +3979,7 @@ function ActivityLogTab({ memberId }: any) {
                                           activity.performed_by_user?.email?.split('@')[0] ||
                                           'System';
                   const date = new Date(activity.created_at);
-                  const hasDetails = activity.details?.old_values || activity.details?.new_values || activity.details?.change_reason;
+                  const hasDetails = activity.old_values || activity.new_values || activity.change_reason;
                   const isExpanded = expandedActivityId === activity.id;
 
                   return (
@@ -4011,9 +3996,9 @@ function ActivityLogTab({ memberId }: any) {
                             <span className="text-sm text-gray-900 truncate block">
                               {activity.description}
                             </span>
-                            {activity.details?.change_reason && (
+                            {activity.change_reason && (
                               <span className="text-xs text-gray-500 italic truncate block">
-                                Reason: {activity.details.change_reason}
+                                Reason: {activity.change_reason}
                               </span>
                             )}
                           </div>
@@ -4055,14 +4040,14 @@ function ActivityLogTab({ memberId }: any) {
 
                       {isExpanded && hasDetails && (
                         <div className="bg-gray-50 px-3 py-3 border-t border-gray-100">
-                          {activity.details?.change_reason && (
+                          {activity.change_reason && (
                             <div className="mb-3 p-2 bg-amber-50 rounded-lg border border-amber-200">
                               <p className="text-xs font-medium text-amber-800">Reason for change:</p>
-                              <p className="text-sm text-amber-900">{activity.details.change_reason}</p>
+                              <p className="text-sm text-amber-900">{activity.change_reason}</p>
                             </div>
                           )}
 
-                          {(activity.details?.old_values || activity.details?.new_values) && (
+                          {(activity.old_values || activity.new_values) && (
                             <div className="overflow-x-auto">
                               <table className="w-full text-sm">
                                 <thead className="bg-gray-100">
@@ -4073,9 +4058,9 @@ function ActivityLogTab({ memberId }: any) {
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                  {Object.keys(activity.details?.old_values || activity.details?.new_values || {}).map((field) => {
-                                    const oldVal = activity.details?.old_values?.[field];
-                                    const newVal = activity.details?.new_values?.[field];
+                                  {Object.keys(activity.old_values || activity.new_values || {}).map((field) => {
+                                    const oldVal = activity.old_values?.[field];
+                                    const newVal = activity.new_values?.[field];
                                     const fieldLabel = field.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
 
                                     return (
