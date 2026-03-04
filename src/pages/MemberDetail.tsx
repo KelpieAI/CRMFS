@@ -3167,9 +3167,6 @@ function DocumentsTab({ member, memberId }: any) {
           Document Information
         </h5>
         <ul className="text-xs text-blue-800 space-y-1">
-          <li>• All documents are stored securely in encrypted storage</li>
-          <li>• Click the eye icon to view documents in new tab</li>
-          <li>• Click the download icon to save documents locally</li>
           <li>• Documents are required before membership can be approved</li>
           <li>• Contact admin to upload missing documents</li>
         </ul>
