@@ -101,7 +101,7 @@ function compareObjects(
     const oldVal = original[key];
     const newVal = current[key];
 
-    if (key === 'id' || key === 'created_at' || key === 'updated_at' || key === 'member_id') {
+    if (key === 'id' || key === 'created_at' || key === 'updated_at' || key === 'member_id' || key === 'last_accessed_date') {
       continue;
     }
 
