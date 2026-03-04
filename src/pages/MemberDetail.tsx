@@ -3571,6 +3571,9 @@ function PaymentsTab({ payments, memberId }: any) {
 }
 
 function ActivityLogTab({ memberId }: any) {
+  const [expandedView, setExpandedView] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<string>('all');
+
   const { data: activityLog, isLoading } = useQuery({
     queryKey: ['activity-log', memberId],
     queryFn: async () => {
@@ -3580,7 +3583,7 @@ function ActivityLogTab({ memberId }: any) {
         .select('*')
         .eq('member_id', memberId)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
 
       if (!logs || logs.length === 0) return [];
 
@@ -3696,75 +3699,201 @@ function ActivityLogTab({ memberId }: any) {
     );
   }
 
+  // Group activities by user for summary view
+  const accessSummary = activityLog.reduce((acc: any, activity: any) => {
+    const userName = activity.performed_by_user?.full_name || activity.performed_by_user?.email || 'System';
+    const userEmail = activity.performed_by_user?.email || '';
+    const key = `${userName}-${userEmail}`;
+
+    if (!acc[key]) {
+      acc[key] = {
+        userName,
+        userEmail,
+        accessCount: 0,
+        lastAccess: activity.created_at,
+        activities: []
+      };
+    }
+    acc[key].accessCount++;
+    acc[key].activities.push(activity);
+    return acc;
+  }, {});
+
+  const accessList = Object.values(accessSummary).sort((a: any, b: any) =>
+    new Date(b.lastAccess).getTime() - new Date(a.lastAccess).getTime()
+  );
+
+  // Filter activities
+  const filteredActivities = selectedFilter === 'all'
+    ? activityLog
+    : activityLog.filter((a: any) => {
+        if (selectedFilter === 'payments') return a.action_type.includes('payment');
+        if (selectedFilter === 'updates') return a.action_type === 'updated' || a.action_type === 'member_edited';
+        if (selectedFilter === 'documents') return a.action_type.includes('document');
+        return true;
+      });
+
   return (
     <div className="space-y-4">
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-white rounded-lg border border-gray-200 p-3">
-          <p className="text-xs text-gray-500 mb-1">Total Events</p>
-          <p className="text-xl font-bold text-gray-900">{activityLog.length}</p>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-3">
-          <p className="text-xs text-gray-500 mb-1">Payments</p>
-          <p className="text-xl font-bold text-green-600">
-            {activityLog.filter((a: any) => a.action_type.includes('payment')).length}
-          </p>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-3">
-          <p className="text-xs text-gray-500 mb-1">Updates</p>
-          <p className="text-xl font-bold text-blue-600">
-            {activityLog.filter((a: any) => a.action_type === 'updated' || a.action_type === 'member_edited').length}
-          </p>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-3">
-          <p className="text-xs text-gray-500 mb-1">Last Activity</p>
-          <p className="text-xs font-semibold text-gray-900">
-            {formatRelativeTime(activityLog[0].created_at)}
-          </p>
-        </div>
-      </div>
-
-      {/* Timeline */}
+      {/* Header with Toggle */}
       <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-4">Activity Timeline</h3>
-        <div className="space-y-3">
-          {activityLog.map((activity: any) => {
-            const Icon = getActionIcon(activity.action_type);
-            const performedByName = activity.performed_by_user?.full_name ||
-                                    activity.performed_by_user?.email?.split('@')[0] ||
-                                    'System';
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">Audit Log</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {activityLog.length} total events from {accessList.length} user{accessList.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <button
+            onClick={() => setExpandedView(!expandedView)}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[#2d5016] bg-mosque-gold-50 hover:bg-mosque-gold-100 rounded-md transition-colors"
+          >
+            {expandedView ? (
+              <>
+                <ChevronUp className="h-3.5 w-3.5" />
+                Collapse
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-3.5 w-3.5" />
+                View Details
+              </>
+            )}
+          </button>
+        </div>
 
-            return (
-              <div key={activity.id} className="flex items-start space-x-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${getActionColor(activity.action_type)}`}>
-                  <Icon className="h-4 w-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-900">{activity.description}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span
-                      className="text-xs text-gray-500"
-                      title={new Date(activity.created_at).toLocaleString('en-GB', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit'
-                      })}
-                    >
-                      {formatRelativeTime(activity.created_at)}
-                    </span>
-                    <span className="text-xs text-gray-400">•</span>
-                    <span className="text-xs font-medium text-[#2d5016]">
-                      by {performedByName}
-                    </span>
+        {/* Summary View - Access List */}
+        {!expandedView && (
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-gray-700 mb-3 pb-2 border-b border-gray-200">
+              Recent Access Summary
+            </div>
+            {accessList.slice(0, 10).map((access: any, index: number) => (
+              <div
+                key={index}
+                className="flex items-center justify-between py-2.5 px-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
+              >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-[#2d5016] flex items-center justify-center flex-shrink-0">
+                    <User className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {access.userName}
+                    </p>
+                    {access.userEmail && (
+                      <p className="text-xs text-gray-500 truncate">{access.userEmail}</p>
+                    )}
                   </div>
                 </div>
+                <div className="flex items-center gap-4 flex-shrink-0 ml-4">
+                  <div className="text-right">
+                    <p className="text-xs font-medium text-gray-900">
+                      {access.accessCount} event{access.accessCount !== 1 ? 's' : ''}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {formatRelativeTime(access.lastAccess)}
+                    </p>
+                  </div>
+                  <Clock className="h-4 w-4 text-gray-400" />
+                </div>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
+
+        {/* Expanded View - Full Activity Timeline */}
+        {expandedView && (
+          <div className="space-y-4">
+            {/* Filter Buttons */}
+            <div className="flex gap-2 pb-3 border-b border-gray-200">
+              {[
+                { value: 'all', label: 'All Events' },
+                { value: 'payments', label: 'Payments' },
+                { value: 'updates', label: 'Updates' },
+                { value: 'documents', label: 'Documents' }
+              ].map((filter) => (
+                <button
+                  key={filter.value}
+                  onClick={() => setSelectedFilter(filter.value)}
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                    selectedFilter === filter.value
+                      ? 'bg-[#2d5016] text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Activity Timeline */}
+            <div className="space-y-0">
+              <div className="grid grid-cols-12 gap-4 px-3 pb-2 text-xs font-semibold text-gray-600 uppercase tracking-wide border-b border-gray-200">
+                <div className="col-span-5">Activity</div>
+                <div className="col-span-3">Performed By</div>
+                <div className="col-span-2">Date</div>
+                <div className="col-span-2">Time</div>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {filteredActivities.map((activity: any) => {
+                  const Icon = getActionIcon(activity.action_type);
+                  const performedByName = activity.performed_by_user?.full_name ||
+                                          activity.performed_by_user?.email?.split('@')[0] ||
+                                          'System';
+                  const date = new Date(activity.created_at);
+
+                  return (
+                    <div
+                      key={activity.id}
+                      className="grid grid-cols-12 gap-4 px-3 py-3 hover:bg-gray-50 transition-colors items-center"
+                    >
+                      <div className="col-span-5 flex items-center gap-2">
+                        <div className={`w-7 h-7 rounded flex items-center justify-center flex-shrink-0 ${getActionColor(activity.action_type)}`}>
+                          <Icon className="h-3.5 w-3.5" />
+                        </div>
+                        <span className="text-sm text-gray-900 truncate">
+                          {activity.description}
+                        </span>
+                      </div>
+                      <div className="col-span-3">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {performedByName}
+                        </p>
+                        {activity.performed_by_user?.email && (
+                          <p className="text-xs text-gray-500 truncate">
+                            {activity.performed_by_user.email}
+                          </p>
+                        )}
+                      </div>
+                      <div className="col-span-2 text-sm text-gray-700">
+                        {date.toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                      </div>
+                      <div className="col-span-2 text-sm text-gray-700 font-mono">
+                        {date.toLocaleTimeString('en-GB', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit'
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {filteredActivities.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <FileText className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm">No activities found for this filter</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
