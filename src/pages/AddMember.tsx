@@ -1020,83 +1020,91 @@ function StepMainMember({ formData, updateFormData, validationErrors }: any) {
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Main Member Details</h2>
         <p className="text-sm text-gray-600">Enter the primary member's personal information</p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Title <span className="text-red-500">*</span></label>
-          <select value={formData.title} onChange={(e) => updateFormData('title', e.target.value)} required
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.title ? 'border-red-500' : 'border-gray-300'}`}>
-            <option value="">Select title</option>
-            <option value="Mr">Mr</option>
-            <option value="Mrs">Mrs</option>
-            <option value="Miss">Miss</option>
-            <option value="Ms">Ms</option>
-            <option value="Dr">Dr</option>
-            <option value="Prof">Prof</option>
-          </select>
-          {validationErrors.title && <p className="text-red-500 text-xs mt-1">{validationErrors.title}</p>}
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-[150px_1fr] gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Title <span className="text-red-500">*</span></label>
+            <select value={formData.title} onChange={(e) => updateFormData('title', e.target.value)} required
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.title ? 'border-red-500' : 'border-gray-300'}`}>
+              <option value="">Select</option>
+              <option value="Mr">Mr</option>
+              <option value="Mrs">Mrs</option>
+              <option value="Miss">Miss</option>
+              <option value="Ms">Ms</option>
+              <option value="Dr">Dr</option>
+              <option value="Prof">Prof</option>
+            </select>
+            {validationErrors.title && <p className="text-red-500 text-xs mt-1">{validationErrors.title}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.first_name} onChange={(e) => updateFormData('first_name', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
+            {validationErrors.first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.first_name}</p>}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_180px] gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.last_name} onChange={(e) => updateFormData('last_name', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
+            {validationErrors.last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.last_name}</p>}
+          </div>
+          <div>
+            <DateInput
+              label={`Date of Birth${formData.dob ? ` (${calculateAge(formData.dob)} years old)` : ''}`}
+              required
+              value={formData.dob}
+              onChange={(value) => updateFormData('dob', value)}
+            />
+            {validationErrors.dob && <p className="text-red-500 text-xs mt-1">{validationErrors.dob}</p>}
+          </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.first_name} onChange={(e) => updateFormData('first_name', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
-          {validationErrors.first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.first_name}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.last_name} onChange={(e) => updateFormData('last_name', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
-          {validationErrors.last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.last_name}</p>}
-        </div>
-        <div>
-          <DateInput
-            label={`Date of Birth${formData.dob ? ` (${calculateAge(formData.dob)} years old)` : ''}`}
-            required
-            value={formData.dob}
-            onChange={(value) => updateFormData('dob', value)}
-          />
-          {validationErrors.dob && <p className="text-red-500 text-xs mt-1">{validationErrors.dob}</p>}
-        </div>
-        <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1 <span className="text-red-500">*</span></label>
           <input type="text" required value={formData.address_line_1} onChange={(e) => updateFormData('address_line_1', e.target.value)}
             className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.address_line_1 ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter street address" />
           {validationErrors.address_line_1 && <p className="text-red-500 text-xs mt-1">{validationErrors.address_line_1}</p>}
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Town <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.town} onChange={(e) => updateFormData('town', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.town ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter town" />
-          {validationErrors.town && <p className="text-red-500 text-xs mt-1">{validationErrors.town}</p>}
+        <div className="grid grid-cols-1 md:grid-cols-[200px_1fr_150px] gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Town <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.town} onChange={(e) => updateFormData('town', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.town ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter town" />
+            {validationErrors.town && <p className="text-red-500 text-xs mt-1">{validationErrors.town}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">City <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.city} onChange={(e) => updateFormData('city', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.city ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter city" />
+            {validationErrors.city && <p className="text-red-500 text-xs mt-1">{validationErrors.city}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Postcode <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.postcode} onChange={(e) => updateFormData('postcode', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.postcode ? 'border-red-500' : 'border-gray-300'}`} placeholder="Postcode" />
+            {validationErrors.postcode && <p className="text-red-500 text-xs mt-1">{validationErrors.postcode}</p>}
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">City <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.city} onChange={(e) => updateFormData('city', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.city ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter city" />
-          {validationErrors.city && <p className="text-red-500 text-xs mt-1">{validationErrors.city}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Postcode <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.postcode} onChange={(e) => updateFormData('postcode', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.postcode ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter postcode" />
-          {validationErrors.postcode && <p className="text-red-500 text-xs mt-1">{validationErrors.postcode}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone <span className="text-red-500">*</span></label>
-          <input type="tel" required pattern="[0-9]{11}" value={formData.mobile} onChange={(e) => updateFormData('mobile', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.mobile ? 'border-red-500' : 'border-gray-300'}`}
-            placeholder="Mobile number (11 digits)"
-            title="Mobile number must be exactly 11 digits" />
-          {validationErrors.mobile && <p className="text-red-500 text-xs mt-1">{validationErrors.mobile}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Home Phone</label>
-          <input type="tel" value={formData.home_phone} onChange={(e) => updateFormData('home_phone', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Enter home phone" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Work Phone</label>
-          <input type="tel" value={formData.work_phone} onChange={(e) => updateFormData('work_phone', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Enter work phone" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone <span className="text-red-500">*</span></label>
+            <input type="tel" required pattern="[0-9]{11}" value={formData.mobile} onChange={(e) => updateFormData('mobile', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.mobile ? 'border-red-500' : 'border-gray-300'}`}
+              placeholder="11 digits"
+              title="Mobile number must be exactly 11 digits" />
+            {validationErrors.mobile && <p className="text-red-500 text-xs mt-1">{validationErrors.mobile}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Home Phone</label>
+            <input type="tel" value={formData.home_phone} onChange={(e) => updateFormData('home_phone', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Optional" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Work Phone</label>
+            <input type="tel" value={formData.work_phone} onChange={(e) => updateFormData('work_phone', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Optional" />
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Email <span className="text-red-500">*</span></label>
@@ -1127,108 +1135,114 @@ function StepJointMember({ formData, updateFormData, validationErrors }: any) {
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Joint Member Details</h2>
         <p className="text-sm text-gray-600">Enter the spouse/partner's information</p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Title <span className="text-red-500">*</span></label>
-          <select value={formData.joint_title} onChange={(e) => updateFormData('joint_title', e.target.value)} required
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_title ? 'border-red-500' : 'border-gray-300'}`}>
-            <option value="">Select title</option>
-            <option value="Mr">Mr</option>
-            <option value="Mrs">Mrs</option>
-            <option value="Miss">Miss</option>
-            <option value="Ms">Ms</option>
-            <option value="Dr">Dr</option>
-            <option value="Prof">Prof</option>
-          </select>
-          {validationErrors.joint_title && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_title}</p>}
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-[150px_1fr_200px] gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Title <span className="text-red-500">*</span></label>
+            <select value={formData.joint_title} onChange={(e) => updateFormData('joint_title', e.target.value)} required
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_title ? 'border-red-500' : 'border-gray-300'}`}>
+              <option value="">Select</option>
+              <option value="Mr">Mr</option>
+              <option value="Mrs">Mrs</option>
+              <option value="Miss">Miss</option>
+              <option value="Ms">Ms</option>
+              <option value="Dr">Dr</option>
+              <option value="Prof">Prof</option>
+            </select>
+            {validationErrors.joint_title && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_title}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.joint_first_name} onChange={(e) => updateFormData('joint_first_name', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
+            {validationErrors.joint_first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_first_name}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Relationship <span className="text-red-500">*</span></label>
+            <select value={formData.joint_relation} onChange={(e) => updateFormData('joint_relation', e.target.value)} required
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_relation ? 'border-red-500' : 'border-gray-300'}`}>
+              <option value="Spouse">Spouse</option>
+              <option value="Partner">Partner</option>
+              <option value="Sibling">Sibling</option>
+              <option value="Parent">Parent</option>
+              <option value="Child">Child</option>
+              <option value="Other">Other</option>
+            </select>
+            {validationErrors.joint_relation && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_relation}</p>}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_180px] gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.joint_last_name} onChange={(e) => updateFormData('joint_last_name', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
+            {validationErrors.joint_last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_last_name}</p>}
+          </div>
+          <div>
+            <DateInput
+              label={`Date of Birth${formData.joint_dob ? ` (${calculateAge(formData.joint_dob)} years old)` : ''}`}
+              required
+              value={formData.joint_dob}
+              onChange={(value) => updateFormData('joint_dob', value)}
+            />
+            {validationErrors.joint_dob && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_dob}</p>}
+          </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Relationship to Main Member <span className="text-red-500">*</span></label>
-          <select value={formData.joint_relation} onChange={(e) => updateFormData('joint_relation', e.target.value)} required
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_relation ? 'border-red-500' : 'border-gray-300'}`}>
-            <option value="Spouse">Spouse</option>
-            <option value="Partner">Partner</option>
-            <option value="Sibling">Sibling</option>
-            <option value="Parent">Parent</option>
-            <option value="Child">Child</option>
-            <option value="Other">Other</option>
-          </select>
-          {validationErrors.joint_relation && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_relation}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.joint_first_name} onChange={(e) => updateFormData('joint_first_name', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
-          {validationErrors.joint_first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_first_name}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.joint_last_name} onChange={(e) => updateFormData('joint_last_name', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
-          {validationErrors.joint_last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_last_name}</p>}
-        </div>
-        <div>
-          <DateInput
-            label={`Date of Birth${formData.joint_dob ? ` (${calculateAge(formData.joint_dob)} years old)` : ''}`}
-            required
-            value={formData.joint_dob}
-            onChange={(value) => updateFormData('joint_dob', value)}
-          />
-          {validationErrors.joint_dob && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_dob}</p>}
-        </div>
-
-        <div className="md:col-span-2">
           <button
             type="button"
             onClick={copyMainAddress}
-            className="mb-4 inline-flex items-center px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors font-medium"
+            className="inline-flex items-center px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors font-medium"
           >
             <Copy className="h-4 w-4 mr-2" />
-            Does this member live at the same address as {mainMemberName}?
+            Same address as {mainMemberName}?
           </button>
         </div>
-
-        <div className="md:col-span-2">
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1 <span className="text-red-500">*</span></label>
           <input type="text" required value={formData.joint_address_line_1} onChange={(e) => updateFormData('joint_address_line_1', e.target.value)}
             className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_address_line_1 ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter street address" />
           {validationErrors.joint_address_line_1 && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_address_line_1}</p>}
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Town <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.joint_town} onChange={(e) => updateFormData('joint_town', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_town ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter town" />
-          {validationErrors.joint_town && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_town}</p>}
+        <div className="grid grid-cols-1 md:grid-cols-[200px_1fr_150px] gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Town <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.joint_town} onChange={(e) => updateFormData('joint_town', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_town ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter town" />
+            {validationErrors.joint_town && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_town}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">City <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.joint_city} onChange={(e) => updateFormData('joint_city', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_city ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter city" />
+            {validationErrors.joint_city && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_city}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Postcode <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.joint_postcode} onChange={(e) => updateFormData('joint_postcode', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_postcode ? 'border-red-500' : 'border-gray-300'}`} placeholder="Postcode" />
+            {validationErrors.joint_postcode && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_postcode}</p>}
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">City <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.joint_city} onChange={(e) => updateFormData('joint_city', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_city ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter city" />
-          {validationErrors.joint_city && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_city}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Postcode <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.joint_postcode} onChange={(e) => updateFormData('joint_postcode', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_postcode ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter postcode" />
-          {validationErrors.joint_postcode && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_postcode}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone <span className="text-red-500">*</span></label>
-          <input type="tel" required pattern="[0-9]{11}" value={formData.joint_mobile} onChange={(e) => updateFormData('joint_mobile', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_mobile ? 'border-red-500' : 'border-gray-300'}`}
-            placeholder="Mobile number (11 digits)"
-            title="Mobile number must be exactly 11 digits" />
-          {validationErrors.joint_mobile && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_mobile}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Home Phone</label>
-          <input type="tel" value={formData.joint_home_phone} onChange={(e) => updateFormData('joint_home_phone', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Enter home phone" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Work Phone</label>
-          <input type="tel" value={formData.joint_work_phone} onChange={(e) => updateFormData('joint_work_phone', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Enter work phone" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone <span className="text-red-500">*</span></label>
+            <input type="tel" required pattern="[0-9]{11}" value={formData.joint_mobile} onChange={(e) => updateFormData('joint_mobile', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_mobile ? 'border-red-500' : 'border-gray-300'}`}
+              placeholder="11 digits"
+              title="Mobile number must be exactly 11 digits" />
+            {validationErrors.joint_mobile && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_mobile}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Home Phone</label>
+            <input type="tel" value={formData.joint_home_phone} onChange={(e) => updateFormData('joint_home_phone', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Optional" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Work Phone</label>
+            <input type="tel" value={formData.joint_work_phone} onChange={(e) => updateFormData('joint_work_phone', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Optional" />
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Email <span className="text-red-500">*</span></label>
@@ -1272,47 +1286,51 @@ function StepChildren({ formData, addChild, removeChild, updateChild, childValid
                   <Trash2 className="h-5 w-5" />
                 </button>
                 <h3 className="font-medium text-gray-900 mb-3">Child {index + 1}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
-                    <input type="text" required value={child.first_name} onChange={(e) => updateChild(index, 'first_name', e.target.value)}
-                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
-                    {errors.first_name && <p className="text-red-500 text-xs mt-1">{errors.first_name}</p>}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
+                      <input type="text" required value={child.first_name} onChange={(e) => updateChild(index, 'first_name', e.target.value)}
+                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
+                      {errors.first_name && <p className="text-red-500 text-xs mt-1">{errors.first_name}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
+                      <input type="text" required value={child.last_name} onChange={(e) => updateChild(index, 'last_name', e.target.value)}
+                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
+                      {errors.last_name && <p className="text-red-500 text-xs mt-1">{errors.last_name}</p>}
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
-                    <input type="text" required value={child.last_name} onChange={(e) => updateChild(index, 'last_name', e.target.value)}
-                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
-                    {errors.last_name && <p className="text-red-500 text-xs mt-1">{errors.last_name}</p>}
-                  </div>
-                  <div>
-                    <DateInput
-                      label="Date of Birth"
-                      required
-                      value={child.dob}
-                      onChange={(value) => updateChild(index, 'dob', value)}
-                      minDate={(() => {
-                        const date = new Date();
-                        date.setFullYear(date.getFullYear() - 18);
-                        date.setDate(date.getDate() + 1);
-                        return date.toISOString().split('T')[0];
-                      })()}
-                      maxDate={new Date().toISOString().split('T')[0]}
-                      errorMessage="Child must be under 18 years old and DOB cannot be in the future"
-                    />
-                    {errors.dob && <p className="text-red-500 text-xs mt-1">{errors.dob}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Relation <span className="text-red-500">*</span></label>
-                    <select required value={child.relation} onChange={(e) => updateChild(index, 'relation', e.target.value)}
-                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.relation ? 'border-red-500' : 'border-gray-300'}`}>
-                      <option value="">Select relation</option>
-                      <option value="son">Son</option>
-                      <option value="daughter">Daughter</option>
-                      <option value="stepson">Stepson</option>
-                      <option value="stepdaughter">Stepdaughter</option>
-                    </select>
-                    {errors.relation && <p className="text-red-500 text-xs mt-1">{errors.relation}</p>}
+                  <div className="grid grid-cols-1 md:grid-cols-[180px_200px] gap-4">
+                    <div>
+                      <DateInput
+                        label="Date of Birth"
+                        required
+                        value={child.dob}
+                        onChange={(value) => updateChild(index, 'dob', value)}
+                        minDate={(() => {
+                          const date = new Date();
+                          date.setFullYear(date.getFullYear() - 18);
+                          date.setDate(date.getDate() + 1);
+                          return date.toISOString().split('T')[0];
+                        })()}
+                        maxDate={new Date().toISOString().split('T')[0]}
+                        errorMessage="Child must be under 18 years old and DOB cannot be in the future"
+                      />
+                      {errors.dob && <p className="text-red-500 text-xs mt-1">{errors.dob}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Relation <span className="text-red-500">*</span></label>
+                      <select required value={child.relation} onChange={(e) => updateChild(index, 'relation', e.target.value)}
+                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.relation ? 'border-red-500' : 'border-gray-300'}`}>
+                        <option value="">Select</option>
+                        <option value="son">Son</option>
+                        <option value="daughter">Daughter</option>
+                        <option value="stepson">Stepson</option>
+                        <option value="stepdaughter">Stepdaughter</option>
+                      </select>
+                      {errors.relation && <p className="text-red-500 text-xs mt-1">{errors.relation}</p>}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1331,24 +1349,39 @@ function StepNextOfKin({ formData, updateFormData, validationErrors }: any) {
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Next of Kin</h2>
         <p className="text-sm text-gray-600">Emergency contact information</p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
-          <select value={formData.nok_title} onChange={(e) => updateFormData('nok_title', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors">
-            <option value="">Select title</option>
-            <option value="Mr">Mr</option>
-            <option value="Mrs">Mrs</option>
-            <option value="Miss">Miss</option>
-            <option value="Ms">Ms</option>
-            <option value="Dr">Dr</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.nok_first_name} onChange={(e) => updateFormData('nok_first_name', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
-          {validationErrors.nok_first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_first_name}</p>}
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-[150px_1fr_200px] gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+            <select value={formData.nok_title} onChange={(e) => updateFormData('nok_title', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors">
+              <option value="">Select</option>
+              <option value="Mr">Mr</option>
+              <option value="Mrs">Mrs</option>
+              <option value="Miss">Miss</option>
+              <option value="Ms">Ms</option>
+              <option value="Dr">Dr</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.nok_first_name} onChange={(e) => updateFormData('nok_first_name', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
+            {validationErrors.nok_first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_first_name}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Relationship <span className="text-red-500">*</span></label>
+            <select required value={formData.nok_relationship} onChange={(e) => updateFormData('nok_relationship', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_relationship ? 'border-red-500' : 'border-gray-300'}`}>
+              <option value="">Select</option>
+              <option value="Spouse">Spouse</option>
+              <option value="Child">Child</option>
+              <option value="Parent">Parent</option>
+              <option value="Sibling">Sibling</option>
+              <option value="Other">Other</option>
+            </select>
+            {validationErrors.nok_relationship && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_relationship}</p>}
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
@@ -1357,50 +1390,41 @@ function StepNextOfKin({ formData, updateFormData, validationErrors }: any) {
           {validationErrors.nok_last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_last_name}</p>}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Relationship <span className="text-red-500">*</span></label>
-          <select required value={formData.nok_relationship} onChange={(e) => updateFormData('nok_relationship', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-mosque-green-600 focus:border-transparent ${validationErrors.nok_relationship ? 'border-red-500' : 'border-gray-300'}`}>
-            <option value="">Select relationship...</option>
-            <option value="Spouse">Spouse</option>
-            <option value="Child">Child</option>
-            <option value="Parent">Parent</option>
-            <option value="Sibling">Sibling</option>
-            <option value="Other">Other</option>
-          </select>
-          {validationErrors.nok_relationship && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_relationship}</p>}
-        </div>
-        <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1 <span className="text-red-500">*</span></label>
           <input type="text" required value={formData.nok_address_line_1} onChange={(e) => updateFormData('nok_address_line_1', e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Enter street address" />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Town <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.nok_town} onChange={(e) => updateFormData('nok_town', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Enter town" />
+        <div className="grid grid-cols-1 md:grid-cols-[200px_1fr_150px] gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Town <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.nok_town} onChange={(e) => updateFormData('nok_town', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Enter town" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">City <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.nok_city} onChange={(e) => updateFormData('nok_city', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Enter city" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Postcode <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.nok_postcode} onChange={(e) => updateFormData('nok_postcode', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Postcode" />
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">City <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.nok_city} onChange={(e) => updateFormData('nok_city', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Enter city" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Postcode <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.nok_postcode} onChange={(e) => updateFormData('nok_postcode', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Enter postcode" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone <span className="text-red-500">*</span></label>
-          <input type="tel" required pattern="[0-9]{11}" value={formData.nok_mobile} onChange={(e) => updateFormData('nok_mobile', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_mobile ? 'border-red-500' : 'border-gray-300'}`}
-            placeholder="Mobile number (11 digits)"
-            title="Mobile number must be exactly 11 digits" />
-          {validationErrors.nok_mobile && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_mobile}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Home Phone</label>
-          <input type="tel" value={formData.nok_phone} onChange={(e) => updateFormData('nok_phone', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-emerald-500 focus:border-emerald-500" placeholder="Enter home phone" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone <span className="text-red-500">*</span></label>
+            <input type="tel" required pattern="[0-9]{11}" value={formData.nok_mobile} onChange={(e) => updateFormData('nok_mobile', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_mobile ? 'border-red-500' : 'border-gray-300'}`}
+              placeholder="11 digits"
+              title="Mobile number must be exactly 11 digits" />
+            {validationErrors.nok_mobile && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_mobile}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Home Phone</label>
+            <input type="tel" value={formData.nok_phone} onChange={(e) => updateFormData('nok_phone', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Optional" />
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Email <span className="text-red-500">*</span></label>
@@ -1609,8 +1633,8 @@ function StepDeclarations({
           </InfoTooltip>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
+        <div className="space-y-4">
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               GP Practice Name <span className="text-red-500">*</span>
             </label>
@@ -1625,7 +1649,7 @@ function StepDeclarations({
             {validationErrors.gpPracticeName && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPracticeName}</p>}
           </div>
 
-          <div className="md:col-span-2">
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               GP Practice Address <span className="text-red-500">*</span>
             </label>
@@ -1640,37 +1664,39 @@ function StepDeclarations({
             {validationErrors.gpPracticeAddress && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPracticeAddress}</p>}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Post Code <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={gpPostcode}
-              onChange={(e) => setGpPostcode(e.target.value)}
-              required
-              placeholder="e.g., FK1 1UG"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPostcode ? 'border-red-500' : 'border-gray-300'}`}
-            />
-            {validationErrors.gpPostcode && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPostcode}</p>}
+          <div className="grid grid-cols-1 md:grid-cols-[150px_200px] gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Post Code <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={gpPostcode}
+                onChange={(e) => setGpPostcode(e.target.value)}
+                required
+                placeholder="e.g., FK1 1UG"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPostcode ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {validationErrors.gpPostcode && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPostcode}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Telephone <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="tel"
+                value={gpTelephone}
+                onChange={(e) => setGpTelephone(e.target.value)}
+                required
+                placeholder="GP practice phone"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpTelephone ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {validationErrors.gpTelephone && <p className="text-red-500 text-xs mt-1">{validationErrors.gpTelephone}</p>}
+            </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Telephone <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="tel"
-              value={gpTelephone}
-              onChange={(e) => setGpTelephone(e.target.value)}
-              required
-              placeholder="GP practice phone"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpTelephone ? 'border-red-500' : 'border-gray-300'}`}
-            />
-            {validationErrors.gpTelephone && <p className="text-red-500 text-xs mt-1">{validationErrors.gpTelephone}</p>}
-          </div>
-
-          <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Email
             </label>
