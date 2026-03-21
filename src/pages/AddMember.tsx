@@ -64,6 +64,7 @@ interface FormData {
   app_type: 'single' | 'joint';
   title: string;
   first_name: string;
+  middle_name: string;
   last_name: string;
   dob: string;
   address_line_1: string;
@@ -76,6 +77,7 @@ interface FormData {
   email: string;
   joint_title: string;
   joint_first_name: string;
+  joint_middle_name: string;
   joint_last_name: string;
   joint_dob: string;
   joint_address_line_1: string;
@@ -179,6 +181,7 @@ export default function AddMember() {
     app_type: 'single',
     title: '',
     first_name: '',
+    middle_name: '',
     last_name: '',
     dob: '',
     address_line_1: '',
@@ -191,6 +194,7 @@ export default function AddMember() {
     email: '',
     joint_title: '',
     joint_first_name: '',
+    joint_middle_name: '',
     joint_last_name: '',
     joint_dob: '',
     joint_address_line_1: '',
@@ -373,7 +377,7 @@ export default function AddMember() {
       const paymentStatus = paymentReceived ? 'completed' : 'pending';
 
       const memberInsert: any = {
-        app_type: formData.app_type, title: formData.title, first_name: formData.first_name, last_name: formData.last_name,
+        app_type: formData.app_type, title: formData.title, first_name: formData.first_name, middle_name: formData.middle_name || null, last_name: formData.last_name,
         dob: formData.dob, address_line_1: formData.address_line_1, town: formData.town, city: formData.city,
         postcode: formData.postcode, mobile: formData.mobile, home_phone: formData.home_phone, work_phone: formData.work_phone,
         email: formData.email, status: memberStatus,
@@ -414,7 +418,7 @@ export default function AddMember() {
       if (formData.app_type === 'joint') {
         await supabase.from('joint_members').insert({
           member_id: memberId, title: formData.joint_title, first_name: formData.joint_first_name,
-          last_name: formData.joint_last_name, dob: formData.joint_dob, relation: formData.joint_relation,
+          middle_name: formData.joint_middle_name || null, last_name: formData.joint_last_name, dob: formData.joint_dob, relation: formData.joint_relation,
           address_line_1: formData.joint_address_line_1,
           town: formData.joint_town, city: formData.joint_city, postcode: formData.joint_postcode,
           mobile: formData.joint_mobile, home_phone: formData.joint_home_phone, work_phone: formData.joint_work_phone, email: formData.joint_email,
@@ -1021,11 +1025,11 @@ function StepMainMember({ formData, updateFormData, validationErrors }: any) {
         <p className="text-sm text-gray-600">Enter the primary member's personal information</p>
       </div>
       <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-[150px_1fr] gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-[100px_1fr_1fr_1fr] gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Title <span className="text-red-500">*</span></label>
             <select value={formData.title} onChange={(e) => updateFormData('title', e.target.value)} required
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.title ? 'border-red-500' : 'border-gray-300'}`}>
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.title ? 'border-red-500' : 'border-gray-300'}`}>
               <option value="">Select</option>
               <option value="Mr">Mr</option>
               <option value="Mrs">Mrs</option>
@@ -1039,17 +1043,22 @@ function StepMainMember({ formData, updateFormData, validationErrors }: any) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
             <input type="text" required value={formData.first_name} onChange={(e) => updateFormData('first_name', e.target.value)}
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="First name" />
             {validationErrors.first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.first_name}</p>}
           </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_180px] gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Middle Name</label>
+            <input type="text" value={formData.middle_name} onChange={(e) => updateFormData('middle_name', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Optional" />
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
             <input type="text" required value={formData.last_name} onChange={(e) => updateFormData('last_name', e.target.value)}
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Last name" />
             {validationErrors.last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.last_name}</p>}
           </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-[180px] gap-4">
           <div>
             <DateInput
               label={`Date of Birth${formData.dob ? ` (${calculateAge(formData.dob)} years old)` : ''}`}
@@ -1136,11 +1145,11 @@ function StepJointMember({ formData, updateFormData, validationErrors }: any) {
         <p className="text-sm text-gray-600">Enter the spouse/partner's information</p>
       </div>
       <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-[150px_1fr_200px] gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-[100px_1fr_1fr_1fr] gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Title <span className="text-red-500">*</span></label>
             <select value={formData.joint_title} onChange={(e) => updateFormData('joint_title', e.target.value)} required
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_title ? 'border-red-500' : 'border-gray-300'}`}>
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_title ? 'border-red-500' : 'border-gray-300'}`}>
               <option value="">Select</option>
               <option value="Mr">Mr</option>
               <option value="Mrs">Mrs</option>
@@ -1154,8 +1163,30 @@ function StepJointMember({ formData, updateFormData, validationErrors }: any) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
             <input type="text" required value={formData.joint_first_name} onChange={(e) => updateFormData('joint_first_name', e.target.value)}
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="First name" />
             {validationErrors.joint_first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_first_name}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Middle Name</label>
+            <input type="text" value={formData.joint_middle_name} onChange={(e) => updateFormData('joint_middle_name', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Optional" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.joint_last_name} onChange={(e) => updateFormData('joint_last_name', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Last name" />
+            {validationErrors.joint_last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_last_name}</p>}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-[180px_200px] gap-4">
+          <div>
+            <DateInput
+              label={`Date of Birth${formData.joint_dob ? ` (${calculateAge(formData.joint_dob)} years old)` : ''}`}
+              required
+              value={formData.joint_dob}
+              onChange={(value) => updateFormData('joint_dob', value)}
+            />
+            {validationErrors.joint_dob && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_dob}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Relationship <span className="text-red-500">*</span></label>
@@ -1169,23 +1200,6 @@ function StepJointMember({ formData, updateFormData, validationErrors }: any) {
               <option value="Other">Other</option>
             </select>
             {validationErrors.joint_relation && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_relation}</p>}
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_180px] gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
-            <input type="text" required value={formData.joint_last_name} onChange={(e) => updateFormData('joint_last_name', e.target.value)}
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
-            {validationErrors.joint_last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_last_name}</p>}
-          </div>
-          <div>
-            <DateInput
-              label={`Date of Birth${formData.joint_dob ? ` (${calculateAge(formData.joint_dob)} years old)` : ''}`}
-              required
-              value={formData.joint_dob}
-              onChange={(value) => updateFormData('joint_dob', value)}
-            />
-            {validationErrors.joint_dob && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_dob}</p>}
           </div>
         </div>
         <div>
