@@ -3,7 +3,7 @@
 > A comprehensive member and payment management system built for Falkirk Central Mosque's death committee (Central Region Muslim Funeral Service).
 
 **Built by:** [Kelpie AI](https://kelpieai.co.uk)  
-**Version:** 0.9.6.0  
+**Version:** 0.10.0  
 **Status:** Active Development  
 **Tech Stack:** React + TypeScript + Supabase + Tailwind CSS + Resend
 
@@ -90,28 +90,38 @@ This CRM serves the death committee's operational needs by:
   - Searchable access history per member
 
 ### 👥 Member Management
-- **9-Step Registration Wizard** with professional sidebar navigation:
+- **7-Step Registration Wizard** with professional sidebar navigation:
   - Fixed left sidebar showing all steps with clear progress indicators
   - Green checkmarks for completed steps, dark green for active, gray for pending
   - Click completed steps to navigate back and review
   - Quick Actions: Save Progress, Back to Members, Email Copy, Print Progress
-  - Personal details with age auto-calculation
-  - Joint member registration (optional)
-  - Children information
-  - Next of kin details (mandatory fields with relation dropdown)
-  - GP information (mandatory)
-  - Medical declarations with conditional Yes/No questions
-  - **Paper Form Record (GDPR compliance tracking)**
-  - GDPR Compliance acknowledgment
-  - Pro-rata payment calculation with age-based fees
-  - **Email Token System** - Upon completion, committee can send secure email links:
+  - Automatic application reference generation (APP-YYYYMMDD-XXXX format)
+  - Application references displayed in header and tracked in database
+  - Auto-save on every step change
+  - Resume saved applications from dashboard widget
+  - **7 Registration Steps:**
+    1. Membership Type (Single/Joint)
+    2. Main Member (personal details with age auto-calculation)
+    3. Children (add multiple children with details)
+    4. Next of Kin (mandatory emergency contact with relation dropdown)
+    5. Medical Info (conditional Yes/No health questions, no default selection)
+    6. GP Details (mandatory practice information)
+    7. Payment (pro-rata calculation with age-based fees, read-only adjustment field)
+  - **Human-Readable Membership IDs:**
+    - Format: FCM-XXXXX (e.g., FCM-32614)
+    - FCM = Falkirk Central Mosque
+    - Sequential 5-digit number starting from random offset (10000-99999)
+    - Future-proof with mosque-specific prefixes
+  - **Email Token System** - Committee manually sends secure email links from Member Detail:
     - Document upload link (Photo ID + Proof of Address)
     - Declarations signature link (Medical Consent + Terms & Conditions)
     - Links expire after 7 days, single-use for security
-    - Members complete documents and signatures remotely
-- **Save Progress Feature** - Resume incomplete registrations
+    - No automatic emails sent during registration
+    - Committee controls timing of email sending
+- **Save Progress Feature** - Resume incomplete registrations with searchable reference numbers
 - **Comprehensive Member Detail Pages** with redesigned interface:
-  - Islamic green gradient hero section with member name and status
+  - Islamic green gradient hero section with member name and membership ID
+  - Displays FCM-XXXXX instead of UUID hash
   - Quick info strip showing phone, email, age, total paid, location
   - Modern card-based layout with hover effects and mosque gold accents
   - **Email Token Status Widget:**
@@ -816,6 +826,97 @@ This system handles sensitive personal data. Security measures include:
 
 ## 📈 Version History
 
+### v0.10.0 (22 March 2026)
+**Major registration workflow overhaul based on committee feedback.** This release streamlines the member registration process from 9 steps to 7 steps, introduces human-readable membership IDs, implements automatic application tracking, and gives the committee full control over when emails are sent. The result is a faster, more natural registration experience with better tracking and less administrative overhead.
+
+- **Streamlined 7-Step Registration:**
+  - Removed GDPR Compliance step entirely (reduced from 9 to 7 steps)
+  - Removed Paper Form Record step (GDPR tracking no longer needed)
+  - New flow: Membership Type → Main Member → Children → Next of Kin → Medical Info → GP Details → Payment
+  - Faster registration process with less scrolling and fewer screens
+  - Updated step counter and sidebar navigation throughout
+- **Human-Readable Membership IDs:**
+  - Replaced UUID-based system (#f4d5a52d) with professional format: **FCM-XXXXX**
+  - FCM = Falkirk Central Mosque (future-proof with mosque-specific prefixes)
+  - Sequential 5-digit numbers starting from random offset (10000-99999)
+  - Examples: FCM-32614, FCM-32615, FCM-32616
+  - Privacy-focused: Random starting point prevents revealing total member count
+  - Displayed throughout app: Member Detail header, Members List, emails, activity logs
+  - Database function `get_next_membership_number()` generates IDs atomically
+  - Searchable by membership number in Members List
+  - Existing members backfilled with sequential IDs based on join date
+- **Automatic Application Tracking:**
+  - Application reference generated immediately when "New Member" clicked
+  - Format: **APP-YYYYMMDD-XXXX** (e.g., APP-20260219-0001)
+  - Reference displayed prominently in AddMember header
+  - Auto-save on every step change (no manual save button needed)
+  - Resume saved applications via Applications In Progress widget
+  - Search applications by reference number or applicant name
+  - Track current step, last updated time, created by user
+  - Database: `draft_applications` table with reference_number, created_at, last_updated_at, current_step
+  - Widget shows: Reference, applicant name, step progress (Step X/7), time since last update
+  - Clickable rows navigate to `/add-member?draft={reference}` to resume
+- **Manual Email Control (No More Auto-Send):**
+  - Removed automatic email sending from registration success page
+  - Committee now manually sends document upload and declarations emails from Member Detail
+  - Better workflow: Verify email address before sending, control timing
+  - Success page focuses on completion message and next steps
+  - Email Token Status widget remains primary email management interface
+- **Form Input Sizing (Natural Layout):**
+  - Redesigned form fields to use content-appropriate widths
+  - Title dropdown: ~150px (Mr/Mrs/Dr fits naturally)
+  - Name fields: Title + First Name on same row, Last Name full width below
+  - Address fields: Town + City on same row, Postcode appropriately sized
+  - Phone fields: Mobile + Home on same row (~200px each)
+  - Email: Full width for long email addresses
+  - Applied across Main Member, Joint Member, Next of Kin, GP Details steps
+  - Reduced excessive white space and scrolling
+  - CSS Grid layout with 16px gaps for clean spacing
+  - Mobile: Single column, full width for all fields
+- **Medical Info Default State Change:**
+  - Health condition radio buttons no longer default to "No"
+  - Initial state is empty/unanswered
+  - User must actively select Yes or No before proceeding
+  - Validation prevents skipping without selection
+  - More accurate data collection (no accidental "No" selections)
+- **Payment Adjustment Field (Read-Only):**
+  - Adjustment field disabled but still visible in Payment step
+  - Shows £0 by default, grayed out
+  - Help text: "Contact committee if adjustment needed"
+  - Prevents accidental modifications during registration
+  - Committee can still adjust from Member Detail after registration
+- **Revamped Registration Success Screen:**
+  - Removed email sending buttons (now manual from Member Detail)
+  - Clear "Registration Complete" heading with success icon ✓
+  - Displays new membership ID prominently (FCM-32614)
+  - Displays application reference number
+  - Explains membership is pending document approval
+  - Lists next steps for member (upload docs, sign declarations)
+  - Action buttons: "View Member Profile" and "Register Another Member"
+  - Professional, celebratory design with clear expectations
+- **Database Schema Updates:**
+  - `members.membership_number` column (VARCHAR(12), UNIQUE, INDEXED)
+  - `membership_sequence` table for atomic ID generation
+  - `draft_applications.reference_number` column (VARCHAR(20), UNIQUE, INDEXED)
+  - `draft_applications.created_at`, `last_updated_at`, `created_by`, `current_step` columns
+  - Indexes on reference_number and created_at for fast searching
+  - Database function `get_next_membership_number(prefix)` for ID generation
+
+**Committee Impact:**
+- 22% faster registration (7 steps vs 9 steps)
+- Professional membership IDs instead of confusing hashes
+- Full control over when emails are sent (verify addresses first)
+- Better tracking of in-progress applications with searchable references
+- More natural form layout reduces committee training time
+- Clearer success screen sets proper expectations with members
+
+**Breaking Changes:**
+- GDPR step removed from registration flow
+- Paper form tracking removed
+- Automatic email sending disabled (now manual)
+- Membership IDs changed from UUID to FCM-XXXXX format
+- Existing members backfilled with new ID format
+
 ### v0.9.6.0 (15 February 2026)
 This release focuses on administrative experience improvements with an expanded Settings page, actionable dashboard alerts, and comprehensive error handling. The committee now has better visibility into pending member actions and more control over system configuration, while dark mode provides a modern alternative interface for late-night administrative work.
 
@@ -827,8 +928,8 @@ This release focuses on administrative experience improvements with an expanded 
   - Orange/amber theme with warning icon for visibility
   - Real-time updates based on email token status and payment data
 - **Settings Page Expansion:**
-  - Redesigned with 6 organised tabs: Profile, Appearance, Email Preferences, Payment Configuration, GDPR & Privacy, About
-  - **Email Preferences:** Customisable sender name, email signature, CC toggles, notification settings
+  - Redesigned with 6 organized tabs: Profile, Appearance, Email Preferences, Payment Configuration, GDPR & Privacy, About
+  - **Email Preferences:** Customizable sender name, email signature, CC toggles, notification settings
   - **Payment Configuration:** Read-only display of fees and schedules with "Request Changes" button (prevents accidental modifications)
   - **About Tab:** System version, database statistics, email metrics, system health indicators
   - All settings stored in new `system_settings` table with proper audit trail
@@ -846,7 +947,7 @@ This release focuses on administrative experience improvements with an expanded 
   - React Error Boundary component catches application crashes
   - All error pages include:
     - Copy-able error details with unique log reference
-    - Email link to sami.mustafa@kelpieai.co.uk for support
+    - Email link to sami@kelpieai.co.uk for support
     - Timestamp and context for debugging
     - Action buttons (Go Back, Reload, Go to Dashboard)
   - Strikethrough "break CRMFS" joke inspired by corporate error messages
