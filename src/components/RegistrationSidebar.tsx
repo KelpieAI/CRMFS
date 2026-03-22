@@ -9,26 +9,31 @@ import {
   Mail,
   Printer,
   Hash,
+  Save,
 } from 'lucide-react';
 
 interface RegistrationSidebarProps {
   currentStep: number;
   completedSteps: number[];
   onStepChange: (step: number) => void;
+  onSaveProgress?: () => void;
   onBack?: () => void;
   onSendCopy?: () => void;
   onPrintProgress?: () => void;
   applicationReference?: string | null;
+  isSaving?: boolean;
 }
 
 export default function RegistrationSidebar({
   currentStep,
   completedSteps,
   onStepChange,
+  onSaveProgress,
   onBack,
   onSendCopy,
   onPrintProgress,
   applicationReference,
+  isSaving,
 }: RegistrationSidebarProps) {
   const steps = [
     { id: 1, label: 'Membership Type', icon: User },
@@ -120,6 +125,14 @@ export default function RegistrationSidebar({
             Quick Actions
           </p>
           <div className="space-y-2.5">
+            <button
+              onClick={onSaveProgress}
+              disabled={isSaving}
+              className="w-full text-left text-[13px] text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-gray-800 transition-all py-2.5 px-3 rounded-lg flex items-center gap-2.5 font-semibold disabled:opacity-50"
+            >
+              <Save className="h-4 w-4" />
+              {isSaving ? 'Saving...' : 'Save Progress'}
+            </button>
             <button
               onClick={onBack}
               className="w-full text-left text-[13px] text-gray-600 dark:text-gray-300 hover:text-[#2d5016] dark:hover:text-emerald-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all py-2.5 px-3 rounded-lg flex items-center gap-2.5 font-medium"

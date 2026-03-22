@@ -326,15 +326,18 @@ export default function AddMember() {
     initializeDraft();
   }, [initializeDraft]);
 
-  const saveDraft = useCallback(async (stepToSave: number) => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const saveDraft = useCallback(async (stepToSave?: number) => {
     if (!applicationReference) return;
 
+    setIsSaving(true);
     try {
       const { error } = await supabase
         .from('applications_in_progress')
         .update({
           form_data: formData,
-          current_step: stepToSave,
+          current_step: stepToSave ?? currentStep,
           app_type: formData.app_type,
           main_first_name: formData.first_name,
           main_last_name: formData.last_name,
@@ -348,11 +351,19 @@ export default function AddMember() {
         .eq('application_reference', applicationReference);
 
       if (error) throw error;
-      lastSavedStepRef.current = stepToSave;
+      if (stepToSave !== undefined) {
+        lastSavedStepRef.current = stepToSave;
+      }
     } catch (error) {
       console.error('Error saving draft:', error);
+    } finally {
+      setIsSaving(false);
     }
-  }, [applicationReference, formData]);
+  }, [applicationReference, formData, currentStep]);
+
+  const handleSaveProgress = useCallback(() => {
+    saveDraft();
+  }, [saveDraft]);
 
   useEffect(() => {
     if (!isInitialized || !applicationReference) return;
@@ -360,6 +371,21 @@ export default function AddMember() {
       saveDraft(currentStep);
     }
   }, [currentStep, isInitialized, applicationReference, saveDraft]);
+
+  useEffect(() => {
+    if (!isInitialized || !applicationReference) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      saveDraft();
+      e.preventDefault();
+      e.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isInitialized, applicationReference, saveDraft]);
 
   const calculateAge = (dob: string): number => {
     if (!dob) return 0;
@@ -955,8 +981,13 @@ export default function AddMember() {
           currentStep={getCurrentSidebarStep()}
           completedSteps={getReachableSteps()}
           onStepChange={handleSidebarStepChange}
-          onBack={() => navigate('/members')}
+          onSaveProgress={handleSaveProgress}
+          onBack={() => {
+            saveDraft();
+            navigate('/members');
+          }}
           applicationReference={applicationReference}
+          isSaving={isSaving}
         />
       </div>
 
