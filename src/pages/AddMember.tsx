@@ -152,8 +152,8 @@ export default function AddMember() {
   const [childValidationErrors, setChildValidationErrors] = useState<Record<number, Record<string, string>>>({});
   const [saveMessage, setSaveMessage] = useState('');
   const [applicationReference, setApplicationReference] = useState<string | null>(savedApplication?.application_reference || null);
-  const [mainHasMedicalCondition, setMainHasMedicalCondition] = useState(false);
-  const [jointHasMedicalCondition, setJointHasMedicalCondition] = useState(false);
+  const [mainHasMedicalCondition, setMainHasMedicalCondition] = useState<boolean | null>(null);
+  const [jointHasMedicalCondition, setJointHasMedicalCondition] = useState<boolean | null>(null);
   const [membershipType, setMembershipType] = useState('new');
   const [signupDate, setSignupDate] = useState(new Date().toISOString().split('T')[0]);
   const [adjustmentAmount, setAdjustmentAmount] = useState('');
@@ -751,6 +751,25 @@ export default function AddMember() {
     if (currentStep === 4) {
       return validateNextOfKinStep();
     }
+    if (currentStep === 5) {
+      const errors: Record<string, string> = {};
+      if (mainHasMedicalCondition === null) {
+        errors.main_medical = 'Please select Yes or No';
+      }
+      if (mainHasMedicalCondition === true && !formData.main_conditions.trim()) {
+        errors.main_conditions = 'Please provide details of your medical condition(s)';
+      }
+      if (formData.app_type === 'joint') {
+        if (jointHasMedicalCondition === null) {
+          errors.joint_medical = 'Please select Yes or No';
+        }
+        if (jointHasMedicalCondition === true && !formData.joint_conditions.trim()) {
+          errors.joint_conditions = 'Please provide details of the joint member\'s medical condition(s)';
+        }
+      }
+      setValidationErrors(errors);
+      return Object.keys(errors).length === 0;
+    }
     if (currentStep === 7) {
       return validateDeclarationsStep();
     }
@@ -908,7 +927,7 @@ export default function AddMember() {
         {currentStep === 2 && <StepJointMember formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
         {currentStep === 3 && <StepChildren formData={formData} addChild={addChild} removeChild={removeChild} updateChild={updateChild} childValidationErrors={childValidationErrors} />}
         {currentStep === 4 && <StepNextOfKin formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
-        {currentStep === 5 && <StepMedicalInfo formData={formData} updateFormData={updateFormData} mainHasMedicalCondition={mainHasMedicalCondition} setMainHasMedicalCondition={setMainHasMedicalCondition} jointHasMedicalCondition={jointHasMedicalCondition} setJointHasMedicalCondition={setJointHasMedicalCondition} />}
+        {currentStep === 5 && <StepMedicalInfo formData={formData} updateFormData={updateFormData} mainHasMedicalCondition={mainHasMedicalCondition} setMainHasMedicalCondition={setMainHasMedicalCondition} jointHasMedicalCondition={jointHasMedicalCondition} setJointHasMedicalCondition={setJointHasMedicalCondition} validationErrors={validationErrors} />}
         {currentStep === 6 && <StepDeclarations
           gpPracticeName={gpPracticeName} setGpPracticeName={setGpPracticeName}
           gpPracticeAddress={gpPracticeAddress} setGpPracticeAddress={setGpPracticeAddress}
@@ -1450,7 +1469,7 @@ function StepNextOfKin({ formData, updateFormData, validationErrors }: any) {
   );
 }
 
-function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, setMainHasMedicalCondition, jointHasMedicalCondition, setJointHasMedicalCondition }: any) {
+function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, setMainHasMedicalCondition, jointHasMedicalCondition, setJointHasMedicalCondition, validationErrors }: any) {
   return (
     <div className="space-y-6">
       <div>
@@ -1460,7 +1479,7 @@ function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, se
 
       <div className="space-y-6">
         {/* Main Member Medical Information */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+        <div className={`bg-white dark:bg-gray-800 rounded-lg border p-6 transition-colors ${validationErrors?.main_medical ? 'border-red-400' : 'border-gray-200 dark:border-gray-700'}`}>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             {formData.first_name && formData.last_name
               ? `${formData.first_name} ${formData.last_name}`
@@ -1470,7 +1489,7 @@ function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, se
           {/* Medical Condition Question */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-3">
-              Do you have any medical condition or undergoing any medical treatment for any short/long term illness? *
+              Do you have any medical condition or undergoing any medical treatment for any short/long term illness? <span className="text-red-500">*</span>
             </label>
             <div className="flex space-x-6">
               <label className="flex items-center cursor-pointer">
@@ -1499,22 +1518,23 @@ function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, se
                 <span className="ml-2 text-sm text-gray-700">No</span>
               </label>
             </div>
+            {validationErrors?.main_medical && <p className="text-red-500 text-xs mt-2">{validationErrors.main_medical}</p>}
           </div>
 
           {/* Conditional Medical Conditions Text Box */}
-          {mainHasMedicalCondition && (
+          {mainHasMedicalCondition === true && (
             <div className="mt-4 animate-in slide-in-from-top duration-200">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Please provide details of your medical condition(s) *
+                Please provide details of your medical condition(s) <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={formData.main_conditions}
                 onChange={(e) => updateFormData('main_conditions', e.target.value)}
-                required={mainHasMedicalCondition}
                 rows={4}
                 placeholder="Please describe your medical condition(s), treatment, and any medications..."
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${validationErrors?.main_conditions ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}
               />
+              {validationErrors?.main_conditions && <p className="text-red-500 text-xs mt-1">{validationErrors.main_conditions}</p>}
               <p className="text-xs text-gray-500 mt-2">
                 Include any medications, ongoing treatments, or conditions that may be relevant.
               </p>
@@ -1524,7 +1544,7 @@ function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, se
 
         {/* Joint Member Medical Information */}
         {formData.app_type === 'joint' && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+          <div className={`bg-white dark:bg-gray-800 rounded-lg border p-6 transition-colors ${validationErrors?.joint_medical ? 'border-red-400' : 'border-gray-200 dark:border-gray-700'}`}>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               {formData.joint_first_name && formData.joint_last_name
                 ? `${formData.joint_first_name} ${formData.joint_last_name}`
@@ -1534,7 +1554,7 @@ function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, se
             {/* Medical Condition Question */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-3">
-                Does the joint member have any medical condition or undergoing any medical treatment for any short/long term illness? *
+                Does the joint member have any medical condition or undergoing any medical treatment for any short/long term illness? <span className="text-red-500">*</span>
               </label>
               <div className="flex space-x-6">
                 <label className="flex items-center cursor-pointer">
@@ -1563,22 +1583,23 @@ function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, se
                   <span className="ml-2 text-sm text-gray-700">No</span>
                 </label>
               </div>
+              {validationErrors?.joint_medical && <p className="text-red-500 text-xs mt-2">{validationErrors.joint_medical}</p>}
             </div>
 
             {/* Conditional Medical Conditions Text Box */}
-            {jointHasMedicalCondition && (
+            {jointHasMedicalCondition === true && (
               <div className="mt-4 animate-in slide-in-from-top duration-200">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Please provide details of joint member's medical condition(s) *
+                  Please provide details of joint member's medical condition(s) <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={formData.joint_conditions}
                   onChange={(e) => updateFormData('joint_conditions', e.target.value)}
-                  required={jointHasMedicalCondition}
                   rows={4}
                   placeholder="Please describe medical condition(s), treatment, and any medications..."
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${validationErrors?.joint_conditions ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}
                 />
+                {validationErrors?.joint_conditions && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_conditions}</p>}
                 <p className="text-xs text-gray-500 mt-2">
                   Include any medications, ongoing treatments, or conditions that may be relevant.
                 </p>
