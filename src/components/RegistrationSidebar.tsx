@@ -5,30 +5,30 @@ import {
   Stethoscope,
   FileText,
   CreditCard,
-  Save,
   ArrowLeft,
   Mail,
   Printer,
+  Hash,
 } from 'lucide-react';
 
 interface RegistrationSidebarProps {
   currentStep: number;
   completedSteps: number[];
   onStepChange: (step: number) => void;
-  onSaveProgress?: () => void;
   onBack?: () => void;
   onSendCopy?: () => void;
   onPrintProgress?: () => void;
+  applicationReference?: string | null;
 }
 
 export default function RegistrationSidebar({
   currentStep,
   completedSteps,
   onStepChange,
-  onSaveProgress,
   onBack,
   onSendCopy,
   onPrintProgress,
+  applicationReference,
 }: RegistrationSidebarProps) {
   const steps = [
     { id: 1, label: 'Membership Type', icon: User },
@@ -54,6 +54,14 @@ export default function RegistrationSidebar({
         <h2 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
           Registration Steps
         </h2>
+        {applicationReference && (
+          <div className="mt-2 flex items-center gap-2">
+            <Hash className="h-3.5 w-3.5 text-emerald-600" />
+            <span className="font-mono text-sm text-emerald-700 dark:text-emerald-400 font-semibold">
+              {applicationReference}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Scrollable content area */}
@@ -113,13 +121,6 @@ export default function RegistrationSidebar({
           </p>
           <div className="space-y-2.5">
             <button
-              onClick={onSaveProgress}
-              className="w-full text-left text-[13px] text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-gray-800 transition-all py-2.5 px-3 rounded-lg flex items-center gap-2.5 font-semibold"
-            >
-              <Save className="h-4 w-4" />
-              Save Progress
-            </button>
-            <button
               onClick={onBack}
               className="w-full text-left text-[13px] text-gray-600 dark:text-gray-300 hover:text-[#2d5016] dark:hover:text-emerald-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all py-2.5 px-3 rounded-lg flex items-center gap-2.5 font-medium"
             >
@@ -142,6 +143,16 @@ export default function RegistrationSidebar({
             </button>
           </div>
         </div>
+
+        {/* Auto-save indicator */}
+        {applicationReference && (
+          <div className="px-5 pb-4">
+            <p className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Auto-saving enabled
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

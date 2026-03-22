@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { logActivity, ActivityTypes } from '../lib/activityLogger';
 import DateInput from '../components/DateInput';
@@ -143,15 +144,20 @@ function calculateAge(dob: string): number {
 export default function AddMember() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const savedApplication = location.state?.savedApplication;
+  const draftRef = searchParams.get('draft');
+  const initializingRef = useRef(false);
+  const lastSavedStepRef = useRef<number | null>(null);
 
-  const [currentStep, setCurrentStep] = useState(savedApplication?.current_step || 0);
-  const [highestStepReached, setHighestStepReached] = useState(savedApplication?.current_step || 0);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [highestStepReached, setHighestStepReached] = useState(0);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [childValidationErrors, setChildValidationErrors] = useState<Record<number, Record<string, string>>>({});
-  const [saveMessage, setSaveMessage] = useState('');
-  const [applicationReference, setApplicationReference] = useState<string | null>(savedApplication?.application_reference || null);
+  const [applicationReference, setApplicationReference] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [mainHasMedicalCondition, setMainHasMedicalCondition] = useState<boolean | null>(null);
   const [jointHasMedicalCondition, setJointHasMedicalCondition] = useState<boolean | null>(null);
   const [membershipType, setMembershipType] = useState('new');
@@ -159,7 +165,7 @@ export default function AddMember() {
   const [adjustmentAmount, setAdjustmentAmount] = useState('');
   const [adjustmentReason, setAdjustmentReason] = useState('');
   const [paymentReceived, setPaymentReceived] = useState(false);
-  const [mainDob, setMainDob] = useState(savedApplication?.form_data?.dob || '');
+  const [mainDob, setMainDob] = useState('');
 
   // Paper form tracking
   const [paperFormVersion, setPaperFormVersion] = useState('v01.25');
@@ -177,7 +183,7 @@ export default function AddMember() {
   const [gpEmail, setGpEmail] = useState('');
 
 
-  const [formData, setFormData] = useState<FormData>(savedApplication?.form_data || {
+  const [formData, setFormData] = useState<FormData>({
     app_type: 'single',
     title: '',
     first_name: '',
@@ -251,6 +257,109 @@ export default function AddMember() {
       return data || [];
     },
   });
+
+  const initializeDraft = useCallback(async () => {
+    if (initializingRef.current || !user) return;
+    initializingRef.current = true;
+
+    try {
+      if (draftRef) {
+        const { data: existingDraft, error } = await supabase
+          .from('applications_in_progress')
+          .select('*')
+          .eq('application_reference', draftRef)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (existingDraft) {
+          setApplicationReference(existingDraft.application_reference);
+          setCurrentStep(existingDraft.current_step || 0);
+          setHighestStepReached(existingDraft.current_step || 0);
+          lastSavedStepRef.current = existingDraft.current_step || 0;
+          if (existingDraft.form_data) {
+            setFormData(existingDraft.form_data);
+            setMainDob(existingDraft.form_data.dob || '');
+          }
+          setIsInitialized(true);
+          return;
+        }
+      }
+
+      if (savedApplication) {
+        setApplicationReference(savedApplication.application_reference);
+        setCurrentStep(savedApplication.current_step || 0);
+        setHighestStepReached(savedApplication.current_step || 0);
+        lastSavedStepRef.current = savedApplication.current_step || 0;
+        if (savedApplication.form_data) {
+          setFormData(savedApplication.form_data);
+          setMainDob(savedApplication.form_data.dob || '');
+        }
+        setIsInitialized(true);
+        return;
+      }
+
+      const { data: newDraft, error: insertError } = await supabase
+        .from('applications_in_progress')
+        .insert({
+          form_data: {},
+          current_step: 0,
+          app_type: 'single',
+          status: 'in_progress',
+          created_by: user.id,
+        })
+        .select('application_reference')
+        .single();
+
+      if (insertError) throw insertError;
+
+      setApplicationReference(newDraft.application_reference);
+      lastSavedStepRef.current = 0;
+      setIsInitialized(true);
+    } catch (error) {
+      console.error('Error initializing draft:', error);
+      setIsInitialized(true);
+    }
+  }, [draftRef, savedApplication, user]);
+
+  useEffect(() => {
+    initializeDraft();
+  }, [initializeDraft]);
+
+  const saveDraft = useCallback(async (stepToSave: number) => {
+    if (!applicationReference) return;
+
+    try {
+      const { error } = await supabase
+        .from('applications_in_progress')
+        .update({
+          form_data: formData,
+          current_step: stepToSave,
+          app_type: formData.app_type,
+          main_first_name: formData.first_name,
+          main_last_name: formData.last_name,
+          main_email: formData.email,
+          main_mobile: formData.mobile,
+          joint_first_name: formData.joint_first_name,
+          joint_last_name: formData.joint_last_name,
+          updated_at: new Date().toISOString(),
+          last_saved_at: new Date().toISOString(),
+        })
+        .eq('application_reference', applicationReference);
+
+      if (error) throw error;
+      lastSavedStepRef.current = stepToSave;
+    } catch (error) {
+      console.error('Error saving draft:', error);
+    }
+  }, [applicationReference, formData]);
+
+  useEffect(() => {
+    if (!isInitialized || !applicationReference) return;
+    if (lastSavedStepRef.current !== null && currentStep !== lastSavedStepRef.current) {
+      saveDraft(currentStep);
+    }
+  }, [currentStep, isInitialized, applicationReference, saveDraft]);
 
   const calculateAge = (dob: string): number => {
     if (!dob) return 0;
@@ -544,68 +653,6 @@ export default function AddMember() {
     },
   });
 
-  const saveProgressMutation = useMutation({
-    mutationFn: async () => {
-
-      if (applicationReference) {
-        const { error } = await supabase
-          .from('applications_in_progress')
-          .update({
-            form_data: formData,
-            current_step: currentStep,
-            app_type: formData.app_type,
-            main_first_name: formData.first_name,
-            main_last_name: formData.last_name,
-            main_email: formData.email,
-            main_mobile: formData.mobile,
-            joint_first_name: formData.joint_first_name,
-            joint_last_name: formData.joint_last_name,
-            last_saved_at: new Date().toISOString(),
-          })
-          .eq('application_reference', applicationReference);
-
-        if (error) throw error;
-        return applicationReference;
-      } else {
-        const { data, error } = await supabase
-          .from('applications_in_progress')
-          .insert({
-            form_data: formData,
-            current_step: currentStep,
-            app_type: formData.app_type,
-            main_first_name: formData.first_name,
-            main_last_name: formData.last_name,
-            main_email: formData.email,
-            main_mobile: formData.mobile,
-            joint_first_name: formData.joint_first_name,
-            joint_last_name: formData.joint_last_name,
-            status: 'in_progress',
-            last_saved_at: new Date().toISOString(),
-          })
-          .select('application_reference')
-          .single();
-
-        if (error) throw error;
-        return data.application_reference;
-      }
-    },
-    onSuccess: (reference) => {
-      setApplicationReference(reference);
-      setSaveMessage(`✓ Progress saved! Reference: ${reference}`);
-      
-      // Clear message after 3 seconds
-      setTimeout(() => setSaveMessage(''), 3000);
-    },
-    onError: (error) => {
-      console.error('Save error:', error);
-      setSaveMessage('✗ Failed to save progress');
-      setTimeout(() => setSaveMessage(''), 3000);
-    },
-  });
-
-  const handleSaveProgress = () => {
-    saveProgressMutation.mutate();
-  };
 
   const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'Medical Info', 'GP Details', 'GDPR Compliance', 'Payment'];
 
@@ -908,8 +955,8 @@ export default function AddMember() {
           currentStep={getCurrentSidebarStep()}
           completedSteps={getReachableSteps()}
           onStepChange={handleSidebarStepChange}
-          onSaveProgress={handleSaveProgress}
           onBack={() => navigate('/members')}
+          applicationReference={applicationReference}
         />
       </div>
 
@@ -959,13 +1006,8 @@ export default function AddMember() {
 
             <div className="flex flex-col items-center">
               <span className="text-sm text-gray-600 dark:text-gray-400">Step {currentVisibleStepIndex + 1} of {visibleSteps.length}</span>
-              {saveMessage && (
-                <span className={`text-xs mt-1 ${saveMessage.includes('✓') ? 'text-green-600' : 'text-red-600'}`}>
-                  {saveMessage}
-                </span>
-              )}
               {applicationReference && (
-                <span className="text-xs text-gray-500 mt-1">Ref: {applicationReference}</span>
+                <span className="text-xs text-emerald-600 mt-1 font-mono">{applicationReference}</span>
               )}
             </div>
 
