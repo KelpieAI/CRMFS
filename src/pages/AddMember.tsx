@@ -19,7 +19,6 @@ import {
   CheckCircle,
   Clock,
   Copy,
-  Shield,
   Info,
 } from 'lucide-react';
 
@@ -167,13 +166,9 @@ export default function AddMember() {
   const [paymentReceived, setPaymentReceived] = useState(false);
   const [mainDob, setMainDob] = useState('');
 
-  // Paper form tracking
-  const [paperFormVersion, setPaperFormVersion] = useState('v01.25');
-  const [applicationDate, setApplicationDate] = useState(new Date().toISOString().split('T')[0]);
-  const [mainSignature, setMainSignature] = useState('');
-  const [jointSignature, setJointSignature] = useState('');
-  const [paperFormConfirmed, setPaperFormConfirmed] = useState(false);
-  const [dataEnteredBy, setDataEnteredBy] = useState('');
+  // Paper form tracking (kept for data submission, no longer shown as a step)
+  const paperFormVersion = 'v01.25';
+  const applicationDate = new Date().toISOString().split('T')[0];
 
   // GP Details (shared for both applicants)
   const [gpPracticeName, setGpPracticeName] = useState('');
@@ -542,13 +537,7 @@ export default function AddMember() {
         consent_international_transfer: true,
         consent_international_transfer_date: applicationDate,
         privacy_policy_version: 'v1.0',
-        // Signatures from paper form
-        main_signature: mainSignature,
-        main_signature_date: applicationDate,
-        joint_signature: formData.app_type === 'joint' ? jointSignature : null,
-        joint_signature_date: formData.app_type === 'joint' ? applicationDate : null,
         // Audit trail
-        data_entered_by: dataEnteredBy,
         data_entry_date: new Date().toISOString(),
       };
 
@@ -611,25 +600,6 @@ export default function AddMember() {
         }),
       });
 
-            // Paper Form validation (Step 9)
-      if (currentStep === 9) {
-        const errors: string[] = [];
-  
-        if (!applicationDate) errors.push('Application date is required');
-        if (!mainSignature.trim()) errors.push('Main member signature is required');
-        if (!dataEnteredBy.trim()) errors.push('Data entered by field is required');
-        if (!paperFormConfirmed) errors.push('Please confirm the paper form has been completed and filed');
-  
-        if (formData.app_type === 'joint' && !jointSignature.trim()) {
-          errors.push('Joint member signature is required');
-        }
-  
-        if (errors.length > 0) {
-          alert(errors.join('\n'));
-          return;
-        }
-      }
-
       await supabase.from('payments').insert({
         member_id: memberId, 
         payment_type: 'registration', 
@@ -690,7 +660,7 @@ export default function AddMember() {
   });
 
 
-  const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'Medical Info', 'GP Details', 'GDPR Compliance', 'Payment'];
+  const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'Medical Info', 'GP Details', 'Payment'];
 
   const validateMainMemberStep = (): boolean => {
     const errors: Record<string, string> = {};
@@ -795,23 +765,6 @@ export default function AddMember() {
     return Object.keys(errors).length === 0;
   };
 
-  const validatePaperFormStep = (): boolean => {
-    const errors: Record<string, string> = {};
-
-    if (!paperFormVersion) errors.paperFormVersion = 'Paper form version is required';
-    if (!applicationDate) errors.applicationDate = 'Application date is required';
-    if (!mainSignature) errors.mainSignature = 'Main member signature is required';
-    if (!dataEnteredBy) errors.dataEnteredBy = 'Data entered by is required';
-    if (!paperFormConfirmed) errors.paperFormConfirmed = 'Paper form confirmation is required';
-
-    if (formData.app_type === 'joint' && !jointSignature) {
-      errors.jointSignature = 'Joint member signature is required';
-    }
-
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
   const validatePaymentStep = (): boolean => {
     const errors: Record<string, string> = {};
 
@@ -853,13 +806,10 @@ export default function AddMember() {
       setValidationErrors(errors);
       return Object.keys(errors).length === 0;
     }
-    if (currentStep === 7) {
+    if (currentStep === 6) {
       return validateDeclarationsStep();
     }
-    if (currentStep === 8) {
-      return validatePaperFormStep();
-    }
-    if (currentStep === 9) {
+    if (currentStep === 7) {
       return validatePaymentStep();
     }
     return true;
@@ -938,12 +888,12 @@ export default function AddMember() {
     : steps;
 
   const stepIndexMap = formData.app_type === 'single'
-    ? [0, 1, 3, 4, 5, 6, 7, 8]
-    : [0, 1, 2, 3, 4, 5, 6, 7, 8];
+    ? [0, 1, 3, 4, 5, 6, 7]
+    : [0, 1, 2, 3, 4, 5, 6, 7];
 
   const currentVisibleStepIndex = stepIndexMap.indexOf(currentStep);
 
-  // Map sidebar step IDs (1-8) to internal step indices
+  // Map sidebar step IDs (1-7) to internal step indices
   const sidebarStepToIndex: Record<number, number> = {
     1: 0,  // Membership Type
     2: 1,  // Main Member
@@ -951,8 +901,7 @@ export default function AddMember() {
     4: 4,  // Next of Kin
     5: 5,  // Medical Info
     6: 6,  // GP Details
-    7: 7,  // GDPR Compliance (Paper Form)
-    8: 8,  // Payment
+    7: 7,  // Payment
   };
 
   // Get reachable steps for sidebar (convert internal indices to sidebar IDs)
@@ -1024,17 +973,7 @@ export default function AddMember() {
           gpEmail={gpEmail} setGpEmail={setGpEmail}
           validationErrors={validationErrors}
         />}
-        {currentStep === 7 && <StepPaperForm
-          formData={formData}
-          paperFormVersion={paperFormVersion} setPaperFormVersion={setPaperFormVersion}
-          applicationDate={applicationDate} setApplicationDate={setApplicationDate}
-          mainSignature={mainSignature} setMainSignature={setMainSignature}
-          jointSignature={jointSignature} setJointSignature={setJointSignature}
-          paperFormConfirmed={paperFormConfirmed} setPaperFormConfirmed={setPaperFormConfirmed}
-          dataEnteredBy={dataEnteredBy} setDataEnteredBy={setDataEnteredBy}
-          validationErrors={validationErrors}
-        />}
-        {currentStep === 8 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} signupDate={signupDate} setSignupDate={setSignupDate} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} mainJoiningFee={mainJoiningFee} jointJoiningFee={jointJoiningFee} proRataAnnualFee={proRataAnnualFee} mainProRataFee={mainProRataFee} jointProRataFee={jointProRataFee} adjustmentValue={adjustmentValue} totalDue={totalDue} coverageEndDate={coverageEndDate} />}
+        {currentStep === 7 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} signupDate={signupDate} setSignupDate={setSignupDate} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} mainJoiningFee={mainJoiningFee} jointJoiningFee={jointJoiningFee} proRataAnnualFee={proRataAnnualFee} mainProRataFee={mainProRataFee} jointProRataFee={jointProRataFee} adjustmentValue={adjustmentValue} totalDue={totalDue} coverageEndDate={coverageEndDate} />}
       </div>
 
           <div className="flex justify-between items-center bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-colors">
@@ -1825,207 +1764,6 @@ function StepDeclarations({
               placeholder="GP practice email (optional)"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StepPaperForm({
-  formData,
-  paperFormVersion, setPaperFormVersion,
-  applicationDate, setApplicationDate,
-  mainSignature, setMainSignature,
-  jointSignature, setJointSignature,
-  paperFormConfirmed, setPaperFormConfirmed,
-  dataEnteredBy, setDataEnteredBy,
-  validationErrors
-}: any) {
-  const hasJointMember = formData.app_type === 'joint';
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Paper Application Form Record</h2>
-        <p className="text-sm text-gray-600">Record that the member has completed and signed the official paper form</p>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
-        <div className="flex items-center gap-2 mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Paper Application Form Record
-          </h3>
-          <InfoTooltip title="GDPR Compliance via Paper Form">
-            <p className="mb-2">
-              The member has completed and signed the official paper application form which includes:
-            </p>
-            <ul className="space-y-1 mb-2">
-              <li>• Section 6: Medical Consent (explicit consent for special category data)</li>
-              <li>• Section 7: Declaration (T&Cs acceptance, emergency fund contribution)</li>
-              <li>• All required GDPR consents (personal data, medical data, GP access, data sharing, retention)</li>
-            </ul>
-            <p className="text-[10px] text-gray-500 border-t border-gray-200 pt-2 mt-2">
-              <strong>Record Keeping:</strong> The signed paper form must be filed and retained for 7 years
-              after membership ends (GDPR Article 30 - Record of Processing Activities).
-            </p>
-          </InfoTooltip>
-        </div>
-
-        <div className="space-y-4">
-          {/* Paper Form Version */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Paper Application Form Version *
-            </label>
-            <select
-              value={paperFormVersion}
-              onChange={(e) => setPaperFormVersion(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-600 transition-colors"
-            >
-              <option value="v01.25">v01.25 (January 2025)</option>
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              The version of the paper form the member completed
-            </p>
-            {validationErrors.paperFormVersion && (
-              <p className="mt-1 text-sm text-red-600">{validationErrors.paperFormVersion}</p>
-            )}
-          </div>
-
-          {/* Application Date */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Application Date (from paper form) *
-            </label>
-            <input
-              type="date"
-              value={applicationDate}
-              onChange={(e) => setApplicationDate(e.target.value)}
-              required
-              max={new Date().toISOString().split('T')[0]}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-600 transition-colors"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Date when member signed the paper application form
-            </p>
-            {validationErrors.applicationDate && (
-              <p className="mt-1 text-sm text-red-600">{validationErrors.applicationDate}</p>
-            )}
-          </div>
-
-          {/* Main Member Signature */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Main Member Signature (Section 7 Declaration) *
-            </label>
-            <input
-              type="text"
-              value={mainSignature}
-              onChange={(e) => setMainSignature(e.target.value)}
-              required
-              placeholder="Full name as signed on paper form"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-600 font-serif italic transition-colors"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Enter the member's signature exactly as written on the paper form
-            </p>
-            {validationErrors.mainSignature && (
-              <p className="mt-1 text-sm text-red-600">{validationErrors.mainSignature}</p>
-            )}
-          </div>
-
-          {/* Joint Member Signature (if applicable) */}
-          {hasJointMember && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Joint Member Signature (Section 7 Declaration) *
-              </label>
-              <input
-                type="text"
-                value={jointSignature}
-                onChange={(e) => setJointSignature(e.target.value)}
-                required={hasJointMember}
-                placeholder="Full name as signed on paper form"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-600 font-serif italic transition-colors"
-              />
-              {validationErrors.jointSignature && (
-                <p className="mt-1 text-sm text-red-600">{validationErrors.jointSignature}</p>
-              )}
-            </div>
-          )}
-
-          {/* Data Entry Person */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Data Entered By (Committee Member) *
-            </label>
-            <input
-              type="text"
-              value={dataEnteredBy}
-              onChange={(e) => setDataEnteredBy(e.target.value)}
-              required
-              placeholder="Your full name"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-600 transition-colors"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Your name for audit trail purposes
-            </p>
-            {validationErrors.dataEnteredBy && (
-              <p className="mt-1 text-sm text-red-600">{validationErrors.dataEnteredBy}</p>
-            )}
-          </div>
-
-          {/* Confirmation */}
-          <div className="border-t border-gray-200 pt-4 mt-6">
-            <label className="flex items-start cursor-pointer group hover:bg-gray-50 p-3 rounded-lg -m-3">
-              <input
-                type="checkbox"
-                checked={paperFormConfirmed}
-                onChange={(e) => setPaperFormConfirmed(e.target.checked)}
-                required
-                className="mt-1 w-5 h-5 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 flex-shrink-0"
-              />
-              <div className="ml-3">
-                <span className="text-sm font-medium text-gray-900 block mb-2">
-                  Paper Form Confirmation (Required) *
-                </span>
-                <span className="text-sm text-gray-700">
-                  I confirm that:
-                </span>
-                <ul className="text-sm text-gray-700 mt-2 space-y-1">
-                  <li>• The member has completed and signed the official paper application form (v01.25)</li>
-                  <li>• All sections are complete including Section 6 (Medical Consent) and Section 7 (Declaration)</li>
-                  <li>• All required GDPR consents have been obtained via the paper form</li>
-                  <li>• The signed paper form is filed for record-keeping and audit purposes</li>
-                  <li>• I have accurately transcribed the member's information into this system</li>
-                </ul>
-              </div>
-            </label>
-            {validationErrors.paperFormConfirmed && (
-              <p className="mt-2 text-sm text-red-600">{validationErrors.paperFormConfirmed}</p>
-            )}
-          </div>
-        </div>
-
-        {/* Data Protection Notice for Committee */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-6">
-          <div className="flex items-start">
-            <Shield className="h-5 w-5 text-yellow-600 mr-3 mt-0.5 flex-shrink-0" />
-            <div>
-              <h4 className="text-sm font-semibold text-yellow-900 mb-2">
-                Committee Member Data Protection Obligations
-              </h4>
-              <ul className="text-xs text-yellow-800 space-y-1">
-                <li>• Handle member data confidentially - do not share outside committee</li>
-                <li>• Medical data (Section 5, 6) is special category data - extra care required</li>
-                <li>• Access only the data you need to perform your duties</li>
-                <li>• Log out when finished - do not leave system unattended</li>
-                <li>• Report any suspected data breaches immediately to committee chair</li>
-                <li>• Retain paper forms securely for 7 years minimum</li>
-              </ul>
-            </div>
           </div>
         </div>
       </div>
