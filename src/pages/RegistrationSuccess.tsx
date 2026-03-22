@@ -7,8 +7,8 @@ export default function RegistrationSuccess() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Get member data and payment status from route state
   const memberId = location.state?.memberId;
+  const membershipNumber = location.state?.membershipNumber;
   const memberName = location.state?.memberName || 'New Member';
   const memberEmail = location.state?.memberEmail || '';
   const paymentReceived = location.state?.paymentReceived || false;
@@ -137,6 +137,12 @@ export default function RegistrationSuccess() {
           <div className="p-8">
             {/* Member Info */}
             <div className="bg-gray-50 rounded-lg p-4 mb-6 text-center">
+              {membershipNumber && (
+                <p className="text-gray-700 mb-2">
+                  <span className="font-semibold">Membership ID:</span>{' '}
+                  <span className="font-mono text-emerald-700 font-bold">{membershipNumber}</span>
+                </p>
+              )}
               <p className="text-gray-700 mb-1">
                 <span className="font-semibold">Member:</span> {memberName}
               </p>
@@ -262,8 +268,8 @@ export default function RegistrationSuccess() {
 
         {/* Reference Number */}
         <div className="mt-6 text-center">
-          <p className="text-sm text-gray-500">
-            Reference: #{memberId?.slice(0, 8).toUpperCase()}
+          <p className="text-sm text-gray-500 font-mono">
+            {membershipNumber || `#${memberId?.slice(0, 8).toUpperCase()}`}
           </p>
         </div>
       </div>

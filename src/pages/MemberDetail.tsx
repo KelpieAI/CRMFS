@@ -795,8 +795,8 @@ export default function MemberDetail() {
           </div>
 
           {/* Member ID */}
-          <p className="text-[#D4AF37] text-sm font-medium mb-6">
-            #{id?.slice(0, 8)}
+          <p className="text-[#D4AF37] text-sm font-medium font-mono mb-6">
+            {member.membership_number || `#${id?.slice(0, 8)}`}
           </p>
 
           {/* Quick Info Strip */}

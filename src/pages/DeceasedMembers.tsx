@@ -3,28 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { TableSkeleton } from '../components/SkeletonComponents';
-import {
-  FileHeart,
-  Search,
-  Filter,
-  Calendar,
-  Plus,
-  Eye,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  RefreshCw,
-  Check,
-  MapPin,
-  User,
-  MoreVertical,
-  Edit,
-  Printer,
-  Download,
-  Archive,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+import { FileHeart, Search, Filter, Calendar, Plus, Eye, AlertCircle, CheckCircle, Clock, RefreshCw, Check, MapPin, User, MoreVertical, CreditCard as Edit, Printer, Download, Archive, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function DeceasedMembers() {
   const navigate = useNavigate();
@@ -118,7 +97,8 @@ export default function DeceasedMembers() {
     const matchesSearch =
       searchTerm === '' ||
       memberName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.burial_location?.toLowerCase().includes(searchTerm.toLowerCase());
+      record.burial_location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      member?.membership_number?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus =
       statusFilter === 'all' ||
@@ -433,6 +413,9 @@ export default function DeceasedMembers() {
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
                               {member ? `${member.first_name} ${member.last_name}` : 'Unknown Member'}
+                            </div>
+                            <div className="text-xs text-gray-500 font-mono mb-0.5">
+                              {member?.membership_number || `#${member?.id?.slice(0, 8) || '?'}`}
                             </div>
                             <div className="text-xs text-gray-500">
                               {member?.dob ? (

@@ -3,26 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { ProfileHeaderSkeleton, FormSkeleton } from '../components/SkeletonComponents';
-import {
-  ArrowLeft,
-  FileHeart,
-  Calendar,
-  MapPin,
-  Phone,
-  Mail,
-  User,
-  DollarSign,
-  FileText,
-  CheckSquare,
-  Plus,
-  Edit,
-  Save,
-  X,
-  Clock,
-  AlertCircle,
-  CheckCircle,
-  Users,
-} from 'lucide-react';
+import { ArrowLeft, FileHeart, Calendar, MapPin, Phone, Mail, User, DollarSign, FileText, CheckSquare, Plus, CreditCard as Edit, Save, X, Clock, AlertCircle, CheckCircle, Users } from 'lucide-react';
 
 export default function DeceasedDetail() {
   const { id } = useParams();
@@ -183,6 +164,9 @@ export default function DeceasedDetail() {
             <h1 className="text-3xl font-bold text-gray-900">
               {member.title} {member.first_name} {member.last_name}
             </h1>
+            <p className="text-sm text-gray-500 font-mono">
+              {member.membership_number || `#${member.id?.slice(0, 8)}`}
+            </p>
             <p className="text-sm text-gray-600 mt-1">
               إِنَّا لِلَّٰهِ وَإِنَّا إِلَيْهِ رَاجِعُونَ
             </p>

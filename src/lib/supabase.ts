@@ -21,6 +21,7 @@ console.log('✅ Supabase connected to:', supabaseUrl.substring(0, 40) + '...');
 // Type definitions for database tables
 export interface Member {
   id: string;
+  membership_number?: string;
   app_type: 'single' | 'joint';
   title?: string;
   first_name: string;

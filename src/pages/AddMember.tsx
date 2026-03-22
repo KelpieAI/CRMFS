@@ -495,6 +495,12 @@ export default function AddMember() {
 
   const submitMutation = useMutation({
     mutationFn: async () => {
+      // Generate membership number
+      const { data: membershipNumber, error: seqError } = await supabase
+        .rpc('get_next_membership_number', { prefix_value: 'FCM' });
+
+      if (seqError) throw seqError;
+
       // Calculate the correct fees for submission
       const submitMainJoiningFee = calculateJoiningFee(mainDob, membershipType === 'legacy');
       const submitJointJoiningFee = formData.app_type === 'joint' && formData.joint_dob
@@ -512,6 +518,7 @@ export default function AddMember() {
       const paymentStatus = paymentReceived ? 'completed' : 'pending';
 
       const memberInsert: any = {
+        membership_number: membershipNumber,
         app_type: formData.app_type, title: formData.title, first_name: formData.first_name, middle_name: formData.middle_name || null, last_name: formData.last_name,
         dob: formData.dob, address_line_1: formData.address_line_1, town: formData.town, city: formData.city,
         postcode: formData.postcode, mobile: formData.mobile, home_phone: formData.home_phone, work_phone: formData.work_phone,
@@ -642,10 +649,12 @@ export default function AddMember() {
 
       await logActivity(memberId, ActivityTypes.APPLICATION_SUBMITTED);
 
-      return memberId;
+      return { memberId, membershipNumber };
     },
-    onSuccess: async (memberId) => {
-      // Delete saved application if exists
+    onSuccess: async (result) => {
+      if (!result) return;
+      const { memberId, membershipNumber } = result;
+
       if (applicationReference) {
         try {
           const { error: deleteError } = await supabase
@@ -670,6 +679,7 @@ export default function AddMember() {
       navigate('/registration-success', {
         state: {
           memberId,
+          membershipNumber,
           memberName,
           memberEmail: formData.email,
           applicationReference,
