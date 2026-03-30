@@ -8,6 +8,7 @@ interface SendEmailPanelProps {
 }
 
 type EmailTemplate =
+  | 'application_submitted'
   | 'renewal_reminder'
   | 'late_payment_warning'
   | 'membership_paused'
@@ -24,6 +25,12 @@ interface EmailTemplateOption {
 }
 
 const EMAIL_TEMPLATES: EmailTemplateOption[] = [
+  {
+    id: 'application_submitted',
+    name: 'Application Submitted',
+    description: 'Confirmation email sent after registration, with coverage summary and next steps',
+    category: 'automated'
+  },
   {
     id: 'renewal_reminder',
     name: 'Renewal Reminder',
