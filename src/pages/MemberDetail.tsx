@@ -3538,14 +3538,10 @@ function PaymentsTab({ payments, memberId }: any) {
                         )}
                       </div>
 
-                      {/* Status Note - shown for non-completed statuses */}
-                      {['outstanding', 'overdue', 'failed', 'pending'].includes(payment.payment_status) && (
+                      {/* Status Note - shown only when note exists */}
+                      {payment.status_note && (
                         <div className="mb-2">
-                          {payment.status_note ? (
-                            <p className="text-xs text-gray-500 italic bg-gray-50 rounded px-2 py-1">Note: {payment.status_note}</p>
-                          ) : (
-                            <p className="text-xs text-gray-400">No note</p>
-                          )}
+                          <p className="text-xs text-gray-600 italic bg-gray-50 rounded px-2 py-1">Note: {payment.status_note}</p>
                         </div>
                       )}
 
@@ -4778,7 +4774,11 @@ function AdjustPaymentModal({ payment, onClose, onSuccess }: any) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    updateMutation.mutate(formData);
+    updateMutation.mutate({
+      ...formData,
+      notes: formData.notes.trim(),
+      status_note: formData.status_note.trim() || null,
+    });
   };
 
   return (
@@ -5003,18 +5003,18 @@ function AdjustPaymentModal({ payment, onClose, onSuccess }: any) {
             />
           </div>
 
-          {['outstanding', 'overdue', 'failed', 'pending'].includes(formData.payment_status) && (
+          {['outstanding', 'overdue', 'failed'].includes(formData.payment_status) && (
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
-                Status Note
+                Status Note (optional)
               </label>
               <textarea
                 value={formData.status_note}
                 onChange={(e) => setFormData({ ...formData, status_note: e.target.value.slice(0, 500) })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-gray-50 text-sm"
-                rows={2}
+                rows={3}
                 maxLength={500}
-                placeholder="e.g., Waiting for bank transfer, Member requested payment plan..."
+                placeholder="e.g., Waiting for bank transfer, Member requested payment plan, Cheque bounced - following up..."
               />
               <p className="text-xs text-gray-400 mt-1 text-right">{formData.status_note.length}/500</p>
             </div>
