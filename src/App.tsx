@@ -26,6 +26,7 @@ import ServerError from './pages/ServerError';
 import CommandPalette from './components/CommandPalette';
 import UploadDocuments from './pages/UploadDocuments';
 import SignDeclarations from './pages/SignDeclarations';
+import ApplicationsInProgressPage from './pages/ApplicationsInProgressPage';
 
 // Scroll to top on route change
 function ScrollToTop() {
@@ -89,6 +90,7 @@ function App() {
                   <Route path="settings" element={<Settings />} />
                   <Route path="deletion-requests" element={<DeletionRequests />} />
                   <Route path="registration-success" element={<RegistrationSuccess />} />
+                  <Route path="applications-in-progress" element={<ApplicationsInProgressPage />} />
                 </Route>
 
                 {/* Error Pages */}

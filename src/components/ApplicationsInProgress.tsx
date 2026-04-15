@@ -1,8 +1,7 @@
-import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { useNavigate } from 'react-router-dom';
-import { Clock, Trash2, ArrowRight, Search, Hash } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Clock, Trash2, ArrowRight, Hash } from 'lucide-react';
 
 function formatTimeAgo(dateString: string): string {
   const date = new Date(dateString);
@@ -26,7 +25,6 @@ function formatTimeAgo(dateString: string): string {
 
 export default function ApplicationsInProgress() {
   const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState('');
 
   const { data: applications, isLoading, refetch } = useQuery({
     queryKey: ['applications-in-progress'],
@@ -36,27 +34,12 @@ export default function ApplicationsInProgress() {
         .select('*')
         .eq('status', 'in_progress')
         .order('last_saved_at', { ascending: false })
-        .limit(20);
+        .limit(3);
 
       if (error) throw error;
       return data || [];
     },
   });
-
-  const filteredApplications = useMemo(() => {
-    if (!applications) return [];
-    if (!searchTerm.trim()) return applications;
-
-    const term = searchTerm.toLowerCase();
-    return applications.filter((app: any) => {
-      const refMatch = app.application_reference?.toLowerCase().includes(term);
-      const firstNameMatch = app.main_first_name?.toLowerCase().includes(term);
-      const lastNameMatch = app.main_last_name?.toLowerCase().includes(term);
-      const jointFirstMatch = app.joint_first_name?.toLowerCase().includes(term);
-      const jointLastMatch = app.joint_last_name?.toLowerCase().includes(term);
-      return refMatch || firstNameMatch || lastNameMatch || jointFirstMatch || jointLastMatch;
-    });
-  }, [applications, searchTerm]);
 
   const deleteApplication = async (reference: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -102,26 +85,8 @@ export default function ApplicationsInProgress() {
         <span className="text-sm text-gray-500 dark:text-gray-400">{applications.length} saved</span>
       </div>
 
-      {applications.length > 3 && (
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search by reference or name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-          />
-        </div>
-      )}
-
       <div className="space-y-3">
-        {filteredApplications.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-            No applications match your search.
-          </p>
-        ) : (
-          filteredApplications.map((app: any) => (
+        {applications.map((app: any) => (
             <div
               key={app.id}
               onClick={() => continueApplication(app)}
@@ -175,8 +140,16 @@ export default function ApplicationsInProgress() {
                 </button>
               </div>
             </div>
-          ))
-        )}
+        ))}
+      </div>
+
+      <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <Link
+          to="/applications-in-progress"
+          className="text-sm font-medium text-yellow-600 hover:text-yellow-700 dark:text-yellow-500 dark:hover:text-yellow-400 transition-colors"
+        >
+          View all applications →
+        </Link>
       </div>
     </div>
   );
