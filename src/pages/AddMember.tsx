@@ -1784,6 +1784,8 @@ function StepDeclarations({
 }
 
 function StepPayment({ formData, updateFormData, validationErrors, membershipType, setMembershipType, signupDate, setSignupDate, adjustmentAmount, setAdjustmentAmount, adjustmentReason, setAdjustmentReason, paymentReceived, setPaymentReceived, mainDob, calculateAge, joiningFee, mainJoiningFee, jointJoiningFee, proRataAnnualFee, mainProRataFee, jointProRataFee, adjustmentValue, totalDue, coverageEndDate }: any) {
+  const SHOW_ADJUSTMENT_FIELD = false; // Change to true to enable
+
   return (
     <div className="space-y-6">
       <div>
@@ -1907,7 +1909,7 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
             </div>
 
             {/* Adjustment */}
-            {adjustmentValue > 0 && (
+            {SHOW_ADJUSTMENT_FIELD && adjustmentValue > 0 && (
               <div className="flex justify-between text-yellow-600">
                 <div className="flex-1">
                   <span>Adjustment:</span>
@@ -1936,6 +1938,7 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
         </div>
 
         {/* Adjustments Section */}
+        {SHOW_ADJUSTMENT_FIELD && (
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
             <h4 className="text-sm font-semibold text-gray-900">
@@ -1986,6 +1989,7 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
             </div>
           </div>
         </div>
+        )}
 
         {/* Payment Received Toggle */}
         <div className="border-t border-gray-200 pt-6">
