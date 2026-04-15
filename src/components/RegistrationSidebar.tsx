@@ -21,6 +21,7 @@ interface RegistrationSidebarProps {
   onPrintProgress?: () => void;
   applicationReference?: string | null;
   isSaving?: boolean;
+  appType?: 'single' | 'joint';
 }
 
 export default function RegistrationSidebar({
@@ -33,8 +34,9 @@ export default function RegistrationSidebar({
   onPrintProgress,
   applicationReference,
   isSaving,
+  appType = 'single',
 }: RegistrationSidebarProps) {
-  const steps = [
+  const singleSteps = [
     { id: 1, label: 'Membership Type', icon: User },
     { id: 2, label: 'Main Member', icon: User },
     { id: 3, label: 'Children', icon: Baby },
@@ -43,6 +45,19 @@ export default function RegistrationSidebar({
     { id: 6, label: 'GP Details', icon: Stethoscope },
     { id: 7, label: 'Payment', icon: CreditCard },
   ];
+
+  const jointSteps = [
+    { id: 1, label: 'Membership Type', icon: User },
+    { id: 2, label: 'Main Member', icon: User },
+    { id: 3, label: 'Joint Member', icon: User },
+    { id: 4, label: 'Children', icon: Baby },
+    { id: 5, label: 'Next of Kin', icon: Heart },
+    { id: 6, label: 'Medical Info', icon: Stethoscope },
+    { id: 7, label: 'GP Details', icon: Stethoscope },
+    { id: 8, label: 'Payment', icon: CreditCard },
+  ];
+
+  const steps = appType === 'joint' ? jointSteps : singleSteps;
 
   const getStepStatus = (stepId: number) => {
     if (completedSteps.includes(stepId)) return 'completed';

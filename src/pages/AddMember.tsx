@@ -893,16 +893,27 @@ export default function AddMember() {
 
   const currentVisibleStepIndex = stepIndexMap.indexOf(currentStep);
 
-  // Map sidebar step IDs (1-7) to internal step indices
-  const sidebarStepToIndex: Record<number, number> = {
-    1: 0,  // Membership Type
-    2: 1,  // Main Member
-    3: 3,  // Children (skip joint member step 2)
-    4: 4,  // Next of Kin
-    5: 5,  // Medical Info
-    6: 6,  // GP Details
-    7: 7,  // Payment
-  };
+  // Map sidebar step IDs to internal step indices (dynamic based on app type)
+  const sidebarStepToIndex: Record<number, number> = formData.app_type === 'joint'
+    ? {
+        1: 0,  // Membership Type
+        2: 1,  // Main Member
+        3: 2,  // Joint Member
+        4: 3,  // Children
+        5: 4,  // Next of Kin
+        6: 5,  // Medical Info
+        7: 6,  // GP Details
+        8: 7,  // Payment
+      }
+    : {
+        1: 0,  // Membership Type
+        2: 1,  // Main Member
+        3: 3,  // Children (skip joint member step 2)
+        4: 4,  // Next of Kin
+        5: 5,  // Medical Info
+        6: 6,  // GP Details
+        7: 7,  // Payment
+      };
 
   // Get reachable steps for sidebar (convert internal indices to sidebar IDs)
   // A step is reachable if it has been reached before (i.e., <= highestStepReached)
@@ -941,6 +952,7 @@ export default function AddMember() {
           completedSteps={getReachableSteps()}
           onStepChange={handleSidebarStepChange}
           onSaveProgress={handleSaveProgress}
+          appType={formData.app_type}
           onBack={() => {
             saveDraft();
             navigate('/members');
