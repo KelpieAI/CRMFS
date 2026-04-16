@@ -120,20 +120,31 @@ export default function UploadDocuments() {
           .upload(fileName, file, { contentType: file.type, upsert: true });
 
         if (error) throw new Error(`Upload failed for ${docType}: ${error.message}`);
-        return data.path;
+
+        const { publicUrl } = supabase.storage
+          .from('member-documents')
+          .getPublicUrl(data.path).data;
+
+        return { path: data.path, publicUrl };
       };
 
       // Upload both files
-      const [photoPath, addressPath] = await Promise.all([
+      const [photoResult, addressResult] = await Promise.all([
         uploadFile(files.photoId, 'photo_id'),
         uploadFile(files.proofOfAddress, 'proof_of_address'),
       ]);
 
       // Record documents in the documents table
       await supabase.from('documents').insert([
-        { member_id: member.id, document_type: 'photo_id', file_path: photoPath },
-        { member_id: member.id, document_type: 'proof_of_address', file_path: addressPath },
+        { member_id: member.id, document_type: 'photo_id', file_path: photoResult.path },
+        { member_id: member.id, document_type: 'proof_of_address', file_path: addressResult.path },
       ]);
+
+      // Update URL columns on member record so documents appear in Member Detail
+      await supabase.from('members').update({
+        photo_id_url: photoResult.publicUrl,
+        proof_of_address_url: addressResult.publicUrl,
+      }).eq('id', member.id);
 
       // Mark token as used
       await supabase.from('email_tokens').update({

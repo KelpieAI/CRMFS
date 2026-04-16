@@ -847,7 +847,7 @@ export default function MemberDetail() {
               <div className="flex flex-wrap gap-3">
                 {/* Documents Status */}
                 {(() => {
-                  const hasMainDocs = member.main_photo_id_url && member.main_proof_address_url;
+                  const hasMainDocs = member.photo_id_url && member.proof_of_address_url;
                   return (
                     <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
                       hasMainDocs
@@ -3128,12 +3128,12 @@ function DocumentsTab({ member, memberId }: any) {
             <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
               <div className="flex items-center flex-1">
                 <div className={`p-2 rounded-lg mr-3 ${
-                  member?.joint_proof_address_url
+                  member?.joint_proof_of_address_url
                     ? 'bg-emerald-100'
                     : 'bg-gray-100'
                 }`}>
                   <FileText className={`h-6 w-6 ${
-                    member?.joint_proof_address_url
+                    member?.joint_proof_of_address_url
                       ? 'text-emerald-600'
                       : 'text-gray-400'
                   }`} />
@@ -3142,7 +3142,7 @@ function DocumentsTab({ member, memberId }: any) {
                   <p className="text-sm font-medium text-gray-900">
                     Proof of Address (Utility Bill / Council Tax)
                   </p>
-                  {member?.joint_proof_address_url ? (
+                  {member?.joint_proof_of_address_url ? (
                     <p className="text-xs text-gray-500">
                       Uploaded • Required
                     </p>
@@ -3154,10 +3154,10 @@ function DocumentsTab({ member, memberId }: any) {
                 </div>
               </div>
 
-              {member?.joint_proof_address_url ? (
+              {member?.joint_proof_of_address_url ? (
                 <div className="flex items-center space-x-2">
                   <a
-                    href={member.joint_proof_address_url}
+                    href={member.joint_proof_of_address_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
@@ -3166,7 +3166,7 @@ function DocumentsTab({ member, memberId }: any) {
                     <Eye className="h-4 w-4 text-emerald-600" />
                   </a>
                   <a
-                    href={member.joint_proof_address_url}
+                    href={member.joint_proof_of_address_url}
                     download
                     className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
                     title="Download document"
@@ -5769,11 +5769,11 @@ function DocumentUploadModal({ isOpen, onClose, memberId, member }: DocumentUplo
       // Upload main member documents
       if (files.main_photo_id) {
         const url = await uploadFile(files.main_photo_id, `${memberId}/main_photo_id`);
-        updates.main_photo_id_url = url;
+        updates.photo_id_url = url;
       }
       if (files.main_proof_address) {
         const url = await uploadFile(files.main_proof_address, `${memberId}/main_proof_address`);
-        updates.main_proof_address_url = url;
+        updates.proof_of_address_url = url;
       }
 
       // Upload joint member documents
@@ -5784,7 +5784,7 @@ function DocumentUploadModal({ isOpen, onClose, memberId, member }: DocumentUplo
         }
         if (files.joint_proof_address) {
           const url = await uploadFile(files.joint_proof_address, `${memberId}/joint_proof_address`);
-          updates.joint_proof_address_url = url;
+          updates.joint_proof_of_address_url = url;
         }
       }
 
@@ -5877,12 +5877,12 @@ function DocumentUploadModal({ isOpen, onClose, memberId, member }: DocumentUplo
               <FileUploadBox 
                 field="main_photo_id" 
                 label="Photo ID *" 
-                currentUrl={member?.main_photo_id_url}
+                currentUrl={member?.photo_id_url}
               />
               <FileUploadBox 
                 field="main_proof_address" 
                 label="Proof of Address *" 
-                currentUrl={member?.main_proof_address_url}
+                currentUrl={member?.proof_of_address_url}
               />
             </div>
           </div>
@@ -5903,7 +5903,7 @@ function DocumentUploadModal({ isOpen, onClose, memberId, member }: DocumentUplo
                 <FileUploadBox 
                   field="joint_proof_address" 
                   label="Proof of Address *" 
-                  currentUrl={member?.joint_proof_address_url}
+                  currentUrl={member?.joint_proof_of_address_url}
                 />
               </div>
             </div>
