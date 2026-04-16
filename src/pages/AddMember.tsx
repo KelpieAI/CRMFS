@@ -24,6 +24,7 @@ import {
   Upload,
   X,
   Image,
+  AlertTriangle,
 } from 'lucide-react';
 
 
@@ -198,6 +199,7 @@ export default function AddMember() {
   const [jointProofOfAddress, setJointProofOfAddress] = useState<File | null>(null);
   const [childBirthCerts, setChildBirthCerts] = useState<(File | null)[]>([]);
   const [documentValidationErrors, setDocumentValidationErrors] = useState<Record<string, string>>({});
+  const [showDocWarningModal, setShowDocWarningModal] = useState(false);
 
 
   const [formData, setFormData] = useState<FormData>({
@@ -840,11 +842,9 @@ export default function AddMember() {
     if (!gpTelephone) errors.gpTelephone = 'GP telephone is required';
 
     if (!formData.main_medical_consent) errors.main_medical_consent = 'You must confirm the medical consent declaration';
-    if (!formData.main_medical_signature) errors.main_medical_signature = 'Signature is required';
 
     if (formData.app_type === 'joint') {
       if (!formData.joint_medical_consent) errors.joint_medical_consent = 'Joint member must confirm the medical consent declaration';
-      if (!formData.joint_medical_signature) errors.joint_medical_signature = 'Joint member signature is required';
     }
 
     setValidationErrors(errors);
@@ -852,26 +852,17 @@ export default function AddMember() {
   };
 
   const validateDocumentsStep = (): boolean => {
-    const errors: Record<string, string> = {};
+    setDocumentValidationErrors({});
+    return true;
+  };
 
-    if (!mainPhotoId) errors.mainPhotoId = 'Please upload Photo ID for the main member';
-    if (!mainProofOfAddress) errors.mainProofOfAddress = 'Please upload Proof of Address for the main member';
-
-    if (formData.app_type === 'joint') {
-      if (!jointPhotoId) errors.jointPhotoId = 'Please upload Photo ID for the joint member';
-      if (!jointProofOfAddress) errors.jointProofOfAddress = 'Please upload Proof of Address for the joint member';
-    }
-
+  const hasAnyMissingDocs = (): boolean => {
+    if (!mainPhotoId || !mainProofOfAddress) return true;
+    if (formData.app_type === 'joint' && (!jointPhotoId || !jointProofOfAddress)) return true;
     if ((formData.children?.length ?? 0) > 0) {
-      formData.children.forEach((child, index) => {
-        if (!childBirthCerts[index]) {
-          errors[`childBirthCert_${index}`] = `Please upload Birth Certificate for ${child.first_name || `Child ${index + 1}`}`;
-        }
-      });
+      if (formData.children.some((_: any, i: number) => !childBirthCerts[i])) return true;
     }
-
-    setDocumentValidationErrors(errors);
-    return Object.keys(errors).length === 0;
+    return false;
   };
 
   const validatePaymentStep = (): boolean => {
@@ -937,14 +928,9 @@ export default function AddMember() {
     return true;
   };
 
-  const handleNext = () => {
-    if (!canProceedFromStep()) {
-      return;
-    }
-
+  const proceedToNextStep = () => {
     setValidationErrors({});
     setChildValidationErrors({});
-
     if (currentStep === 1 && formData.app_type === 'single') {
       const nextStep = 3;
       setCurrentStep(nextStep);
@@ -954,6 +940,19 @@ export default function AddMember() {
       setCurrentStep(nextStep);
       setHighestStepReached((prev: number) => Math.max(prev, nextStep));
     }
+  };
+
+  const handleNext = () => {
+    if (!canProceedFromStep()) {
+      return;
+    }
+
+    if (currentStep === 7 && hasAnyMissingDocs()) {
+      setShowDocWarningModal(true);
+      return;
+    }
+
+    proceedToNextStep();
   };
 
   const handleBack = () => {
@@ -1155,6 +1154,41 @@ export default function AddMember() {
           </div>
         </div>
       </div>
+
+      {/* Document Warning Modal */}
+      {showDocWarningModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full mx-4 p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-start gap-4 mb-5">
+              <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="h-5 w-5 text-yellow-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-900 mb-1">Documents Not Uploaded</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  One or more required documents have not been uploaded. Documents must be added after the member is created — you can upload them from the member's profile page.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDocWarningModal(false)}
+                className="px-4 py-2 border border-gray-300 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowDocWarningModal(false); proceedToNextStep(); }}
+                className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1902,22 +1936,6 @@ function StepDeclarations({
           {validationErrors.main_medical_consent && (
             <p className="text-red-500 text-xs -mt-2">{validationErrors.main_medical_consent}</p>
           )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Signature (Main Member) <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.main_medical_signature}
-              onChange={(e) => updateFormData('main_medical_signature', e.target.value)}
-              placeholder="Type your full name as signature"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent italic ${validationErrors.main_medical_signature ? 'border-red-500' : 'border-gray-300'}`}
-            />
-            {validationErrors.main_medical_signature && (
-              <p className="text-red-500 text-xs mt-1">{validationErrors.main_medical_signature}</p>
-            )}
-          </div>
         </div>
 
         {/* Joint member consent — only shown for joint applications */}
@@ -1942,22 +1960,6 @@ function StepDeclarations({
             {validationErrors.joint_medical_consent && (
               <p className="text-red-500 text-xs -mt-2">{validationErrors.joint_medical_consent}</p>
             )}
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Signature (Joint Member) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.joint_medical_signature}
-                onChange={(e) => updateFormData('joint_medical_signature', e.target.value)}
-                placeholder="Type joint member's full name as signature"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent italic ${validationErrors.joint_medical_signature ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              {validationErrors.joint_medical_signature && (
-                <p className="text-red-500 text-xs mt-1">{validationErrors.joint_medical_signature}</p>
-              )}
-            </div>
           </div>
         )}
       </div>
@@ -2087,7 +2089,7 @@ function StepDocuments({
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Documents</h2>
-        <p className="text-sm text-gray-600">Upload all required documents to complete registration</p>
+        <p className="text-sm text-gray-600">Upload documents now if available — they can also be added later from the member's profile</p>
       </div>
 
       {/* Main Member Documents */}
@@ -2099,7 +2101,7 @@ function StepDocuments({
           <h3 className="text-base font-semibold text-gray-900">
             Main Member — {formData.first_name} {formData.last_name}
           </h3>
-          <span className="ml-auto text-xs font-semibold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">Required</span>
+          <span className="ml-auto text-xs font-medium text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">Optional</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <FileUploadZone
@@ -2129,7 +2131,7 @@ function StepDocuments({
             <h3 className="text-base font-semibold text-gray-900">
               Joint Member — {formData.joint_first_name} {formData.joint_last_name}
             </h3>
-            <span className="ml-auto text-xs font-semibold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">Required</span>
+            <span className="ml-auto text-xs font-medium text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">Optional</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <FileUploadZone
@@ -2158,7 +2160,7 @@ function StepDocuments({
               <Baby className="h-4 w-4 text-white" />
             </div>
             <h3 className="text-base font-semibold text-gray-900">Children's Birth Certificates</h3>
-            <span className="ml-auto text-xs font-semibold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">Required</span>
+            <span className="ml-auto text-xs font-medium text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">Optional</span>
           </div>
           <div className="space-y-5">
             {formData.children.map((child: any, index: number) => (
