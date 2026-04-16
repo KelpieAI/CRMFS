@@ -609,10 +609,32 @@ export default function AddMember() {
         email: gpEmail || null,
       });
 
-      await supabase.from('medical_info').insert({ member_id: memberId, member_type: 'main', disclaimer: formData.main_disclaimer, conditions: formData.main_conditions });
+      const mainDisclaimer = mainHasMedicalCondition === true
+        ? 'Yes - has medical conditions'
+        : mainHasMedicalCondition === false
+        ? 'No medical conditions'
+        : 'Not answered';
+
+      await supabase.from('medical_info').insert({
+        member_id: memberId,
+        member_type: 'main',
+        disclaimer: mainDisclaimer,
+        conditions: mainHasMedicalCondition === true ? (formData.main_conditions || null) : null,
+      });
 
       if (formData.app_type === 'joint') {
-        await supabase.from('medical_info').insert({ member_id: memberId, member_type: 'joint', disclaimer: formData.joint_disclaimer, conditions: formData.joint_conditions });
+        const jointDisclaimer = jointHasMedicalCondition === true
+          ? 'Yes - has medical conditions'
+          : jointHasMedicalCondition === false
+          ? 'No medical conditions'
+          : 'Not answered';
+
+        await supabase.from('medical_info').insert({
+          member_id: memberId,
+          member_type: 'joint',
+          disclaimer: jointDisclaimer,
+          conditions: jointHasMedicalCondition === true ? (formData.joint_conditions || null) : null,
+        });
       }
 
       const now = new Date().toISOString();
