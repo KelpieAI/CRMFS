@@ -273,7 +273,7 @@ export default function AddMember() {
           setHighestStepReached(existingDraft.current_step || 0);
           lastSavedStepRef.current = existingDraft.current_step || 0;
           if (existingDraft.form_data) {
-            setFormData(existingDraft.form_data);
+            setFormData({ ...existingDraft.form_data, children: existingDraft.form_data.children ?? [] });
             setMainDob(existingDraft.form_data.dob || '');
           }
           setIsInitialized(true);
@@ -287,7 +287,7 @@ export default function AddMember() {
         setHighestStepReached(savedApplication.current_step || 0);
         lastSavedStepRef.current = savedApplication.current_step || 0;
         if (savedApplication.form_data) {
-          setFormData(savedApplication.form_data);
+          setFormData({ ...savedApplication.form_data, children: savedApplication.form_data.children ?? [] });
           setMainDob(savedApplication.form_data.dob || '');
         }
         setIsInitialized(true);
@@ -556,7 +556,7 @@ export default function AddMember() {
         });
       }
 
-      if (formData.children.length > 0) {
+      if ((formData.children?.length ?? 0) > 0) {
         await supabase.from('children').insert(formData.children.map((child) => ({ member_id: memberId, ...child })));
       }
 
@@ -713,7 +713,7 @@ export default function AddMember() {
   };
 
   const validateChildrenStep = (): boolean => {
-    if (formData.children.length === 0) return true;
+    if ((formData.children?.length ?? 0) === 0) return true;
 
     const childErrors: Record<number, Record<string, string>> = {};
     let hasErrors = false;
@@ -1336,7 +1336,7 @@ function StepChildren({ formData, addChild, removeChild, updateChild, childValid
         </button>
       </div>
 
-      {formData.children.length === 0 ? (
+      {(formData.children?.length ?? 0) === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
           <Baby className="h-12 w-12 mx-auto text-gray-400 mb-4" />
           <p className="text-gray-600">No children added yet</p>
