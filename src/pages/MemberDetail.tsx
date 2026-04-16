@@ -959,7 +959,7 @@ export default function MemberDetail() {
         )}
 
         {activeTab === 'documents' && (
-          <DocumentsTab member={memberData?.member} memberId={id!} />
+          <DocumentsTab member={memberData?.member} memberId={id!} children={memberData?.children || []} />
         )}
 
         {activeTab === 'payments' && (
@@ -2908,14 +2908,14 @@ function MedicalInfoTab({ medicalInfo, memberId }: any) {
 }
 
 // Documents Tab Component (Simple placeholder)
-function DocumentsTab({ member, memberId }: any) {
+function DocumentsTab({ member, memberId, children }: any) {
   const [showUploadModal, setShowUploadModal] = useState(false);
-  
+
   const hasAnyDocuments = member?.main_photo_id_url ||
     member?.main_proof_address_url ||
     member?.joint_photo_id_url ||
     member?.joint_proof_address_url ||
-    (member?.children_documents && Object.keys(member.children_documents).length > 0);
+    (children && children.some((c: any) => c.birth_certificate_url));
 
   return (
     <>
@@ -3059,7 +3059,7 @@ function DocumentsTab({ member, memberId }: any) {
       </div>
 
       {/* Joint Member Documents (if applicable) */}
-      {member?.has_joint_member && (
+      {member?.app_type === 'joint' && (
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
             <Users className="h-4 w-4 mr-2 text-emerald-600" />
@@ -3185,7 +3185,7 @@ function DocumentsTab({ member, memberId }: any) {
       )}
 
       {/* Children Documents (if applicable) */}
-      {member?.children_documents && Object.keys(member.children_documents).length > 0 && (
+      {children && children.length > 0 && (
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
             <Baby className="h-4 w-4 mr-2 text-emerald-600" />
@@ -3193,44 +3193,52 @@ function DocumentsTab({ member, memberId }: any) {
           </h4>
 
           <div className="space-y-4">
-            {Object.entries(member.children_documents).map(([key, url]: [string, any], index: number) => (
+            {children.map((child: any) => (
               <div
-                key={key}
+                key={child.id}
                 className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
               >
                 <div className="flex items-center flex-1">
-                  <div className="p-2 rounded-lg mr-3 bg-emerald-100">
-                    <FileText className="h-6 w-6 text-emerald-600" />
+                  <div className={`p-2 rounded-lg mr-3 ${child.birth_certificate_url ? 'bg-emerald-100' : 'bg-gray-100'}`}>
+                    <FileText className={`h-6 w-6 ${child.birth_certificate_url ? 'text-emerald-600' : 'text-gray-400'}`} />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">
-                      Child {index + 1} - Birth Certificate / Passport
+                      {child.first_name} {child.last_name} — Birth Certificate / Passport
                     </p>
-                    <p className="text-xs text-gray-500">
-                      Uploaded • Required
-                    </p>
+                    {child.birth_certificate_url ? (
+                      <p className="text-xs text-gray-500">Uploaded • Required</p>
+                    ) : (
+                      <p className="text-xs text-red-600">Not uploaded • Required</p>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
-                    title="View document"
-                  >
-                    <Eye className="h-4 w-4 text-emerald-600" />
-                  </a>
-                  <a
-                    href={url}
-                    download
-                    className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
-                    title="Download document"
-                  >
-                    <Download className="h-4 w-4 text-blue-600" />
-                  </a>
-                </div>
+                {child.birth_certificate_url ? (
+                  <div className="flex items-center space-x-2">
+                    <a
+                      href={child.birth_certificate_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
+                      title="View document"
+                    >
+                      <Eye className="h-4 w-4 text-emerald-600" />
+                    </a>
+                    <a
+                      href={child.birth_certificate_url}
+                      download
+                      className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                      title="Download document"
+                    >
+                      <Download className="h-4 w-4 text-blue-600" />
+                    </a>
+                  </div>
+                ) : (
+                  <span className="px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                    Missing
+                  </span>
+                )}
               </div>
             ))}
           </div>
