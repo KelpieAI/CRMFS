@@ -4368,7 +4368,7 @@ function NextOfKinModal({ isOpen, onClose, memberId, contact }: NextOfKinModalPr
               <User className="h-4 w-4 text-[#2d5016]" />
               Personal Details
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-[130px_1fr] gap-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
                   Title
@@ -4400,6 +4400,8 @@ function NextOfKinModal({ isOpen, onClose, memberId, contact }: NextOfKinModalPr
                 />
                 {errors.first_name && <p className="text-xs text-red-600 mt-1">{errors.first_name}</p>}
               </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
                   Last Name *
@@ -4414,27 +4416,27 @@ function NextOfKinModal({ isOpen, onClose, memberId, contact }: NextOfKinModalPr
                 />
                 {errors.last_name && <p className="text-xs text-red-600 mt-1">{errors.last_name}</p>}
               </div>
-            </div>
-            <div className="mt-4">
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Relationship *
-              </label>
-              <select
-                value={formData.relationship}
-                onChange={(e) => setFormData({ ...formData, relationship: e.target.value })}
-                className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                  errors.relationship ? 'border-red-300' : 'border-gray-300'
-                }`}
-              >
-                <option value="">Select relationship</option>
-                <option value="spouse">Spouse</option>
-                <option value="parent">Parent</option>
-                <option value="child">Child</option>
-                <option value="sibling">Sibling</option>
-                <option value="friend">Friend</option>
-                <option value="other">Other</option>
-              </select>
-              {errors.relationship && <p className="text-xs text-red-600 mt-1">{errors.relationship}</p>}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Relationship *
+                </label>
+                <select
+                  value={formData.relationship}
+                  onChange={(e) => setFormData({ ...formData, relationship: e.target.value })}
+                  className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                    errors.relationship ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                >
+                  <option value="">Select relationship</option>
+                  <option value="spouse">Spouse</option>
+                  <option value="parent">Parent</option>
+                  <option value="child">Child</option>
+                  <option value="sibling">Sibling</option>
+                  <option value="friend">Friend</option>
+                  <option value="other">Other</option>
+                </select>
+                {errors.relationship && <p className="text-xs text-red-600 mt-1">{errors.relationship}</p>}
+              </div>
             </div>
           </div>
 

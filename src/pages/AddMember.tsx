@@ -744,7 +744,6 @@ export default function AddMember() {
     const errors: Record<string, string> = {};
 
     if (!formData.joint_title) errors.joint_title = 'Title is required';
-    if (!formData.joint_relation) errors.joint_relation = 'Relationship is required';
     if (!formData.joint_first_name) errors.joint_first_name = 'First name is required';
     if (!formData.joint_last_name) errors.joint_last_name = 'Last name is required';
     if (!formData.joint_dob) errors.joint_dob = 'Date of birth is required';
@@ -1291,8 +1290,8 @@ function StepJointMember({ formData, updateFormData, validationErrors }: any) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Joint Member Details</h2>
-        <p className="text-sm text-gray-600">Enter the spouse/partner's information</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Joint Member (Spouse) Details</h2>
+        <p className="text-sm text-gray-600">Enter the spouse's information</p>
       </div>
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-[100px_1fr_1fr_1fr] gap-4">
@@ -1339,17 +1338,10 @@ function StepJointMember({ formData, updateFormData, validationErrors }: any) {
             {validationErrors.joint_dob && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_dob}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Relationship <span className="text-red-500">*</span></label>
-            <select value={formData.joint_relation} onChange={(e) => updateFormData('joint_relation', e.target.value)} required
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_relation ? 'border-red-500' : 'border-gray-300'}`}>
-              <option value="Spouse">Spouse</option>
-              <option value="Partner">Partner</option>
-              <option value="Sibling">Sibling</option>
-              <option value="Parent">Parent</option>
-              <option value="Child">Child</option>
-              <option value="Other">Other</option>
-            </select>
-            {validationErrors.joint_relation && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_relation}</p>}
+            <label className="block text-sm font-medium text-gray-700 mb-2">Relationship</label>
+            <div className="w-full px-4 py-2 border border-gray-200 bg-gray-50 rounded-lg text-gray-700 font-medium">
+              Spouse
+            </div>
           </div>
         </div>
         <div>
@@ -1514,7 +1506,7 @@ function StepNextOfKin({ formData, updateFormData, validationErrors }: any) {
         <p className="text-sm text-gray-600">Emergency contact information</p>
       </div>
       <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-[150px_1fr_200px] gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-[150px_1fr] gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
             <select value={formData.nok_title} onChange={(e) => updateFormData('nok_title', e.target.value)}
@@ -1533,6 +1525,14 @@ function StepNextOfKin({ formData, updateFormData, validationErrors }: any) {
               className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
             {validationErrors.nok_first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_first_name}</p>}
           </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.nok_last_name} onChange={(e) => updateFormData('nok_last_name', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
+            {validationErrors.nok_last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_last_name}</p>}
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Relationship <span className="text-red-500">*</span></label>
             <select required value={formData.nok_relationship} onChange={(e) => updateFormData('nok_relationship', e.target.value)}
@@ -1546,12 +1546,6 @@ function StepNextOfKin({ formData, updateFormData, validationErrors }: any) {
             </select>
             {validationErrors.nok_relationship && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_relationship}</p>}
           </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.nok_last_name} onChange={(e) => updateFormData('nok_last_name', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
-          {validationErrors.nok_last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_last_name}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1 <span className="text-red-500">*</span></label>
@@ -1764,13 +1758,6 @@ function StepDeclarations({
           <h3 className="text-lg font-semibold text-gray-900">
             GP Practice Details
           </h3>
-          <InfoTooltip title="Why we need GP details">
-            <p className="leading-relaxed">
-              GP details are required for medical consent purposes. In the event of a claim,
-              CRMFS may need to request information from the member's medical records relevant
-              to their application for funeral cover.
-            </p>
-          </InfoTooltip>
         </div>
 
         <div className="space-y-4">
