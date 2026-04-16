@@ -7,7 +7,6 @@ import CompactLayout from '../components/CompactLayout';
 import MemberSubNav from '../components/MemberSubNav';
 import { ProfileHeaderSkeleton, FormSkeleton } from '../components/SkeletonComponents';
 import { useMemberStatusUpdate } from '../hooks/useOptimisticUpdates';
-import EmailTokenStatus from '../components/EmailTokenStatus';
 import SendEmailPanel from '../components/SendEmailPanel';
 import ChangeReasonModal from '../components/ChangeReasonModal';
 import { useNavigationGuard } from '../contexts/NavigationGuardContext';
@@ -2992,14 +2991,6 @@ function DocumentsTab({ member, memberId }: any) {
             {hasAnyDocuments ? 'Manage Documents' : 'Upload Documents'}
           </button>
         </div>
-
-      {/* Email Token Status */}
-      <EmailTokenStatus
-        memberId={memberId}
-        memberEmail={member?.email || ''}
-        memberFirstName={member?.first_name || ''}
-        memberLastName={member?.last_name || ''}
-      />
 
       {/* Main Member Documents */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">

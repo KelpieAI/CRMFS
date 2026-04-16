@@ -20,6 +20,10 @@ import {
   Clock,
   Copy,
   Info,
+  FileText,
+  Upload,
+  X,
+  Image,
 } from 'lucide-react';
 
 
@@ -176,6 +180,14 @@ export default function AddMember() {
   const [gpPostcode, setGpPostcode] = useState('');
   const [gpTelephone, setGpTelephone] = useState('');
   const [gpEmail, setGpEmail] = useState('');
+
+  // Document upload files (File objects, not serializable to JSON draft)
+  const [mainPhotoId, setMainPhotoId] = useState<File | null>(null);
+  const [mainProofOfAddress, setMainProofOfAddress] = useState<File | null>(null);
+  const [jointPhotoId, setJointPhotoId] = useState<File | null>(null);
+  const [jointProofOfAddress, setJointProofOfAddress] = useState<File | null>(null);
+  const [childBirthCerts, setChildBirthCerts] = useState<(File | null)[]>([]);
+  const [documentValidationErrors, setDocumentValidationErrors] = useState<Record<string, string>>({});
 
 
   const [formData, setFormData] = useState<FormData>({
@@ -617,6 +629,54 @@ export default function AddMember() {
         notes: adjustmentReason ? `Adjustment: ${adjustmentReason}` : null,
       });
 
+      // Upload documents to Supabase Storage
+      const uploadDoc = async (file: File, path: string): Promise<string | null> => {
+        const { error } = await supabase.storage.from('member-documents').upload(path, file, { upsert: true });
+        if (error) return null;
+        const { data: urlData } = supabase.storage.from('member-documents').getPublicUrl(path);
+        return urlData.publicUrl;
+      };
+
+      const ts = Date.now();
+      const ext = (f: File) => f.name.split('.').pop();
+
+      const mainPhotoIdUrl = mainPhotoId
+        ? await uploadDoc(mainPhotoId, `${memberId}/main-photo-id-${ts}.${ext(mainPhotoId)}`)
+        : null;
+      const mainPoaUrl = mainProofOfAddress
+        ? await uploadDoc(mainProofOfAddress, `${memberId}/main-proof-of-address-${ts}.${ext(mainProofOfAddress)}`)
+        : null;
+      const jointPhotoIdUrl = jointPhotoId
+        ? await uploadDoc(jointPhotoId, `${memberId}/joint-photo-id-${ts}.${ext(jointPhotoId)}`)
+        : null;
+      const jointPoaUrl = jointProofOfAddress
+        ? await uploadDoc(jointProofOfAddress, `${memberId}/joint-proof-of-address-${ts}.${ext(jointProofOfAddress)}`)
+        : null;
+
+      const docUpdate: Record<string, string | null> = {};
+      if (mainPhotoIdUrl) docUpdate.photo_id_url = mainPhotoIdUrl;
+      if (mainPoaUrl) docUpdate.proof_of_address_url = mainPoaUrl;
+      if (jointPhotoIdUrl) docUpdate.joint_photo_id_url = jointPhotoIdUrl;
+      if (jointPoaUrl) docUpdate.joint_proof_of_address_url = jointPoaUrl;
+
+      if (Object.keys(docUpdate).length > 0) {
+        await supabase.from('members').update(docUpdate).eq('id', memberId);
+      }
+
+      for (let i = 0; i < childBirthCerts.length; i++) {
+        const cert = childBirthCerts[i];
+        if (cert) {
+          const certUrl = await uploadDoc(cert, `${memberId}/child-${i}-birth-cert-${ts}.${ext(cert)}`);
+          if (certUrl) {
+            await supabase.from('children')
+              .update({ birth_certificate_url: certUrl })
+              .eq('member_id', memberId)
+              .eq('first_name', formData.children[i].first_name)
+              .eq('last_name', formData.children[i].last_name);
+          }
+        }
+      }
+
       await logActivity(memberId, ActivityTypes.APPLICATION_SUBMITTED);
 
       return { memberId, membershipNumber };
@@ -660,7 +720,7 @@ export default function AddMember() {
   });
 
 
-  const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'Medical Info', 'GP Details', 'Payment'];
+  const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'Medical Info', 'GP Details', 'Documents', 'Payment'];
 
   const validateMainMemberStep = (): boolean => {
     const errors: Record<string, string> = {};
@@ -765,6 +825,29 @@ export default function AddMember() {
     return Object.keys(errors).length === 0;
   };
 
+  const validateDocumentsStep = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!mainPhotoId) errors.mainPhotoId = 'Please upload Photo ID for the main member';
+    if (!mainProofOfAddress) errors.mainProofOfAddress = 'Please upload Proof of Address for the main member';
+
+    if (formData.app_type === 'joint') {
+      if (!jointPhotoId) errors.jointPhotoId = 'Please upload Photo ID for the joint member';
+      if (!jointProofOfAddress) errors.jointProofOfAddress = 'Please upload Proof of Address for the joint member';
+    }
+
+    if ((formData.children?.length ?? 0) > 0) {
+      formData.children.forEach((child, index) => {
+        if (!childBirthCerts[index]) {
+          errors[`childBirthCert_${index}`] = `Please upload Birth Certificate for ${child.first_name || `Child ${index + 1}`}`;
+        }
+      });
+    }
+
+    setDocumentValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const validatePaymentStep = (): boolean => {
     const errors: Record<string, string> = {};
 
@@ -810,6 +893,9 @@ export default function AddMember() {
       return validateDeclarationsStep();
     }
     if (currentStep === 7) {
+      return validateDocumentsStep();
+    }
+    if (currentStep === 8) {
       return validatePaymentStep();
     }
     return true;
@@ -888,8 +974,8 @@ export default function AddMember() {
     : steps;
 
   const stepIndexMap = formData.app_type === 'single'
-    ? [0, 1, 3, 4, 5, 6, 7]
-    : [0, 1, 2, 3, 4, 5, 6, 7];
+    ? [0, 1, 3, 4, 5, 6, 7, 8]
+    : [0, 1, 2, 3, 4, 5, 6, 7, 8];
 
   const currentVisibleStepIndex = stepIndexMap.indexOf(currentStep);
 
@@ -903,7 +989,8 @@ export default function AddMember() {
         5: 4,  // Next of Kin
         6: 5,  // Medical Info
         7: 6,  // GP Details
-        8: 7,  // Payment
+        8: 7,  // Documents
+        9: 8,  // Payment
       }
     : {
         1: 0,  // Membership Type
@@ -912,7 +999,8 @@ export default function AddMember() {
         4: 4,  // Next of Kin
         5: 5,  // Medical Info
         6: 6,  // GP Details
-        7: 7,  // Payment
+        7: 7,  // Documents
+        8: 8,  // Payment
       };
 
   // Get reachable steps for sidebar (convert internal indices to sidebar IDs)
@@ -985,7 +1073,16 @@ export default function AddMember() {
           gpEmail={gpEmail} setGpEmail={setGpEmail}
           validationErrors={validationErrors}
         />}
-        {currentStep === 7 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} signupDate={signupDate} setSignupDate={setSignupDate} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} mainJoiningFee={mainJoiningFee} jointJoiningFee={jointJoiningFee} proRataAnnualFee={proRataAnnualFee} mainProRataFee={mainProRataFee} jointProRataFee={jointProRataFee} adjustmentValue={adjustmentValue} totalDue={totalDue} coverageEndDate={coverageEndDate} />}
+        {currentStep === 7 && <StepDocuments
+          formData={formData}
+          mainPhotoId={mainPhotoId} setMainPhotoId={setMainPhotoId}
+          mainProofOfAddress={mainProofOfAddress} setMainProofOfAddress={setMainProofOfAddress}
+          jointPhotoId={jointPhotoId} setJointPhotoId={setJointPhotoId}
+          jointProofOfAddress={jointProofOfAddress} setJointProofOfAddress={setJointProofOfAddress}
+          childBirthCerts={childBirthCerts} setChildBirthCerts={setChildBirthCerts}
+          validationErrors={documentValidationErrors}
+        />}
+        {currentStep === 8 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} signupDate={signupDate} setSignupDate={setSignupDate} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} mainJoiningFee={mainJoiningFee} jointJoiningFee={jointJoiningFee} proRataAnnualFee={proRataAnnualFee} mainProRataFee={mainProRataFee} jointProRataFee={jointProRataFee} adjustmentValue={adjustmentValue} totalDue={totalDue} coverageEndDate={coverageEndDate} />}
       </div>
 
           <div className="flex justify-between items-center bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-colors">
@@ -1661,32 +1758,6 @@ function StepDeclarations({
         <p className="text-sm text-gray-600">Enter the member's GP practice details</p>
       </div>
 
-      {/* Email-based declarations info banner */}
-      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <div>
-            <h4 className="text-sm font-semibold text-emerald-900 mb-1">
-              Declarations & Documents via Email
-            </h4>
-            <p className="text-sm text-emerald-800">
-              After registration, the member will receive two secure emails:
-            </p>
-            <ul className="text-sm text-emerald-700 mt-2 space-y-1">
-              <li>• <strong>Document Upload Link</strong> - To upload Photo ID and Proof of Address</li>
-              <li>• <strong>Declarations Link</strong> - To sign Medical Consent (Section 6) and T&Cs (Section 7)</li>
-            </ul>
-            <p className="text-xs text-emerald-600 mt-2">
-              These secure links expire after 7 days and can only be used once.
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* GP Details */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
         <div className="flex items-center gap-2 mb-6">
@@ -1779,6 +1850,219 @@ function StepDeclarations({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+function FileUploadZone({
+  label,
+  file,
+  onFileChange,
+  errorKey,
+  validationErrors,
+}: {
+  label: string;
+  file: File | null;
+  onFileChange: (file: File | null) => void;
+  errorKey: string;
+  validationErrors: Record<string, string>;
+}) {
+  const [isDragging, setIsDragging] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const validate = (f: File): string | null => {
+    if (!ALLOWED_FILE_TYPES.includes(f.type)) return 'Only JPG, PNG, or PDF files are allowed';
+    if (f.size > MAX_FILE_SIZE) return 'File must be under 5MB';
+    return null;
+  };
+
+  const handleFile = (f: File) => {
+    const err = validate(f);
+    if (err) { setLocalError(err); return; }
+    setLocalError(null);
+    onFileChange(f);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const f = e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const error = localError || validationErrors[errorKey];
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">
+        {label} <span className="text-red-500">*</span>
+      </label>
+      {file ? (
+        <div className="flex items-center gap-3 p-3 border-2 border-[#06420c] bg-emerald-50 rounded-lg">
+          {file.type === 'application/pdf' ? (
+            <FileText className="h-8 w-8 text-[#06420c] flex-shrink-0" />
+          ) : (
+            <Image className="h-8 w-8 text-[#06420c] flex-shrink-0" />
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+            <p className="text-xs text-gray-500">{formatSize(file.size)}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => { onFileChange(null); setLocalError(null); }}
+            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : (
+        <div
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => inputRef.current?.click()}
+          className={`flex flex-col items-center justify-center min-h-[120px] border-2 border-dashed rounded-lg cursor-pointer transition-all
+            ${isDragging ? 'border-[#06420c] bg-emerald-50' : error ? 'border-red-400 bg-red-50' : 'border-[#06420c]/40 hover:border-[#06420c] hover:bg-emerald-50/50'}
+          `}
+        >
+          <Upload className={`h-8 w-8 mb-2 ${isDragging ? 'text-[#06420c]' : 'text-gray-400'}`} />
+          <p className="text-sm font-medium text-gray-600">
+            {isDragging ? 'Drop file here' : 'Drag & drop or click to browse'}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">JPG, PNG or PDF · Max 5MB</p>
+        </div>
+      )}
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".jpg,.jpeg,.png,.pdf"
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
+      />
+    </div>
+  );
+}
+
+function StepDocuments({
+  formData,
+  mainPhotoId, setMainPhotoId,
+  mainProofOfAddress, setMainProofOfAddress,
+  jointPhotoId, setJointPhotoId,
+  jointProofOfAddress, setJointProofOfAddress,
+  childBirthCerts, setChildBirthCerts,
+  validationErrors,
+}: any) {
+  const updateChildCert = (index: number, file: File | null) => {
+    setChildBirthCerts((prev: (File | null)[]) => {
+      const next = [...prev];
+      next[index] = file;
+      return next;
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Documents</h2>
+        <p className="text-sm text-gray-600">Upload all required documents to complete registration</p>
+      </div>
+
+      {/* Main Member Documents */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+        <div className="flex items-center gap-2 mb-5">
+          <div className="w-7 h-7 rounded-full bg-[#06420c] flex items-center justify-center">
+            <User className="h-4 w-4 text-white" />
+          </div>
+          <h3 className="text-base font-semibold text-gray-900">
+            Main Member — {formData.first_name} {formData.last_name}
+          </h3>
+          <span className="ml-auto text-xs font-semibold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">Required</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <FileUploadZone
+            label="Photo ID"
+            file={mainPhotoId}
+            onFileChange={setMainPhotoId}
+            errorKey="mainPhotoId"
+            validationErrors={validationErrors}
+          />
+          <FileUploadZone
+            label="Proof of Address"
+            file={mainProofOfAddress}
+            onFileChange={setMainProofOfAddress}
+            errorKey="mainProofOfAddress"
+            validationErrors={validationErrors}
+          />
+        </div>
+      </div>
+
+      {/* Joint Member Documents */}
+      {formData.app_type === 'joint' && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-7 h-7 rounded-full bg-[#06420c] flex items-center justify-center">
+              <Users className="h-4 w-4 text-white" />
+            </div>
+            <h3 className="text-base font-semibold text-gray-900">
+              Joint Member — {formData.joint_first_name} {formData.joint_last_name}
+            </h3>
+            <span className="ml-auto text-xs font-semibold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">Required</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <FileUploadZone
+              label="Photo ID"
+              file={jointPhotoId}
+              onFileChange={setJointPhotoId}
+              errorKey="jointPhotoId"
+              validationErrors={validationErrors}
+            />
+            <FileUploadZone
+              label="Proof of Address"
+              file={jointProofOfAddress}
+              onFileChange={setJointProofOfAddress}
+              errorKey="jointProofOfAddress"
+              validationErrors={validationErrors}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Children Birth Certificates */}
+      {(formData.children?.length ?? 0) > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-7 h-7 rounded-full bg-[#D4AF37] flex items-center justify-center">
+              <Baby className="h-4 w-4 text-white" />
+            </div>
+            <h3 className="text-base font-semibold text-gray-900">Children's Birth Certificates</h3>
+            <span className="ml-auto text-xs font-semibold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">Required</span>
+          </div>
+          <div className="space-y-5">
+            {formData.children.map((child: any, index: number) => (
+              <FileUploadZone
+                key={index}
+                label={`Birth Certificate — ${child.first_name || `Child ${index + 1}`} ${child.last_name || ''}`}
+                file={childBirthCerts[index] ?? null}
+                onFileChange={(f) => updateChildCert(index, f)}
+                errorKey={`childBirthCert_${index}`}
+                validationErrors={validationErrors}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

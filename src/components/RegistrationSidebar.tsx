@@ -9,6 +9,7 @@ import {
   Printer,
   Hash,
   Save,
+  FolderOpen,
 } from 'lucide-react';
 
 interface RegistrationSidebarProps {
@@ -43,7 +44,8 @@ export default function RegistrationSidebar({
     { id: 4, label: 'Next of Kin', icon: Heart },
     { id: 5, label: 'Medical Info', icon: Stethoscope },
     { id: 6, label: 'GP Details', icon: Stethoscope },
-    { id: 7, label: 'Payment', icon: CreditCard },
+    { id: 7, label: 'Documents', icon: FolderOpen },
+    { id: 8, label: 'Payment', icon: CreditCard },
   ];
 
   const jointSteps = [
@@ -54,7 +56,8 @@ export default function RegistrationSidebar({
     { id: 5, label: 'Next of Kin', icon: Heart },
     { id: 6, label: 'Medical Info', icon: Stethoscope },
     { id: 7, label: 'GP Details', icon: Stethoscope },
-    { id: 8, label: 'Payment', icon: CreditCard },
+    { id: 8, label: 'Documents', icon: FolderOpen },
+    { id: 9, label: 'Payment', icon: CreditCard },
   ];
 
   const steps = appType === 'joint' ? jointSteps : singleSteps;

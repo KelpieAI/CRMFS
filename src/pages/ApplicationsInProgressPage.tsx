@@ -24,7 +24,7 @@ function formatTimeAgo(dateString: string): string {
   });
 }
 
-const TOTAL_STEPS = 9;
+const TOTAL_STEPS = 9; // 8 visible steps for single (9 internal including joint), max 9 for joint
 
 export default function ApplicationsInProgressPage() {
   const navigate = useNavigate();
