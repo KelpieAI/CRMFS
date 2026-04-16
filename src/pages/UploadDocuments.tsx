@@ -142,8 +142,8 @@ export default function UploadDocuments() {
 
       // Update URL columns on member record so documents appear in Member Detail
       await supabase.from('members').update({
-        photo_id_url: photoResult.publicUrl,
-        proof_of_address_url: addressResult.publicUrl,
+        main_photo_id_url: photoResult.publicUrl,
+        main_proof_address_url: addressResult.publicUrl,
       }).eq('id', member.id);
 
       // Mark token as used

@@ -698,10 +698,10 @@ export default function AddMember() {
         : null;
 
       const docUpdate: Record<string, string | null> = {};
-      if (mainPhotoIdUrl) docUpdate.photo_id_url = mainPhotoIdUrl;
-      if (mainPoaUrl) docUpdate.proof_of_address_url = mainPoaUrl;
+      if (mainPhotoIdUrl) docUpdate.main_photo_id_url = mainPhotoIdUrl;
+      if (mainPoaUrl) docUpdate.main_proof_address_url = mainPoaUrl;
       if (jointPhotoIdUrl) docUpdate.joint_photo_id_url = jointPhotoIdUrl;
-      if (jointPoaUrl) docUpdate.joint_proof_of_address_url = jointPoaUrl;
+      if (jointPoaUrl) docUpdate.joint_proof_address_url = jointPoaUrl;
 
       if (Object.keys(docUpdate).length > 0) {
         await supabase.from('members').update(docUpdate).eq('id', memberId);
