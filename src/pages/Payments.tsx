@@ -483,7 +483,7 @@ export default function Payments() {
                           </button>
                         )}
                         <Link
-                          to={`/member/${payment.member_id}`}
+                          to={`/members/${payment.member_id}`}
                           className="inline-flex items-center px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
                         >
                           <Eye className="h-4 w-4 mr-1" />
