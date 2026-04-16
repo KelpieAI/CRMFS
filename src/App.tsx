@@ -81,7 +81,7 @@ function App() {
                   <Route index element={<Dashboard />} />
                   <Route path="members" element={<MemberList />} />
                   <Route path="members/new" element={<AddMember />} />
-                  <Route path="member/:id" element={<MemberDetail />} />
+                  <Route path="members/:id" element={<MemberDetail />} />
                   <Route path="payments" element={<Payments />} />
                   <Route path="reports" element={<Reports />} />
                   <Route path="deceased" element={<DeceasedMembers />} />
