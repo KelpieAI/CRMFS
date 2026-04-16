@@ -123,6 +123,16 @@ interface FormData {
   funding_sig_2: boolean;
   declaration_sig_1: boolean;
   declaration_sig_2: boolean;
+  main_medical_consent: boolean;
+  main_medical_signature: string;
+  joint_medical_consent: boolean;
+  joint_medical_signature: string;
+  main_final_tc: boolean;
+  main_final_emergency: boolean;
+  main_final_declaration: boolean;
+  main_final_signature: string;
+  joint_final_declaration: boolean;
+  joint_final_signature: string;
   main_joining_fee: number;
   main_membership_fee: number;
   joint_joining_fee: number;
@@ -249,6 +259,16 @@ export default function AddMember() {
     funding_sig_2: false,
     declaration_sig_1: false,
     declaration_sig_2: false,
+    main_medical_consent: false,
+    main_medical_signature: '',
+    joint_medical_consent: false,
+    joint_medical_signature: '',
+    main_final_tc: false,
+    main_final_emergency: false,
+    main_final_declaration: false,
+    main_final_signature: '',
+    joint_final_declaration: false,
+    joint_final_signature: '',
     main_joining_fee: 0,
     main_membership_fee: 100,
     joint_joining_fee: 0,
@@ -593,22 +613,22 @@ export default function AddMember() {
         await supabase.from('medical_info').insert({ member_id: memberId, member_type: 'joint', disclaimer: formData.joint_disclaimer, conditions: formData.joint_conditions });
       }
 
-      // Declarations will be completed by member via secure email link
+      const now = new Date().toISOString();
       await supabase.from('declarations').insert({
         member_id: memberId,
-        main_medical_consent: false,
-        main_medical_signature: null,
-        main_medical_consent_date: null,
-        main_final_declaration: false,
-        main_final_signature: null,
-        main_final_declaration_date: null,
+        main_medical_consent: formData.main_medical_consent,
+        main_medical_signature: formData.main_medical_signature || null,
+        main_medical_consent_date: formData.main_medical_consent ? now : null,
+        main_final_declaration: formData.main_final_declaration,
+        main_final_signature: formData.main_final_signature || null,
+        main_final_declaration_date: formData.main_final_declaration ? now : null,
         ...(formData.app_type === 'joint' && {
-          joint_medical_consent: false,
-          joint_medical_signature: null,
-          joint_medical_consent_date: null,
-          joint_final_declaration: false,
-          joint_final_signature: null,
-          joint_final_declaration_date: null,
+          joint_medical_consent: formData.joint_medical_consent,
+          joint_medical_signature: formData.joint_medical_signature || null,
+          joint_medical_consent_date: formData.joint_medical_consent ? now : null,
+          joint_final_declaration: formData.joint_final_declaration,
+          joint_final_signature: formData.joint_final_signature || null,
+          joint_final_declaration_date: formData.joint_final_declaration ? now : null,
         }),
       });
 
@@ -814,11 +834,18 @@ export default function AddMember() {
   const validateDeclarationsStep = (): boolean => {
     const errors: Record<string, string> = {};
 
-    // Validate GP Details only - declarations are now handled via email token system
     if (!gpPracticeName) errors.gpPracticeName = 'GP practice name is required';
     if (!gpPracticeAddress) errors.gpPracticeAddress = 'GP practice address is required';
     if (!gpPostcode) errors.gpPostcode = 'GP postcode is required';
     if (!gpTelephone) errors.gpTelephone = 'GP telephone is required';
+
+    if (!formData.main_medical_consent) errors.main_medical_consent = 'You must confirm the medical consent declaration';
+    if (!formData.main_medical_signature) errors.main_medical_signature = 'Signature is required';
+
+    if (formData.app_type === 'joint') {
+      if (!formData.joint_medical_consent) errors.joint_medical_consent = 'Joint member must confirm the medical consent declaration';
+      if (!formData.joint_medical_signature) errors.joint_medical_signature = 'Joint member signature is required';
+    }
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -849,6 +876,16 @@ export default function AddMember() {
 
   const validatePaymentStep = (): boolean => {
     const errors: Record<string, string> = {};
+
+    if (!formData.main_final_tc) errors.main_final_tc = 'You must accept the Terms & Conditions';
+    if (!formData.main_final_emergency) errors.main_final_emergency = 'You must agree to contribute to the emergency fund';
+    if (!formData.main_final_declaration) errors.main_final_declaration = 'You must confirm the accuracy of your application';
+    if (!formData.main_final_signature) errors.main_final_signature = 'Signature is required';
+
+    if (formData.app_type === 'joint') {
+      if (!formData.joint_final_declaration) errors.joint_final_declaration = 'Joint member must confirm the accuracy of the application';
+      if (!formData.joint_final_signature) errors.joint_final_signature = 'Joint member signature is required';
+    }
 
     if (!formData.payment_method) errors.payment_method = 'Payment method is required';
 
@@ -1070,6 +1107,7 @@ export default function AddMember() {
           gpPostcode={gpPostcode} setGpPostcode={setGpPostcode}
           gpTelephone={gpTelephone} setGpTelephone={setGpTelephone}
           gpEmail={gpEmail} setGpEmail={setGpEmail}
+          formData={formData} updateFormData={updateFormData}
           validationErrors={validationErrors}
         />}
         {currentStep === 7 && <StepDocuments
@@ -1743,13 +1781,14 @@ function StepDeclarations({
   gpPostcode, setGpPostcode,
   gpTelephone, setGpTelephone,
   gpEmail, setGpEmail,
+  formData, updateFormData,
   validationErrors
 }: any) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">GP Details & Declarations</h2>
-        <p className="text-sm text-gray-600">Enter the member's GP practice details</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">GP Details & Medical Consent</h2>
+        <p className="text-sm text-gray-600">Enter GP practice details and confirm medical consent</p>
       </div>
 
       {/* GP Details */}
@@ -1836,6 +1875,91 @@ function StepDeclarations({
             />
           </div>
         </div>
+      </div>
+
+      {/* Medical Consent - Main Member */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Medical Consent</h3>
+        <p className="text-sm text-gray-600 mb-5">
+          Section 6 — Main Member
+        </p>
+
+        <div className="space-y-5">
+          <div className={`rounded-lg border p-4 ${validationErrors.main_medical_consent ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.main_medical_consent}
+                onChange={(e) => updateFormData('main_medical_consent', e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 flex-shrink-0"
+              />
+              <span className="text-sm font-medium text-gray-800 leading-relaxed">
+                I confirm that I have no known medical conditions or illnesses, other than those I have already
+                disclosed in Section 5 (Medical Info) of this application, that could invalidate my application. <span className="text-red-500">*</span>
+              </span>
+            </label>
+          </div>
+          {validationErrors.main_medical_consent && (
+            <p className="text-red-500 text-xs -mt-2">{validationErrors.main_medical_consent}</p>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Signature (Main Member) <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.main_medical_signature}
+              onChange={(e) => updateFormData('main_medical_signature', e.target.value)}
+              placeholder="Type your full name as signature"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent italic ${validationErrors.main_medical_signature ? 'border-red-500' : 'border-gray-300'}`}
+            />
+            {validationErrors.main_medical_signature && (
+              <p className="text-red-500 text-xs mt-1">{validationErrors.main_medical_signature}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Joint member consent — only shown for joint applications */}
+        {formData.app_type === 'joint' && (
+          <div className="mt-6 pt-6 border-t border-gray-200 space-y-5">
+            <p className="text-sm text-gray-600 font-medium">Section 6 — Joint Member</p>
+
+            <div className={`rounded-lg border p-4 ${validationErrors.joint_medical_consent ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.joint_medical_consent}
+                  onChange={(e) => updateFormData('joint_medical_consent', e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 flex-shrink-0"
+                />
+                <span className="text-sm font-medium text-gray-800 leading-relaxed">
+                  I (the joint member) confirm that I have no known medical conditions or illnesses, other than those
+                  already disclosed in Section 5 (Medical Info) of this application, that could invalidate my application. <span className="text-red-500">*</span>
+                </span>
+              </label>
+            </div>
+            {validationErrors.joint_medical_consent && (
+              <p className="text-red-500 text-xs -mt-2">{validationErrors.joint_medical_consent}</p>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Signature (Joint Member) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.joint_medical_signature}
+                onChange={(e) => updateFormData('joint_medical_signature', e.target.value)}
+                placeholder="Type joint member's full name as signature"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent italic ${validationErrors.joint_medical_signature ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {validationErrors.joint_medical_signature && (
+                <p className="text-red-500 text-xs mt-1">{validationErrors.joint_medical_signature}</p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2055,16 +2179,120 @@ function StepDocuments({
 }
 
 function StepPayment({ formData, updateFormData, validationErrors, membershipType, setMembershipType, signupDate, setSignupDate, adjustmentAmount, setAdjustmentAmount, adjustmentReason, setAdjustmentReason, paymentReceived, setPaymentReceived, mainDob, calculateAge, joiningFee, mainJoiningFee, jointJoiningFee, proRataAnnualFee, mainProRataFee, jointProRataFee, adjustmentValue, totalDue, coverageEndDate }: any) {
-  const SHOW_ADJUSTMENT_FIELD = false; // Change to true to enable
+  const SHOW_ADJUSTMENT_FIELD = false;
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Details</h2>
-        <p className="text-sm text-gray-600">Configure membership type and payment details</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Declaration & Payment</h2>
+        <p className="text-sm text-gray-600">Review and confirm declarations before completing payment</p>
       </div>
 
-      {/* Payment Details Section */}
+      {/* Section 1: Final Declaration */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
+        <div className="bg-gray-800 px-6 py-4">
+          <h3 className="text-base font-semibold text-white">Final Declaration &amp; Terms</h3>
+          <p className="text-xs text-gray-300 mt-0.5">Section 7 — All checkboxes and signature required</p>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <div className={`rounded-lg border p-4 ${validationErrors.main_final_tc ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!formData.main_final_tc}
+                onChange={(e) => updateFormData('main_final_tc', e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-700 flex-shrink-0"
+              />
+              <span className="text-sm font-medium text-gray-800 leading-relaxed">
+                I accept the Terms &amp; Conditions of Central Region Muslim Funeral Service <span className="text-red-500">*</span>
+              </span>
+            </label>
+          </div>
+          {validationErrors.main_final_tc && <p className="text-red-500 text-xs -mt-2">{validationErrors.main_final_tc}</p>}
+
+          <div className={`rounded-lg border p-4 ${validationErrors.main_final_emergency ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!formData.main_final_emergency}
+                onChange={(e) => updateFormData('main_final_emergency', e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-700 flex-shrink-0"
+              />
+              <span className="text-sm font-medium text-gray-800 leading-relaxed">
+                I agree to contribute to the emergency fund if required <span className="text-red-500">*</span>
+              </span>
+            </label>
+          </div>
+          {validationErrors.main_final_emergency && <p className="text-red-500 text-xs -mt-2">{validationErrors.main_final_emergency}</p>}
+
+          <div className={`rounded-lg border p-4 ${validationErrors.main_final_declaration ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!formData.main_final_declaration}
+                onChange={(e) => updateFormData('main_final_declaration', e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-700 flex-shrink-0"
+              />
+              <span className="text-sm font-medium text-gray-800 leading-relaxed">
+                I confirm that all information provided in this application is accurate and complete <span className="text-red-500">*</span>
+              </span>
+            </label>
+          </div>
+          {validationErrors.main_final_declaration && <p className="text-red-500 text-xs -mt-2">{validationErrors.main_final_declaration}</p>}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Signature (Main Member) <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.main_final_signature}
+              onChange={(e) => updateFormData('main_final_signature', e.target.value)}
+              placeholder="Type your full name as signature"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-transparent italic ${validationErrors.main_final_signature ? 'border-red-500' : 'border-gray-300'}`}
+            />
+            {validationErrors.main_final_signature && <p className="text-red-500 text-xs mt-1">{validationErrors.main_final_signature}</p>}
+          </div>
+
+          {formData.app_type === 'joint' && (
+            <div className="pt-5 mt-2 border-t border-gray-200 space-y-5">
+              <p className="text-sm text-gray-600 font-medium">Section 7 — Joint Member</p>
+
+              <div className={`rounded-lg border p-4 ${validationErrors.joint_final_declaration ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!formData.joint_final_declaration}
+                    onChange={(e) => updateFormData('joint_final_declaration', e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-700 flex-shrink-0"
+                  />
+                  <span className="text-sm font-medium text-gray-800 leading-relaxed">
+                    I (the joint member) confirm that all information provided in this application is accurate and complete <span className="text-red-500">*</span>
+                  </span>
+                </label>
+              </div>
+              {validationErrors.joint_final_declaration && <p className="text-red-500 text-xs -mt-2">{validationErrors.joint_final_declaration}</p>}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Signature (Joint Member) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.joint_final_signature}
+                  onChange={(e) => updateFormData('joint_final_signature', e.target.value)}
+                  placeholder="Type joint member's full name as signature"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-transparent italic ${validationErrors.joint_final_signature ? 'border-red-500' : 'border-gray-300'}`}
+                />
+                {validationErrors.joint_final_signature && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_final_signature}</p>}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Section 2: Payment Details */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
         <h3 className="text-lg font-semibold text-gray-900 mb-6">
           Payment Details
@@ -2112,7 +2340,6 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
           <h4 className="text-sm font-semibold text-gray-900 mb-3">Fee Breakdown</h4>
 
           <div className="space-y-3 text-sm">
-            {/* Main Member - Joining Fee */}
             <div>
               <div className="flex justify-between mb-1">
                 <span className="text-gray-600 flex items-center gap-1">
@@ -2153,7 +2380,6 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
               ))}
             </div>
 
-            {/* Pro-rata Annual Fee */}
             <div>
               <div className="flex justify-between mb-1">
                 <div className="flex-1">
@@ -2179,14 +2405,11 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
               ))}
             </div>
 
-            {/* Adjustment */}
             {SHOW_ADJUSTMENT_FIELD && adjustmentValue > 0 && (
               <div className="flex justify-between text-yellow-600">
                 <div className="flex-1">
                   <span>Adjustment:</span>
-                  {adjustmentReason && (
-                    <p className="text-xs">{adjustmentReason}</p>
-                  )}
+                  {adjustmentReason && <p className="text-xs">{adjustmentReason}</p>}
                 </div>
                 <span className="font-medium">£{adjustmentValue.toFixed(2)}</span>
               </div>
@@ -2199,7 +2422,6 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
               </div>
             </div>
 
-            {/* Coverage Period */}
             <div className="border-t border-gray-200 pt-2 mt-2">
               <p className="text-xs text-gray-600">
                 Coverage: {new Date(signupDate).toLocaleDateString('en-GB')} - {coverageEndDate}
@@ -2208,103 +2430,88 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
           </div>
         </div>
 
-        {/* Adjustments Section */}
         {SHOW_ADJUSTMENT_FIELD && (
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <h4 className="text-sm font-semibold text-gray-900">
-              Adjustments (Optional)
-            </h4>
-            <InfoTooltip title="Pro-rata Payment Information">
-              <ul className="space-y-1">
-                <li>• All memberships renew on <strong>January 1st</strong> each year</li>
-                <li>• Annual fee is pro-rated from signup date to December 31st</li>
-                <li>• Use adjustments to prepay for following year (saves time in January!)</li>
-                <li>• Example: Add £100 adjustment = coverage through Dec 31, 2027</li>
-              </ul>
-            </InfoTooltip>
-          </div>
-          <p className="text-xs text-gray-500 mb-3">
-            Add additional amount to prepay for following year or make advance payment
-          </p>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Amount (£)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={adjustmentAmount}
-                onChange={(e) => setAdjustmentAmount(e.target.value)}
-                placeholder="0.00"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Tip: Add £100 to prepay for 2027
-              </p>
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <h4 className="text-sm font-semibold text-gray-900">Adjustments (Optional)</h4>
+              <InfoTooltip title="Pro-rata Payment Information">
+                <ul className="space-y-1">
+                  <li>• All memberships renew on <strong>January 1st</strong> each year</li>
+                  <li>• Annual fee is pro-rated from signup date to December 31st</li>
+                  <li>• Use adjustments to prepay for following year (saves time in January!)</li>
+                  <li>• Example: Add £100 adjustment = coverage through Dec 31, 2027</li>
+                </ul>
+              </InfoTooltip>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Reason
-              </label>
-              <input
-                type="text"
-                value={adjustmentReason}
-                onChange={(e) => setAdjustmentReason(e.target.value)}
-                placeholder="e.g., Prepay 2027"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
-              />
+            <p className="text-xs text-gray-500 mb-3">Add additional amount to prepay for following year or make advance payment</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Amount (£)</label>
+                <input type="number" step="0.01" min="0" value={adjustmentAmount} onChange={(e) => setAdjustmentAmount(e.target.value)} placeholder="0.00"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent" />
+                <p className="text-xs text-gray-500 mt-1">Tip: Add £100 to prepay for 2027</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Reason</label>
+                <input type="text" value={adjustmentReason} onChange={(e) => setAdjustmentReason(e.target.value)} placeholder="e.g., Prepay 2027"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent" />
+              </div>
             </div>
           </div>
-        </div>
         )}
 
-        {/* Payment Received Toggle */}
+        {/* Payment Method */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-3">Payment Method <span className="text-red-500">*</span></label>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button type="button" onClick={() => updateFormData('payment_method', 'cash')}
+              className={`p-4 rounded-lg border-2 transition-all ${formData.payment_method === 'cash' ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300'}`}>
+              <div className="text-center">
+                <div className="font-semibold text-gray-900">Cash</div>
+                {formData.payment_method === 'cash' && <Check className="h-5 w-5 mx-auto mt-2 text-emerald-600" />}
+              </div>
+            </button>
+            <button type="button" onClick={() => updateFormData('payment_method', 'cheque')}
+              className={`p-4 rounded-lg border-2 transition-all ${formData.payment_method === 'cheque' ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300'}`}>
+              <div className="text-center">
+                <div className="font-semibold text-gray-900">Cheque</div>
+                {formData.payment_method === 'cheque' && <Check className="h-5 w-5 mx-auto mt-2 text-emerald-600" />}
+              </div>
+            </button>
+            <button type="button" onClick={() => updateFormData('payment_method', 'bank_transfer')}
+              className={`p-4 rounded-lg border-2 transition-all ${formData.payment_method === 'bank_transfer' ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300'}`}>
+              <div className="text-center">
+                <div className="font-semibold text-gray-900">Bank Transfer</div>
+                {formData.payment_method === 'bank_transfer' && <Check className="h-5 w-5 mx-auto mt-2 text-emerald-600" />}
+              </div>
+            </button>
+          </div>
+          {validationErrors.payment_method && <p className="text-red-500 text-xs mt-2">{validationErrors.payment_method}</p>}
+        </div>
+
+        {/* Payment Received Toggle — at the bottom */}
         <div className="border-t border-gray-200 pt-6">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h4 className="text-sm font-semibold text-gray-900">
-                Payment Status
-              </h4>
-              <p className="text-xs text-gray-500 mt-1">
-                Mark as received to activate membership immediately
-              </p>
+              <h4 className="text-sm font-semibold text-gray-900">Payment Status</h4>
+              <p className="text-xs text-gray-500 mt-1">Mark as received to activate membership immediately</p>
             </div>
             <button
               type="button"
               onClick={() => setPaymentReceived(!paymentReceived)}
-              className={`
-                relative inline-flex h-10 w-20 items-center rounded-full transition-colors
-                ${paymentReceived ? 'bg-emerald-600' : 'bg-gray-300'}
-              `}
+              className={`relative inline-flex h-10 w-20 items-center rounded-full transition-colors ${paymentReceived ? 'bg-emerald-600' : 'bg-gray-300'}`}
             >
-              <span
-                className={`
-                  inline-block h-8 w-8 transform rounded-full bg-white transition-transform
-                  ${paymentReceived ? 'translate-x-11' : 'translate-x-1'}
-                `}
-              />
+              <span className={`inline-block h-8 w-8 transform rounded-full bg-white transition-transform ${paymentReceived ? 'translate-x-11' : 'translate-x-1'}`} />
             </button>
           </div>
 
-          <div className={`
-            rounded-lg p-4 text-sm
-            ${paymentReceived
-              ? 'bg-emerald-50 border border-emerald-200'
-              : 'bg-yellow-50 border border-yellow-200'
-            }
-          `}>
+          <div className={`rounded-lg p-4 text-sm ${paymentReceived ? 'bg-emerald-50 border border-emerald-200' : 'bg-yellow-50 border border-yellow-200'}`}>
             {paymentReceived ? (
               <div className="flex items-center text-emerald-800">
                 <CheckCircle className="h-5 w-5 mr-2" />
                 <div>
                   <p className="font-medium">Payment Received</p>
-                  <p className="text-xs text-emerald-600">
-                    Member will be set to ACTIVE status
-                  </p>
+                  <p className="text-xs text-emerald-600">Member will be set to ACTIVE status</p>
                 </div>
               </div>
             ) : (
@@ -2312,43 +2519,12 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
                 <Clock className="h-5 w-5 mr-2" />
                 <div>
                   <p className="font-medium">Payment Pending</p>
-                  <p className="text-xs text-yellow-600">
-                    Member will be set to PENDING status until payment received
-                  </p>
+                  <p className="text-xs text-yellow-600">Member will be set to PENDING status until payment received</p>
                 </div>
               </div>
             )}
           </div>
         </div>
-      </div>
-
-      {/* Payment Method Selection */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
-        <label className="block text-sm font-medium text-gray-700 mb-3">Payment Method <span className="text-red-500">*</span></label>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button type="button" onClick={() => updateFormData('payment_method', 'cash')}
-            className={`p-4 rounded-lg border-2 transition-all ${formData.payment_method === 'cash' ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300'}`}>
-            <div className="text-center">
-              <div className="font-semibold text-gray-900">Cash</div>
-              {formData.payment_method === 'cash' && <Check className="h-5 w-5 mx-auto mt-2 text-emerald-600" />}
-            </div>
-          </button>
-          <button type="button" onClick={() => updateFormData('payment_method', 'cheque')}
-            className={`p-4 rounded-lg border-2 transition-all ${formData.payment_method === 'cheque' ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300'}`}>
-            <div className="text-center">
-              <div className="font-semibold text-gray-900">Cheque</div>
-              {formData.payment_method === 'cheque' && <Check className="h-5 w-5 mx-auto mt-2 text-emerald-600" />}
-            </div>
-          </button>
-          <button type="button" onClick={() => updateFormData('payment_method', 'bank_transfer')}
-            className={`p-4 rounded-lg border-2 transition-all ${formData.payment_method === 'bank_transfer' ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300'}`}>
-            <div className="text-center">
-              <div className="font-semibold text-gray-900">Bank Transfer</div>
-              {formData.payment_method === 'bank_transfer' && <Check className="h-5 w-5 mx-auto mt-2 text-emerald-600" />}
-            </div>
-          </button>
-        </div>
-        {validationErrors.payment_method && <p className="text-red-500 text-xs mt-2">{validationErrors.payment_method}</p>}
       </div>
     </div>
   );
