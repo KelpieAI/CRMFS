@@ -893,11 +893,8 @@ export default function AddMember() {
     if (!formData.main_final_tc) errors.main_final_tc = 'You must accept the Terms & Conditions';
     if (!formData.main_final_emergency) errors.main_final_emergency = 'You must agree to contribute to the emergency fund';
     if (!formData.main_final_declaration) errors.main_final_declaration = 'You must confirm the accuracy of your application';
-    if (!formData.main_final_signature) errors.main_final_signature = 'Signature is required';
-
     if (formData.app_type === 'joint') {
       if (!formData.joint_final_declaration) errors.joint_final_declaration = 'Joint member must confirm the accuracy of the application';
-      if (!formData.joint_final_signature) errors.joint_final_signature = 'Joint member signature is required';
     }
 
     if (!formData.payment_method) errors.payment_method = 'Payment method is required';
@@ -2214,9 +2211,9 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
 
       {/* Section 1: Final Declaration */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
-        <div className="bg-gray-800 px-6 py-4">
-          <h3 className="text-base font-semibold text-white">Final Declaration &amp; Terms</h3>
-          <p className="text-xs text-gray-300 mt-0.5">Section 7 — All checkboxes and signature required</p>
+        <div className="bg-white px-6 py-4 border-b border-gray-200">
+          <h3 className="text-base font-semibold text-gray-900">Final Declaration &amp; Terms</h3>
+          <p className="text-xs text-gray-500 mt-0.5">Section 7 — All checkboxes required</p>
         </div>
 
         <div className="p-6 space-y-5">
@@ -2265,20 +2262,6 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
           </div>
           {validationErrors.main_final_declaration && <p className="text-red-500 text-xs -mt-2">{validationErrors.main_final_declaration}</p>}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Signature (Main Member) <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.main_final_signature}
-              onChange={(e) => updateFormData('main_final_signature', e.target.value)}
-              placeholder="Type your full name as signature"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-transparent italic ${validationErrors.main_final_signature ? 'border-red-500' : 'border-gray-300'}`}
-            />
-            {validationErrors.main_final_signature && <p className="text-red-500 text-xs mt-1">{validationErrors.main_final_signature}</p>}
-          </div>
-
           {formData.app_type === 'joint' && (
             <div className="pt-5 mt-2 border-t border-gray-200 space-y-5">
               <p className="text-sm text-gray-600 font-medium">Section 7 — Joint Member</p>
@@ -2297,20 +2280,6 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
                 </label>
               </div>
               {validationErrors.joint_final_declaration && <p className="text-red-500 text-xs -mt-2">{validationErrors.joint_final_declaration}</p>}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Signature (Joint Member) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.joint_final_signature}
-                  onChange={(e) => updateFormData('joint_final_signature', e.target.value)}
-                  placeholder="Type joint member's full name as signature"
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-transparent italic ${validationErrors.joint_final_signature ? 'border-red-500' : 'border-gray-300'}`}
-                />
-                {validationErrors.joint_final_signature && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_final_signature}</p>}
-              </div>
             </div>
           )}
         </div>
