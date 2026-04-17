@@ -634,6 +634,7 @@ export default function MemberList() {
       <BulkActionsBar
         selectedIds={selectedIds}
         allIds={allIds}
+        members={members || []}
         onClearSelection={clearSelection}
         onSelectAll={selectAll}
       />
