@@ -2350,7 +2350,7 @@ function DeclarationsTab({ declarations, memberId, member }: any) {
         </div>
 
         {/* Medical Consent - Joint Member */}
-        {declarations.joint_medical_consent !== undefined && declarations.joint_medical_consent !== null && (
+        {member?.app_type === 'joint' && (
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="bg-blue-50 border-l-4 border-blue-500 p-3 mb-4">
               <h3 className="text-sm font-semibold text-blue-900 mb-1">
@@ -2392,7 +2392,7 @@ function DeclarationsTab({ declarations, memberId, member }: any) {
         )}
 
         {/* Final Declaration - Joint Member */}
-        {declarations.joint_final_declaration !== undefined && declarations.joint_final_declaration !== null && (
+        {member?.app_type === 'joint' && (
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="bg-purple-50 border-l-4 border-purple-500 p-3 mb-4">
               <h3 className="text-sm font-semibold text-purple-900 mb-1">
