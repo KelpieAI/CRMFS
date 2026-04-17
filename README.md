@@ -3,7 +3,7 @@
 > A comprehensive member and payment management system built for Falkirk Central Mosque's death committee (Central Region Muslim Funeral Service).
 
 **Built by:** [Kelpie AI](https://kelpieai.co.uk)  
-**Version:** 0.10.0  
+**Version:** 0.10.1  
 **Status:** Active Development  
 **Tech Stack:** React + TypeScript + Supabase + Tailwind CSS + Resend
 
@@ -90,7 +90,7 @@ This CRM serves the death committee's operational needs by:
   - Searchable access history per member
 
 ### 👥 Member Management
-- **7-Step Registration Wizard** with professional sidebar navigation:
+- **8-Step Registration Wizard** with professional sidebar navigation:
   - Fixed left sidebar showing all steps with clear progress indicators
   - Green checkmarks for completed steps, dark green for active, gray for pending
   - Click completed steps to navigate back and review
@@ -99,14 +99,15 @@ This CRM serves the death committee's operational needs by:
   - Application references displayed in header and tracked in database
   - Auto-save on every step change
   - Resume saved applications from dashboard widget
-  - **7 Registration Steps:**
+  - **8 Registration Steps:**
     1. Membership Type (Single/Joint)
     2. Main Member (personal details with age auto-calculation)
     3. Children (add multiple children with details)
-    4. Next of Kin (mandatory emergency contact with relation dropdown)
+    4. Next of Kin (mandatory emergency contact - Last Name + Relationship on same row)
     5. Medical Info (conditional Yes/No health questions, no default selection)
-    6. GP Details (mandatory practice information)
-    7. Payment (pro-rata calculation with age-based fees, read-only adjustment field)
+    6. GP Details & Medical Consent (practice info + consent declaration - Postcode on address row, Phone + Email on same row)
+    7. Declaration (T&Cs acceptance, emergency fund agreement, information accuracy + signature)
+    8. Payment (pro-rata calculation with age-based fees, read-only adjustment field, payment status toggle)
   - **Human-Readable Membership IDs:**
     - Format: FCM-XXXXX (e.g., FCM-32614)
     - FCM = Falkirk Central Mosque
@@ -826,7 +827,144 @@ This system handles sensitive personal data. Security measures include:
 
 ## 📈 Version History
 
-### v0.10.0 (22 March 2026)
+### v0.10.1 (17 April 2026)
+**Critical bug fixes and UX improvements** based on extensive committee testing. This release addresses data integrity issues, routing errors, form layout problems, and workflow gaps discovered during live usage. The focus is on safety (preventing invalid activations), usability (better form layouts), and completeness (fixing broken workflows).
+
+- **Bulk Action Safety System (CRITICAL FIX):**
+  - **Activation Validation:** Members can no longer be activated without meeting requirements
+    - Payment requirement: At least one completed payment must exist
+    - Document requirement: Both photo_id_url AND proof_of_address_url must be uploaded
+    - Blocking modal displays missing requirements with red warning icon
+    - Shows checklist: [ ] Payment not received, [ ] Documents not uploaded
+    - Activation only proceeds if BOTH requirements are met
+  - **Context-Aware Action Bar:**
+    - Single member selected: View, Activate (validated), Pause, Delete available
+    - Multiple members selected: View/Activate/Pause disabled (grayed out), only Export/Email available
+    - Delete button hidden when multiple members selected
+  - **Enhanced Delete Protection:**
+    - Removed from bulk actions bar entirely
+    - Only accessible from Member Detail page or single-member selection
+    - Mandatory reason field (500 char max, cannot be empty)
+    - Password confirmation required
+    - Logs deletion reason and deleted_by user_id to activity_log
+    - NEVER allows bulk deletion of multiple members
+  - **Visual Feedback:**
+    - Disabled actions shown with 50% opacity and not-allowed cursor
+    - Tooltips explain why actions are disabled
+    - Selection counter badge: "X members selected"
+    - Clear "Deselect All" option
+
+- **Routing & Navigation Fixes:**
+  - **Payments Page View Button:** Fixed 404 error when viewing members from Payments screen
+    - Changed route from `/member/` to `/members/` to match App.tsx router
+    - View button now correctly navigates to member detail page
+  - **Documents Display Fix:** Documents uploaded during registration now visible in Member Detail
+    - Fixed column name mismatch between AddMember and DocumentsTab
+    - AddMember saves to: `photo_id_url`, `proof_of_address_url`
+    - DocumentsTab now checks correct columns (removed erroneous `main_` prefix)
+    - Documents now appear with preview and download options
+    - Proper status indicators (uploaded/missing) display correctly
+
+- **Form Layout Improvements (AddMember Wizard):**
+  - **Next of Kin Step Reorganization:**
+    - Row 1: Title (150px) + First Name (flex-1)
+    - Row 2: Last Name (40%) + Relationship (60%) - now on same row as requested
+    - Row 3: Address Line 1 (full width)
+    - Row 4: Town (40%) + City (60%)
+    - Row 5: Postcode (150px)
+    - Row 6: Mobile Phone (50%) + Home Phone (50%)
+    - Row 7: Email (full width)
+    - Better visual grouping, less vertical scrolling
+  - **GP Details & Medical Consent Step Reorganization:**
+    - Row 1: Practice Name (full width)
+    - Row 2: Address Line 1 (60%) + Postcode (40%) - postcode moved up as requested
+    - Row 3: Town (50%) + City (50%)
+    - Row 4: Telephone (50%) + Email (50%) - now on same row as requested
+    - Medical Consent section below (unchanged)
+    - More compact, natural layout
+
+- **Registration Workflow Split:**
+  - **Separated Declaration & Payment into 2 steps (8 steps total now):**
+    - Step 7: Declaration (T&Cs acceptance, emergency fund, information accuracy + signature)
+    - Step 8: Payment (pro-rata breakdown + payment status toggle)
+    - Navigation sidebar updated: Shows both steps separately
+    - Clearer separation of legal acceptance from financial info
+    - Better UX - members focus on one thing at a time
+
+- **Payment Status Auto-Update:**
+  - **Recording payment now automatically activates member:**
+    - When payment marked as "Completed" from Payments tab in Member Detail
+    - AND member status is "Pending"
+    - System automatically updates member status to "Active"
+    - Query invalidation refreshes UI immediately
+    - Toast notification: "Payment recorded and member activated"
+    - Works for both new payments and marking existing payments as completed
+
+- **Document Upload During Registration (FIXED):**
+  - **Re-enabled document upload in AddMember:**
+    - Files now successfully upload to Supabase Storage during registration
+    - URLs correctly saved to members table (photo_id_url, proof_of_address_url, etc.)
+    - Upload happens after member is created (requires member_id)
+    - Progress feedback shown to user during upload
+    - Documents immediately visible in Member Detail after completion
+    - Debug logging added for troubleshooting upload process
+
+- **UI/UX Improvements:**
+  - **Joint Member Declaration Hiding:** Single applicants no longer see "Applicant 2" sections
+    - Declarations tab checks `membership_type === 'joint'` before rendering joint sections
+    - Conditional rendering prevents confusion for single memberships
+    - Only shows relevant declarations based on membership type
+    - Cleaner, less cluttered interface
+  - **Declarations Tab Redesign:**
+    - Shows actual declaration text with disabled checkboxes (grayed out if signed)
+    - Medical Consent section: Checkbox + full declaration text + signature display
+    - Final Declaration section: 3 checkboxes + full texts + signature display
+    - Date stamps: "Signed on: 12 Jan 2026" for completed declarations
+    - No more Yes/No - shows actual legal text the member agreed to
+    - Joint member sections hidden for single applicants
+  - **Members List Search Fix:**
+    - Fixed View button not clickable in search results
+    - Removed/fixed blocking "hover bar" overlay
+    - Z-index layering corrected
+    - Clicking row OR View button properly navigates to /members/{id}
+    - Search results now fully functional
+
+- **Database & Validation:**
+  - Created helper function `canActivateMember(memberId)` for activation validation
+  - Queries payments table for completed payments
+  - Queries members table for required document URLs
+  - Returns detailed validation status with missing requirements breakdown
+  - Used before EVERY activation attempt across the app
+  - Prevents data integrity issues from incomplete activations
+
+**Committee Impact:**
+- Prevents accidental activation of unpaid/undocumented members (data integrity protection)
+- Reduces confusion for single applicants seeing irrelevant joint member fields
+- Fixes broken navigation from Payments screen (productivity improvement)
+- Documents uploaded during registration now immediately visible (eliminates follow-up questions)
+- Safer bulk operations prevent accidental mass deletions
+- Better form layouts reduce scrolling and training time
+- Clearer registration workflow with separated declaration and payment steps
+- Payment recording now automatically activates members (one less manual step)
+- Better visual feedback makes bulk action bar more intuitive
+
+**Bug Fixes:**
+- Fixed: Members could be activated without payment or documents
+- Fixed: 404 error when clicking "View" on Payments page
+- Fixed: Documents uploaded in AddMember not appearing in Member Detail
+- Fixed: Single members seeing joint member declaration sections
+- Fixed: Delete button appearing for multi-member selections
+- Fixed: Payment recording not updating member status to Active
+- Fixed: Documents not uploading during registration
+- Fixed: View button not clickable in Members List search
+- Fixed: Form layouts too cramped with excessive scrolling
+
+**Known Issues:**
+- Payment status note field still pending implementation
+- Membership confirmation email wording updates pending
+- Some edge cases in search filtering may still need refinement
+
+### v0.10.0 (19 February 2026)
 **Major registration workflow overhaul based on committee feedback.** This release streamlines the member registration process from 9 steps to 7 steps, introduces human-readable membership IDs, implements automatic application tracking, and gives the committee full control over when emails are sent. The result is a faster, more natural registration experience with better tracking and less administrative overhead.
 
 - **Streamlined 7-Step Registration:**
