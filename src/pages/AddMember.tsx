@@ -698,10 +698,10 @@ export default function AddMember() {
         : null;
 
       const docUpdate: Record<string, string | null> = {};
-      if (mainPhotoIdUrl) docUpdate.main_photo_id_url = mainPhotoIdUrl;
-      if (mainPoaUrl) docUpdate.main_proof_address_url = mainPoaUrl;
+      if (mainPhotoIdUrl) docUpdate.photo_id_url = mainPhotoIdUrl;
+      if (mainPoaUrl) docUpdate.proof_of_address_url = mainPoaUrl;
       if (jointPhotoIdUrl) docUpdate.joint_photo_id_url = jointPhotoIdUrl;
-      if (jointPoaUrl) docUpdate.joint_proof_address_url = jointPoaUrl;
+      if (jointPoaUrl) docUpdate.joint_proof_of_address_url = jointPoaUrl;
 
       if (Object.keys(docUpdate).length > 0) {
         await supabase.from('members').update(docUpdate).eq('id', memberId);
@@ -1597,8 +1597,9 @@ function StepNextOfKin({ formData, updateFormData, validationErrors }: any) {
         <p className="text-sm text-gray-600">Emergency contact information</p>
       </div>
       <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-[150px_1fr] gap-4">
-          <div>
+        {/* Row 1: Title + First Name + Last Name + Relationship */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+          <div className="col-span-1 md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
             <select value={formData.nok_title} onChange={(e) => updateFormData('nok_title', e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors">
@@ -1610,21 +1611,19 @@ function StepNextOfKin({ formData, updateFormData, validationErrors }: any) {
               <option value="Dr">Dr</option>
             </select>
           </div>
-          <div>
+          <div className="col-span-1 md:col-span-3">
             <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
             <input type="text" required value={formData.nok_first_name} onChange={(e) => updateFormData('nok_first_name', e.target.value)}
               className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
             {validationErrors.nok_first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_first_name}</p>}
           </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
+          <div className="col-span-1 md:col-span-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
             <input type="text" required value={formData.nok_last_name} onChange={(e) => updateFormData('nok_last_name', e.target.value)}
               className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
             {validationErrors.nok_last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_last_name}</p>}
           </div>
-          <div>
+          <div className="col-span-1 md:col-span-3">
             <label className="block text-sm font-medium text-gray-700 mb-2">Relationship <span className="text-red-500">*</span></label>
             <select required value={formData.nok_relationship} onChange={(e) => updateFormData('nok_relationship', e.target.value)}
               className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_relationship ? 'border-red-500' : 'border-gray-300'}`}>
