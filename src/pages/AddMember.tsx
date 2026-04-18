@@ -188,6 +188,8 @@ export default function AddMember() {
   // GP Details (shared for both applicants)
   const [gpPracticeName, setGpPracticeName] = useState('');
   const [gpPracticeAddress, setGpPracticeAddress] = useState('');
+  const [gpTown, setGpTown] = useState('');
+  const [gpCity, setGpCity] = useState('');
   const [gpPostcode, setGpPostcode] = useState('');
   const [gpTelephone, setGpTelephone] = useState('');
   const [gpEmail, setGpEmail] = useState('');
@@ -604,6 +606,8 @@ export default function AddMember() {
         member_id: memberId,
         gp_name_surgery: gpPracticeName,
         address_line_1: gpPracticeAddress,
+        town: gpTown,
+        city: gpCity,
         postcode: gpPostcode,
         phone: gpTelephone,
         email: gpEmail || null,
@@ -860,6 +864,8 @@ export default function AddMember() {
 
     if (!gpPracticeName) errors.gpPracticeName = 'GP practice name is required';
     if (!gpPracticeAddress) errors.gpPracticeAddress = 'GP practice address is required';
+    if (!gpTown) errors.gpTown = 'GP town is required';
+    if (!gpCity) errors.gpCity = 'GP city is required';
     if (!gpPostcode) errors.gpPostcode = 'GP postcode is required';
     if (!gpTelephone) errors.gpTelephone = 'GP telephone is required';
 
@@ -1122,6 +1128,8 @@ export default function AddMember() {
         {currentStep === 6 && <StepDeclarations
           gpPracticeName={gpPracticeName} setGpPracticeName={setGpPracticeName}
           gpPracticeAddress={gpPracticeAddress} setGpPracticeAddress={setGpPracticeAddress}
+          gpTown={gpTown} setGpTown={setGpTown}
+          gpCity={gpCity} setGpCity={setGpCity}
           gpPostcode={gpPostcode} setGpPostcode={setGpPostcode}
           gpTelephone={gpTelephone} setGpTelephone={setGpTelephone}
           gpEmail={gpEmail} setGpEmail={setGpEmail}
@@ -1830,6 +1838,8 @@ function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, se
 function StepDeclarations({
   gpPracticeName, setGpPracticeName,
   gpPracticeAddress, setGpPracticeAddress,
+  gpTown, setGpTown,
+  gpCity, setGpCity,
   gpPostcode, setGpPostcode,
   gpTelephone, setGpTelephone,
   gpEmail, setGpEmail,
@@ -1867,22 +1877,23 @@ function StepDeclarations({
             {validationErrors.gpPracticeName && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPracticeName}</p>}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              GP Practice Address <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={gpPracticeAddress}
-              onChange={(e) => setGpPracticeAddress(e.target.value)}
-              required
-              placeholder="Enter GP practice address"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPracticeAddress ? 'border-red-500' : 'border-gray-300'}`}
-            />
-            {validationErrors.gpPracticeAddress && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPracticeAddress}</p>}
-          </div>
+          {/* Address Line 1 + Postcode on same row */}
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_200px] gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                GP Practice Address <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={gpPracticeAddress}
+                onChange={(e) => setGpPracticeAddress(e.target.value)}
+                required
+                placeholder="Enter street address"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPracticeAddress ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {validationErrors.gpPracticeAddress && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPracticeAddress}</p>}
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-[150px_200px] gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Post Code <span className="text-red-500">*</span>
@@ -1897,7 +1908,43 @@ function StepDeclarations({
               />
               {validationErrors.gpPostcode && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPostcode}</p>}
             </div>
+          </div>
 
+          {/* Town + City on same row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Town <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={gpTown}
+                onChange={(e) => setGpTown(e.target.value)}
+                required
+                placeholder="Enter town"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpTown ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {validationErrors.gpTown && <p className="text-red-500 text-xs mt-1">{validationErrors.gpTown}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                City <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={gpCity}
+                onChange={(e) => setGpCity(e.target.value)}
+                required
+                placeholder="Enter city"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpCity ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {validationErrors.gpCity && <p className="text-red-500 text-xs mt-1">{validationErrors.gpCity}</p>}
+            </div>
+          </div>
+
+          {/* Telephone + Email on same row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Telephone <span className="text-red-500">*</span>
@@ -1912,19 +1959,19 @@ function StepDeclarations({
               />
               {validationErrors.gpTelephone && <p className="text-red-500 text-xs mt-1">{validationErrors.gpTelephone}</p>}
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email
-            </label>
-            <input
-              type="email"
-              value={gpEmail}
-              onChange={(e) => setGpEmail(e.target.value)}
-              placeholder="GP practice email (optional)"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                value={gpEmail}
+                onChange={(e) => setGpEmail(e.target.value)}
+                placeholder="GP practice email (optional)"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+            </div>
           </div>
         </div>
       </div>
