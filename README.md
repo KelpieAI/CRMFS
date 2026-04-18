@@ -827,6 +827,51 @@ This system handles sensitive personal data. Security measures include:
 
 ## 📈 Version History
 
+### v0.10.2 (18 April 2026)
+**Declaration signature workflow simplification** based on committee feedback that text signature inputs were "annoying and pointless." This release removes all manual signature typing from the declaration process—when members tick the checkbox, their full name is automatically used as the signature. Also fixes field name bugs in AddMember that were causing "undefined undefined" signatures.
+ 
+- **Signature Text Inputs Removed:**
+  - Removed ALL "Type your signature" text input fields from declaration modals
+  - Declarations now only require checkboxes—dead simple
+  - When checkbox ticked, member's full name (`First Name Last Name`) automatically saved as signature
+  - Works for both main member and joint member
+  - No validation on signature text anymore—just checkbox required
+  - Signature still displays in Member Detail but user never has to type it
+- **Declaration Display Cleanup:**
+  - Removed redundant "Signed by: John Smith" display from Member Detail
+  - Now just shows: ✅ "Signed and Agreed" + "Signed on 18 April 2026"
+  - Cleaner interface—we already know whose record we're looking at
+  - Amber warning box for unsigned declarations unchanged
+- **AddMember Signature Auto-Population:**
+  - Fixed field name bug: was using `formData.main_first_name` (doesn't exist)
+  - Corrected to `formData.first_name` + `formData.last_name` for main member
+  - Joint member uses `formData.joint_first_name` + `formData.joint_last_name`
+  - Signatures now correctly populated during registration
+  - No more "undefined undefined" in declaration signatures
+- **MemberDetail Modal Fixes:**
+  - Sign Declarations modal updated to use member's actual name
+  - Joint member name displayed in modal heading: "Joint Member (First Last)"
+  - Auto-populates signatures with correct member names when saving
+  - Fixed database table: was trying to update `members` table instead of `declarations` table
+  - Now uses `upsert` on `declarations` table so works whether record exists or not
+  - Joint member sections hidden for single memberships (already fixed in v0.10.1)
+**Committee Impact:**
+- Faster declaration signing—just tick boxes, no typing
+- Eliminates confusion about what to type as signature
+- Fixes broken "Sign & Save" button that was doing nothing
+- Cleaner declaration display reduces visual clutter
+- New members from AddMember now have proper signatures immediately
+**Bug Fixes:**
+- Fixed: "Sign & Save" button not working (wrong database table)
+- Fixed: "undefined undefined" signatures in new members
+- Fixed: Joint member name not showing in signature modal
+- Fixed: Joint member getting main member's name as signature
+**Files Changed:**
+- AddMember.tsx - Auto-populate signatures with member names
+- MemberDetail.tsx - Remove signature inputs, fix table, hide signature display
+
+---
+
 ### v0.10.1 (17 April 2026)
 **Critical bug fixes and UX improvements** based on extensive committee testing. This release addresses data integrity issues, routing errors, form layout problems, and workflow gaps discovered during live usage. The focus is on safety (preventing invalid activations), usability (better form layouts), and completeness (fixing broken workflows).
 
