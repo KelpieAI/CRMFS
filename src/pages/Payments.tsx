@@ -456,6 +456,7 @@ export default function Payments() {
                               updatePaymentStatus.mutate({
                                 paymentId: payment.id,
                                 newStatus: 'completed',
+                                memberId: payment.member_id,
                               });
                             }}
                             disabled={updatePaymentStatus.isPending}
@@ -578,10 +579,24 @@ function AddPaymentModal({ onClose }: { onClose: () => void }) {
       });
 
       if (error) throw error;
-      return data;
+
+      const { data: currentMember } = await supabase
+        .from('members')
+        .select('status')
+        .eq('id', formData.member_id)
+        .maybeSingle();
+      if (currentMember?.status === 'pending') {
+        await supabase.from('members').update({ status: 'active' }).eq('id', formData.member_id);
+        return { activated: true, insertedData: data };
+      }
+      return { activated: false, insertedData: data };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result?.activated) {
+        alert('Payment recorded and member status updated to Active.');
+      }
       queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
       onClose();
     },
   });

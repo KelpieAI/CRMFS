@@ -4741,8 +4741,24 @@ function RecordPaymentModal({ memberId, onClose, onSuccess }: { memberId: string
         notes: formData.notes || null,
       });
       if (error) throw error;
+
+      const { data: currentMember } = await supabase
+        .from('members')
+        .select('status')
+        .eq('id', memberId)
+        .maybeSingle();
+      if (currentMember?.status === 'pending') {
+        await supabase.from('members').update({ status: 'active' }).eq('id', memberId);
+        return { activated: true };
+      }
+      return { activated: false };
     },
-    onSuccess,
+    onSuccess: (result) => {
+      if (result?.activated) {
+        alert('Payment recorded and member status updated to Active.');
+      }
+      onSuccess();
+    },
   });
 
   const validate = () => {
@@ -4922,8 +4938,24 @@ function AdjustPaymentModal({ payment, onClose, onSuccess }: any) {
         })
         .eq('id', payment.id);
       if (error) throw error;
+
+      if (data.payment_status === 'completed' && payment.member_id) {
+        const { data: currentMember } = await supabase
+          .from('members')
+          .select('status')
+          .eq('id', payment.member_id)
+          .maybeSingle();
+        if (currentMember?.status === 'pending') {
+          await supabase.from('members').update({ status: 'active' }).eq('id', payment.member_id);
+          return { activated: true };
+        }
+      }
+      return { activated: false };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result?.activated) {
+        alert('Payment updated and member status updated to Active.');
+      }
       onSuccess();
     },
   });

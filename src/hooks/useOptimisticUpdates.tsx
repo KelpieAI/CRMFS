@@ -120,13 +120,26 @@ export function usePaymentStatusUpdate() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ paymentId, newStatus }: { paymentId: string; newStatus: string }) => {
+    mutationFn: async ({ paymentId, newStatus, memberId }: { paymentId: string; newStatus: string; memberId?: string }) => {
       const { error } = await supabase
         .from('payments')
         .update({ payment_status: newStatus })
         .eq('id', paymentId);
 
       if (error) throw error;
+
+      if (newStatus === 'completed' && memberId) {
+        const { data: currentMember } = await supabase
+          .from('members')
+          .select('status')
+          .eq('id', memberId)
+          .maybeSingle();
+        if (currentMember?.status === 'pending') {
+          await supabase.from('members').update({ status: 'active' }).eq('id', memberId);
+          return { activated: true, memberId };
+        }
+      }
+      return { activated: false, memberId };
     },
 
     onMutate: async ({ paymentId, newStatus }) => {
@@ -150,8 +163,12 @@ export function usePaymentStatusUpdate() {
       }
     },
 
-    onSettled: () => {
+    onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
+      if (variables.memberId) {
+        queryClient.invalidateQueries({ queryKey: ['members'] });
+        queryClient.invalidateQueries({ queryKey: ['member-detail', variables.memberId] });
+      }
     },
   });
 }
