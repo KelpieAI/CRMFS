@@ -959,7 +959,7 @@ export default function MemberDetail() {
         )}
 
         {activeTab === 'documents' && (
-          <DocumentsTab member={memberData?.member} memberId={id!} children={memberData?.children || []} />
+          <DocumentsTab member={memberData?.member} memberId={id!} />
         )}
 
         {activeTab === 'payments' && (
@@ -2270,87 +2270,147 @@ function DeclarationsTab({ declarations, memberId, member }: any) {
         </div>
 
         {/* Medical Consent - Main Member */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <div className="bg-blue-50 border-l-4 border-blue-500 p-3 mb-4">
-            <h3 className="text-sm font-semibold text-blue-900 mb-1">
-              Section 6: Medical Consent - Applicant 1
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+            <h3 className="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-2">
+              {declarations.main_medical_consent && (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              )}
+              Section 6: Medical Consent Declaration
             </h3>
           </div>
-          <dl className="space-y-2">
-            <div className="flex justify-between items-start py-1">
-              <dt className="text-xs text-gray-500 font-medium">Consent Given</dt>
-              <dd className="text-sm text-gray-900 text-right">
-                {declarations.main_medical_consent ? (
-                  <span className="inline-flex items-center text-green-600">
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    Yes
-                  </span>
-                ) : (
-                  <span className="text-red-600">No</span>
+          
+          {/* Declaration Text */}
+          <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
+            <p className="text-sm text-gray-700 leading-relaxed italic">
+              "I confirm that I have no known medical conditions or illnesses, other than those I have already 
+              disclosed in Section 5 (Medical Info) of this application, that could invalidate my application."
+            </p>
+          </div>
+
+          {/* Signature Details */}
+          {declarations.main_medical_signature ? (
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-900">Signed and Agreed</p>
+                  <p className="text-xs text-green-700 mt-1">
+                    This declaration has been digitally signed by the applicant
+                  </p>
+                </div>
+              </div>
+              
+              <dl className="space-y-2">
+                <div className="flex justify-between items-start py-2 border-b border-gray-200">
+                  <dt className="text-sm text-gray-600 font-medium">Signed by:</dt>
+                  <dd className="text-lg text-gray-900 font-serif italic">
+                    {declarations.main_medical_signature}
+                  </dd>
+                </div>
+                {declarations.main_medical_consent_date && (
+                  <div className="flex justify-between items-start py-2">
+                    <dt className="text-sm text-gray-600 font-medium">Date signed:</dt>
+                    <dd className="text-sm text-gray-900">
+                      {new Date(declarations.main_medical_consent_date).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </dd>
+                  </div>
                 )}
-              </dd>
+              </dl>
             </div>
-            {declarations.main_medical_signature && (
-              <div className="flex justify-between items-start py-1">
-                <dt className="text-xs text-gray-500 font-medium">Signature</dt>
-                <dd className="text-lg text-gray-900 text-right font-serif italic">
-                  {declarations.main_medical_signature}
-                </dd>
+          ) : (
+            <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+              <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-amber-900">Not Yet Signed</p>
+                <p className="text-xs text-amber-700 mt-1">
+                  This declaration has not been signed by the applicant
+                </p>
               </div>
-            )}
-            {declarations.main_medical_consent_date && (
-              <div className="flex justify-between items-start py-1">
-                <dt className="text-xs text-gray-500 font-medium">Date Signed</dt>
-                <dd className="text-sm text-gray-900 text-right">
-                  {new Date(declarations.main_medical_consent_date).toLocaleDateString()}
-                </dd>
-              </div>
-            )}
-          </dl>
+            </div>
+          )}
         </div>
 
         {/* Final Declaration - Main Member */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <div className="bg-purple-50 border-l-4 border-purple-500 p-3 mb-4">
-            <h3 className="text-sm font-semibold text-purple-900 mb-1">
-              Section 7: Final Declaration - Applicant 1
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-purple-50 border-l-4 border-purple-500 p-4 mb-4">
+            <h3 className="text-sm font-semibold text-purple-900 mb-2 flex items-center gap-2">
+              {declarations.main_final_declaration && (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              )}
+              Section 7: Final Declaration & Terms
             </h3>
           </div>
-          <dl className="space-y-2">
-            <div className="flex justify-between items-start py-1">
-              <dt className="text-xs text-gray-500 font-medium">Declaration Accepted</dt>
-              <dd className="text-sm text-gray-900 text-right">
-                {declarations.main_final_declaration ? (
-                  <span className="inline-flex items-center text-green-600">
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    Yes
-                  </span>
-                ) : (
-                  <span className="text-red-600">No</span>
+          
+          {/* Declaration Text */}
+          <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200 space-y-3">
+            <p className="text-sm text-gray-700 leading-relaxed italic flex items-start gap-2">
+              <CheckSquare className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+              <span>"I accept the Terms & Conditions of Central Region Muslim Funeral Service"</span>
+            </p>
+            <p className="text-sm text-gray-700 leading-relaxed italic flex items-start gap-2">
+              <CheckSquare className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+              <span>"I agree to contribute to the emergency fund if required"</span>
+            </p>
+            <p className="text-sm text-gray-700 leading-relaxed italic flex items-start gap-2">
+              <CheckSquare className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+              <span>"I confirm that all information provided in this application is accurate and complete"</span>
+            </p>
+          </div>
+
+          {/* Signature Details */}
+          {declarations.main_final_signature ? (
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-900">Signed and Agreed</p>
+                  <p className="text-xs text-green-700 mt-1">
+                    This declaration has been digitally signed by the applicant
+                  </p>
+                </div>
+              </div>
+              
+              <dl className="space-y-2">
+                <div className="flex justify-between items-start py-2 border-b border-gray-200">
+                  <dt className="text-sm text-gray-600 font-medium">Signed by:</dt>
+                  <dd className="text-lg text-gray-900 font-serif italic">
+                    {declarations.main_final_signature}
+                  </dd>
+                </div>
+                {declarations.main_final_declaration_date && (
+                  <div className="flex justify-between items-start py-2">
+                    <dt className="text-sm text-gray-600 font-medium">Date signed:</dt>
+                    <dd className="text-sm text-gray-900">
+                      {new Date(declarations.main_final_declaration_date).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </dd>
+                  </div>
                 )}
-              </dd>
+              </dl>
             </div>
-            {declarations.main_final_signature && (
-              <div className="flex justify-between items-start py-1">
-                <dt className="text-xs text-gray-500 font-medium">Signature</dt>
-                <dd className="text-lg text-gray-900 text-right font-serif italic">
-                  {declarations.main_final_signature}
-                </dd>
+          ) : (
+            <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+              <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-amber-900">Not Yet Signed</p>
+                <p className="text-xs text-amber-700 mt-1">
+                  This declaration has not been signed by the applicant
+                </p>
               </div>
-            )}
-            {declarations.main_final_declaration_date && (
-              <div className="flex justify-between items-start py-1">
-                <dt className="text-xs text-gray-500 font-medium">Date Signed</dt>
-                <dd className="text-sm text-gray-900 text-right">
-                  {new Date(declarations.main_final_declaration_date).toLocaleDateString()}
-                </dd>
-              </div>
-            )}
-          </dl>
+            </div>
+          )}
         </div>
 
         {/* Medical Consent - Joint Member */}
-        {member?.app_type === 'joint' && (
+        {declarations.joint_medical_consent !== undefined && declarations.joint_medical_consent !== null && (
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="bg-blue-50 border-l-4 border-blue-500 p-3 mb-4">
               <h3 className="text-sm font-semibold text-blue-900 mb-1">
@@ -2392,7 +2452,7 @@ function DeclarationsTab({ declarations, memberId, member }: any) {
         )}
 
         {/* Final Declaration - Joint Member */}
-        {member?.app_type === 'joint' && (
+        {declarations.joint_final_declaration !== undefined && declarations.joint_final_declaration !== null && (
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="bg-purple-50 border-l-4 border-purple-500 p-3 mb-4">
               <h3 className="text-sm font-semibold text-purple-900 mb-1">
@@ -2908,14 +2968,14 @@ function MedicalInfoTab({ medicalInfo, memberId }: any) {
 }
 
 // Documents Tab Component (Simple placeholder)
-function DocumentsTab({ member, memberId, children }: any) {
+function DocumentsTab({ member, memberId }: any) {
   const [showUploadModal, setShowUploadModal] = useState(false);
-
-  const hasAnyDocuments = member?.main_photo_id_url ||
-    member?.main_proof_address_url ||
+  
+  const hasAnyDocuments = member?.photo_id_url ||
+    member?.proof_of_address_url ||
     member?.joint_photo_id_url ||
-    member?.joint_proof_address_url ||
-    (children && children.some((c: any) => c.birth_certificate_url));
+    member?.joint_proof_of_address_url ||
+    (member?.children_documents && Object.keys(member.children_documents).length > 0);
 
   return (
     <>
@@ -2946,12 +3006,12 @@ function DocumentsTab({ member, memberId, children }: any) {
           <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
             <div className="flex items-center flex-1">
               <div className={`p-2 rounded-lg mr-3 ${
-                member?.main_photo_id_url
+                member?.photo_id_url
                   ? 'bg-emerald-100'
                   : 'bg-gray-100'
               }`}>
                 <FileText className={`h-6 w-6 ${
-                  member?.main_photo_id_url
+                  member?.photo_id_url
                     ? 'text-emerald-600'
                     : 'text-gray-400'
                 }`} />
@@ -2960,7 +3020,7 @@ function DocumentsTab({ member, memberId, children }: any) {
                 <p className="text-sm font-medium text-gray-900">
                   Photo ID (Passport / Driving Licence)
                 </p>
-                {member?.main_photo_id_url ? (
+                {member?.photo_id_url ? (
                   <p className="text-xs text-gray-500">
                     Uploaded • Required
                   </p>
@@ -2972,10 +3032,10 @@ function DocumentsTab({ member, memberId, children }: any) {
               </div>
             </div>
 
-            {member?.main_photo_id_url ? (
+            {member?.photo_id_url ? (
               <div className="flex items-center space-x-2">
                 <a
-                  href={member.main_photo_id_url}
+                  href={member.photo_id_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
@@ -2984,7 +3044,7 @@ function DocumentsTab({ member, memberId, children }: any) {
                   <Eye className="h-4 w-4 text-emerald-600" />
                 </a>
                 <a
-                  href={member.main_photo_id_url}
+                  href={member.photo_id_url}
                   download
                   className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
                   title="Download document"
@@ -3003,12 +3063,12 @@ function DocumentsTab({ member, memberId, children }: any) {
           <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
             <div className="flex items-center flex-1">
               <div className={`p-2 rounded-lg mr-3 ${
-                member?.main_proof_address_url
+                member?.proof_of_address_url
                   ? 'bg-emerald-100'
                   : 'bg-gray-100'
               }`}>
                 <FileText className={`h-6 w-6 ${
-                  member?.main_proof_address_url
+                  member?.proof_of_address_url
                     ? 'text-emerald-600'
                     : 'text-gray-400'
                 }`} />
@@ -3017,7 +3077,7 @@ function DocumentsTab({ member, memberId, children }: any) {
                 <p className="text-sm font-medium text-gray-900">
                   Proof of Address (Utility Bill / Council Tax)
                 </p>
-                {member?.main_proof_address_url ? (
+                {member?.proof_of_address_url ? (
                   <p className="text-xs text-gray-500">
                     Uploaded • Required
                   </p>
@@ -3029,10 +3089,10 @@ function DocumentsTab({ member, memberId, children }: any) {
               </div>
             </div>
 
-            {member?.main_proof_address_url ? (
+            {member?.proof_of_address_url ? (
               <div className="flex items-center space-x-2">
                 <a
-                  href={member.main_proof_address_url}
+                  href={member.proof_of_address_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
@@ -3041,7 +3101,7 @@ function DocumentsTab({ member, memberId, children }: any) {
                   <Eye className="h-4 w-4 text-emerald-600" />
                 </a>
                 <a
-                  href={member.main_proof_address_url}
+                  href={member.proof_of_address_url}
                   download
                   className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
                   title="Download document"
@@ -3059,7 +3119,7 @@ function DocumentsTab({ member, memberId, children }: any) {
       </div>
 
       {/* Joint Member Documents (if applicable) */}
-      {member?.app_type === 'joint' && (
+      {member?.has_joint_member && (
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
             <Users className="h-4 w-4 mr-2 text-emerald-600" />
@@ -3185,7 +3245,7 @@ function DocumentsTab({ member, memberId, children }: any) {
       )}
 
       {/* Children Documents (if applicable) */}
-      {children && children.length > 0 && (
+      {member?.children_documents && Object.keys(member.children_documents).length > 0 && (
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
             <Baby className="h-4 w-4 mr-2 text-emerald-600" />
@@ -3193,52 +3253,44 @@ function DocumentsTab({ member, memberId, children }: any) {
           </h4>
 
           <div className="space-y-4">
-            {children.map((child: any) => (
+            {Object.entries(member.children_documents).map(([key, url]: [string, any], index: number) => (
               <div
-                key={child.id}
+                key={key}
                 className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
               >
                 <div className="flex items-center flex-1">
-                  <div className={`p-2 rounded-lg mr-3 ${child.birth_certificate_url ? 'bg-emerald-100' : 'bg-gray-100'}`}>
-                    <FileText className={`h-6 w-6 ${child.birth_certificate_url ? 'text-emerald-600' : 'text-gray-400'}`} />
+                  <div className="p-2 rounded-lg mr-3 bg-emerald-100">
+                    <FileText className="h-6 w-6 text-emerald-600" />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">
-                      {child.first_name} {child.last_name} — Birth Certificate / Passport
+                      Child {index + 1} - Birth Certificate / Passport
                     </p>
-                    {child.birth_certificate_url ? (
-                      <p className="text-xs text-gray-500">Uploaded • Required</p>
-                    ) : (
-                      <p className="text-xs text-red-600">Not uploaded • Required</p>
-                    )}
+                    <p className="text-xs text-gray-500">
+                      Uploaded • Required
+                    </p>
                   </div>
                 </div>
 
-                {child.birth_certificate_url ? (
-                  <div className="flex items-center space-x-2">
-                    <a
-                      href={child.birth_certificate_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
-                      title="View document"
-                    >
-                      <Eye className="h-4 w-4 text-emerald-600" />
-                    </a>
-                    <a
-                      href={child.birth_certificate_url}
-                      download
-                      className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
-                      title="Download document"
-                    >
-                      <Download className="h-4 w-4 text-blue-600" />
-                    </a>
-                  </div>
-                ) : (
-                  <span className="px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
-                    Missing
-                  </span>
-                )}
+                <div className="flex items-center space-x-2">
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
+                    title="View document"
+                  >
+                    <Eye className="h-4 w-4 text-emerald-600" />
+                  </a>
+                  <a
+                    href={url}
+                    download
+                    className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                    title="Download document"
+                  >
+                    <Download className="h-4 w-4 text-blue-600" />
+                  </a>
+                </div>
               </div>
             ))}
           </div>
@@ -4741,24 +4793,8 @@ function RecordPaymentModal({ memberId, onClose, onSuccess }: { memberId: string
         notes: formData.notes || null,
       });
       if (error) throw error;
-
-      const { data: currentMember } = await supabase
-        .from('members')
-        .select('status')
-        .eq('id', memberId)
-        .maybeSingle();
-      if (currentMember?.status === 'pending') {
-        await supabase.from('members').update({ status: 'active' }).eq('id', memberId);
-        return { activated: true };
-      }
-      return { activated: false };
     },
-    onSuccess: (result) => {
-      if (result?.activated) {
-        alert('Payment recorded and member status updated to Active.');
-      }
-      onSuccess();
-    },
+    onSuccess,
   });
 
   const validate = () => {
@@ -4938,24 +4974,8 @@ function AdjustPaymentModal({ payment, onClose, onSuccess }: any) {
         })
         .eq('id', payment.id);
       if (error) throw error;
-
-      if (data.payment_status === 'completed' && payment.member_id) {
-        const { data: currentMember } = await supabase
-          .from('members')
-          .select('status')
-          .eq('id', payment.member_id)
-          .maybeSingle();
-        if (currentMember?.status === 'pending') {
-          await supabase.from('members').update({ status: 'active' }).eq('id', payment.member_id);
-          return { activated: true };
-        }
-      }
-      return { activated: false };
     },
-    onSuccess: (result) => {
-      if (result?.activated) {
-        alert('Payment updated and member status updated to Active.');
-      }
+    onSuccess: () => {
       onSuccess();
     },
   });
@@ -5523,12 +5543,15 @@ function DeclarationsSignatureModal({ isOpen, onClose, memberId, member, declara
   const validate = () => {
     const newErrors: any = {};
     
-    if (formData.main_medical_consent && !formData.main_medical_signature.trim()) {
-      newErrors.main_medical_signature = 'Signature is required when consent is given';
+    // No validation needed - signatures auto-populated from member name
+    
+    if (hasJointMember) {
+      // No joint validation needed either
     }
-    if (formData.main_final_declaration && !formData.main_final_signature.trim()) {
-      newErrors.main_final_signature = 'Signature is required for declaration';
-    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
     if (hasJointMember) {
       if (formData.joint_medical_consent && !formData.joint_medical_signature.trim()) {
@@ -5546,7 +5569,16 @@ function DeclarationsSignatureModal({ isOpen, onClose, memberId, member, declara
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validate()) {
-      saveMutation.mutate(formData);
+      // Auto-populate signatures with member's full name
+      const memberFullName = `${member?.first_name} ${member?.last_name}`;
+      const dataToSave = {
+        ...formData,
+        main_medical_signature: formData.main_medical_consent ? memberFullName : '',
+        main_final_signature: formData.main_final_declaration ? memberFullName : '',
+        joint_medical_signature: formData.joint_medical_consent ? memberFullName : '',
+        joint_final_signature: formData.joint_final_declaration ? memberFullName : '',
+      };
+      saveMutation.mutate(dataToSave);
     }
   };
 
@@ -5584,24 +5616,6 @@ function DeclarationsSignatureModal({ isOpen, onClose, memberId, member, declara
                   I consent to my GP being contacted in the event of my death to obtain relevant medical information.
                 </span>
               </label>
-
-              {formData.main_medical_consent && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Signature *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.main_medical_signature}
-                    onChange={(e) => setFormData({ ...formData, main_medical_signature: e.target.value })}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 font-serif italic ${
-                      errors.main_medical_signature ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                    placeholder="Full name as signature"
-                  />
-                  {errors.main_medical_signature && <p className="text-xs text-red-600 mt-1">{errors.main_medical_signature}</p>}
-                </div>
-              )}
             </div>
 
             {/* Final Declaration */}
@@ -5619,24 +5633,6 @@ function DeclarationsSignatureModal({ isOpen, onClose, memberId, member, declara
                   I accept the terms and conditions, agree to contribute to the emergency fund, and confirm all information is accurate.
                 </span>
               </label>
-
-              {formData.main_final_declaration && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Signature *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.main_final_signature}
-                    onChange={(e) => setFormData({ ...formData, main_final_signature: e.target.value })}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 font-serif italic ${
-                      errors.main_final_signature ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                    placeholder="Full name as signature"
-                  />
-                  {errors.main_final_signature && <p className="text-xs text-red-600 mt-1">{errors.main_final_signature}</p>}
-                </div>
-              )}
             </div>
           </div>
 
@@ -5660,24 +5656,6 @@ function DeclarationsSignatureModal({ isOpen, onClose, memberId, member, declara
                     I consent to my GP being contacted in the event of my death to obtain relevant medical information.
                   </span>
                 </label>
-
-                {formData.joint_medical_consent && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Signature *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.joint_medical_signature}
-                      onChange={(e) => setFormData({ ...formData, joint_medical_signature: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 font-serif italic ${
-                        errors.joint_medical_signature ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                      placeholder="Full name as signature"
-                    />
-                    {errors.joint_medical_signature && <p className="text-xs text-red-600 mt-1">{errors.joint_medical_signature}</p>}
-                  </div>
-                )}
               </div>
 
               {/* Final Declaration */}
@@ -5695,24 +5673,6 @@ function DeclarationsSignatureModal({ isOpen, onClose, memberId, member, declara
                     I accept the terms and conditions, agree to contribute to the emergency fund, and confirm all information is accurate.
                   </span>
                 </label>
-
-                {formData.joint_final_declaration && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Signature *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.joint_final_signature}
-                      onChange={(e) => setFormData({ ...formData, joint_final_signature: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 font-serif italic ${
-                        errors.joint_final_signature ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                      placeholder="Full name as signature"
-                    />
-                    {errors.joint_final_signature && <p className="text-xs text-red-600 mt-1">{errors.joint_final_signature}</p>}
-                  </div>
-                )}
               </div>
             </div>
           )}
