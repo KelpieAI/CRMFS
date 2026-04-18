@@ -955,7 +955,7 @@ export default function MemberDetail() {
         )}
 
         {activeTab === 'declarations' && (
-          <DeclarationsTab declarations={memberData?.declarations} memberId={id!} member={memberData?.member} />
+          <DeclarationsTab declarations={memberData?.declarations} memberId={id!} member={memberData?.member} jointMember={memberData?.jointMember} />
         )}
 
         {activeTab === 'documents' && (
@@ -2213,7 +2213,7 @@ function GPDetailsTab({ gpDetails, memberId }: any) {
 }
 
 // Declarations Tab Component
-function DeclarationsTab({ declarations, memberId, member }: any) {
+function DeclarationsTab({ declarations, memberId, member, jointMember }: any) {
   const [showSignatureModal, setShowSignatureModal] = useState(false);
 
   if (!declarations) {
@@ -2242,6 +2242,7 @@ function DeclarationsTab({ declarations, memberId, member }: any) {
             onClose={() => setShowSignatureModal(false)}
             memberId={memberId}
             member={member}
+            jointMember={jointMember}
             declarations={null}
           />
         )}
@@ -2410,7 +2411,7 @@ function DeclarationsTab({ declarations, memberId, member }: any) {
         </div>
 
         {/* Medical Consent - Joint Member */}
-        {declarations.joint_medical_consent !== undefined && declarations.joint_medical_consent !== null && (
+        {member?.app_type === 'joint' && declarations.joint_medical_consent !== undefined && declarations.joint_medical_consent !== null && (
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="bg-blue-50 border-l-4 border-blue-500 p-3 mb-4">
               <h3 className="text-sm font-semibold text-blue-900 mb-1">
@@ -2452,7 +2453,7 @@ function DeclarationsTab({ declarations, memberId, member }: any) {
         )}
 
         {/* Final Declaration - Joint Member */}
-        {declarations.joint_final_declaration !== undefined && declarations.joint_final_declaration !== null && (
+        {member?.app_type === 'joint' && declarations.joint_final_declaration !== undefined && declarations.joint_final_declaration !== null && (
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="bg-purple-50 border-l-4 border-purple-500 p-3 mb-4">
               <h3 className="text-sm font-semibold text-purple-900 mb-1">
@@ -2500,6 +2501,7 @@ function DeclarationsTab({ declarations, memberId, member }: any) {
           onClose={() => setShowSignatureModal(false)}
           memberId={memberId}
           member={member}
+          jointMember={jointMember}
           declarations={declarations}
         />
       )}
@@ -5487,10 +5489,11 @@ interface DeclarationsSignatureModalProps {
   onClose: () => void;
   memberId: string;
   member: any;
+  jointMember: any;
   declarations: any;
 }
 
-function DeclarationsSignatureModal({ isOpen, onClose, memberId, member, declarations }: DeclarationsSignatureModalProps) {
+function DeclarationsSignatureModal({ isOpen, onClose, memberId, member, jointMember, declarations }: DeclarationsSignatureModalProps) {
   const queryClient = useQueryClient();
   const hasJointMember = member?.app_type === 'joint';
   
@@ -5511,6 +5514,7 @@ function DeclarationsSignatureModal({ isOpen, onClose, memberId, member, declara
       const today = new Date().toISOString();
       
       const updateData: any = {
+        member_id: memberId,
         main_medical_consent: data.main_medical_consent,
         main_medical_signature: data.main_medical_signature,
         main_medical_consent_date: data.main_medical_consent ? today : null,
@@ -5528,10 +5532,11 @@ function DeclarationsSignatureModal({ isOpen, onClose, memberId, member, declara
         updateData.joint_final_declaration_date = data.joint_final_declaration ? today : null;
       }
 
+      // Use upsert to insert if not exists, or update if exists
       const { error } = await supabase
-        .from('members')
-        .update(updateData)
-        .eq('id', memberId);
+        .from('declarations')
+        .upsert(updateData, { onConflict: 'member_id' });
+      
       if (error) throw error;
     },
     onSuccess: () => {
@@ -5558,12 +5563,14 @@ function DeclarationsSignatureModal({ isOpen, onClose, memberId, member, declara
     if (validate()) {
       // Auto-populate signatures with member's full name
       const memberFullName = `${member?.first_name} ${member?.last_name}`;
+      const jointMemberFullName = jointMember ? `${jointMember?.first_name} ${jointMember?.last_name}` : '';
+      
       const dataToSave = {
         ...formData,
         main_medical_signature: formData.main_medical_consent ? memberFullName : '',
         main_final_signature: formData.main_final_declaration ? memberFullName : '',
-        joint_medical_signature: formData.joint_medical_consent ? memberFullName : '',
-        joint_final_signature: formData.joint_final_declaration ? memberFullName : '',
+        joint_medical_signature: formData.joint_medical_consent ? jointMemberFullName : '',
+        joint_final_signature: formData.joint_final_declaration ? jointMemberFullName : '',
       };
       saveMutation.mutate(dataToSave);
     }
@@ -5626,7 +5633,9 @@ function DeclarationsSignatureModal({ isOpen, onClose, memberId, member, declara
           {/* Joint Member */}
           {hasJointMember && (
             <div className="space-y-4">
-              <h4 className="text-sm font-semibold text-gray-900 pb-2 border-b">Joint Member</h4>
+              <h4 className="text-sm font-semibold text-gray-900 pb-2 border-b">
+                Joint Member {jointMember && `(${jointMember.first_name} ${jointMember.last_name})`}
+              </h4>
               
               {/* Medical Consent */}
               <div className="bg-blue-50 rounded-lg p-4 space-y-3">
