@@ -644,7 +644,7 @@ export default function AddMember() {
       const now = new Date().toISOString();
       
       // Auto-populate signatures with member's full name
-      const mainMemberFullName = `${formData.main_first_name} ${formData.main_last_name}`;
+      const mainMemberFullName = `${formData.first_name} ${formData.last_name}`;
       const jointMemberFullName = formData.app_type === 'joint' ? `${formData.joint_first_name} ${formData.joint_last_name}` : '';
       
       await supabase.from('declarations').insert({
