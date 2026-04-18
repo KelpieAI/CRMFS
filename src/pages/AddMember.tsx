@@ -642,20 +642,25 @@ export default function AddMember() {
       }
 
       const now = new Date().toISOString();
+      
+      // Auto-populate signatures with member's full name
+      const mainMemberFullName = `${formData.main_first_name} ${formData.main_last_name}`;
+      const jointMemberFullName = formData.app_type === 'joint' ? `${formData.joint_first_name} ${formData.joint_last_name}` : '';
+      
       await supabase.from('declarations').insert({
         member_id: memberId,
         main_medical_consent: formData.main_medical_consent,
-        main_medical_signature: formData.main_medical_signature || null,
+        main_medical_signature: formData.main_medical_consent ? mainMemberFullName : null,
         main_medical_consent_date: formData.main_medical_consent ? now : null,
         main_final_declaration: formData.main_final_declaration,
-        main_final_signature: formData.main_final_signature || null,
+        main_final_signature: formData.main_final_declaration ? mainMemberFullName : null,
         main_final_declaration_date: formData.main_final_declaration ? now : null,
         ...(formData.app_type === 'joint' && {
           joint_medical_consent: formData.joint_medical_consent,
-          joint_medical_signature: formData.joint_medical_signature || null,
+          joint_medical_signature: formData.joint_medical_consent ? jointMemberFullName : null,
           joint_medical_consent_date: formData.joint_medical_consent ? now : null,
           joint_final_declaration: formData.joint_final_declaration,
-          joint_final_signature: formData.joint_final_signature || null,
+          joint_final_signature: formData.joint_final_declaration ? jointMemberFullName : null,
           joint_final_declaration_date: formData.joint_final_declaration ? now : null,
         }),
       });
