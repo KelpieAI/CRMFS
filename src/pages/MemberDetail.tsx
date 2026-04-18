@@ -5553,19 +5553,6 @@ function DeclarationsSignatureModal({ isOpen, onClose, memberId, member, declara
     return Object.keys(newErrors).length === 0;
   };
 
-    if (hasJointMember) {
-      if (formData.joint_medical_consent && !formData.joint_medical_signature.trim()) {
-        newErrors.joint_medical_signature = 'Signature is required when consent is given';
-      }
-      if (formData.joint_final_declaration && !formData.joint_final_signature.trim()) {
-        newErrors.joint_final_signature = 'Signature is required for declaration';
-      }
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validate()) {
