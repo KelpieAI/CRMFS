@@ -3,7 +3,7 @@
 > A comprehensive member and payment management system built for Falkirk Central Mosque's death committee (Central Region Muslim Funeral Service).
 
 **Built by:** [Kelpie AI](https://kelpieai.co.uk)  
-**Version:** 0.10.1  
+**Version:** 0.10.2  
 **Status:** Active Development  
 **Tech Stack:** React + TypeScript + Supabase + Tailwind CSS + Resend
 
