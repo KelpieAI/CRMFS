@@ -2296,32 +2296,17 @@ function DeclarationsTab({ declarations, memberId, member, jointMember }: any) {
                 <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-green-900">Signed and Agreed</p>
-                  <p className="text-xs text-green-700 mt-1">
-                    This declaration has been digitally signed by the applicant
-                  </p>
-                </div>
-              </div>
-              
-              <dl className="space-y-2">
-                <div className="flex justify-between items-start py-2 border-b border-gray-200">
-                  <dt className="text-sm text-gray-600 font-medium">Signed by:</dt>
-                  <dd className="text-lg text-gray-900 font-serif italic">
-                    {declarations.main_medical_signature}
-                  </dd>
-                </div>
-                {declarations.main_medical_consent_date && (
-                  <div className="flex justify-between items-start py-2">
-                    <dt className="text-sm text-gray-600 font-medium">Date signed:</dt>
-                    <dd className="text-sm text-gray-900">
-                      {new Date(declarations.main_medical_consent_date).toLocaleDateString('en-GB', {
+                  {declarations.main_medical_consent_date && (
+                    <p className="text-xs text-green-700 mt-1">
+                      Signed on {new Date(declarations.main_medical_consent_date).toLocaleDateString('en-GB', {
                         day: 'numeric',
                         month: 'long',
                         year: 'numeric'
                       })}
-                    </dd>
-                  </div>
-                )}
-              </dl>
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           ) : (
             <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
@@ -2370,32 +2355,17 @@ function DeclarationsTab({ declarations, memberId, member, jointMember }: any) {
                 <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-green-900">Signed and Agreed</p>
-                  <p className="text-xs text-green-700 mt-1">
-                    This declaration has been digitally signed by the applicant
-                  </p>
-                </div>
-              </div>
-              
-              <dl className="space-y-2">
-                <div className="flex justify-between items-start py-2 border-b border-gray-200">
-                  <dt className="text-sm text-gray-600 font-medium">Signed by:</dt>
-                  <dd className="text-lg text-gray-900 font-serif italic">
-                    {declarations.main_final_signature}
-                  </dd>
-                </div>
-                {declarations.main_final_declaration_date && (
-                  <div className="flex justify-between items-start py-2">
-                    <dt className="text-sm text-gray-600 font-medium">Date signed:</dt>
-                    <dd className="text-sm text-gray-900">
-                      {new Date(declarations.main_final_declaration_date).toLocaleDateString('en-GB', {
+                  {declarations.main_final_declaration_date && (
+                    <p className="text-xs text-green-700 mt-1">
+                      Signed on {new Date(declarations.main_final_declaration_date).toLocaleDateString('en-GB', {
                         day: 'numeric',
                         month: 'long',
                         year: 'numeric'
                       })}
-                    </dd>
-                  </div>
-                )}
-              </dl>
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           ) : (
             <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
