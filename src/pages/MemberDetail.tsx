@@ -2982,10 +2982,10 @@ function MedicalInfoTab({ medicalInfo, memberId }: any) {
 function DocumentsTab({ member, memberId }: any) {
   const [showUploadModal, setShowUploadModal] = useState(false);
   
-  const hasAnyDocuments = member?.photo_id_url ||
-    member?.proof_of_address_url ||
+  const hasAnyDocuments = member?.main_photo_id_url ||
+    member?.main_proof_address_url ||
     member?.joint_photo_id_url ||
-    member?.joint_proof_of_address_url ||
+    member?.joint_proof_address_url ||
     (member?.children_documents && Object.keys(member.children_documents).length > 0);
 
   return (
@@ -3017,12 +3017,12 @@ function DocumentsTab({ member, memberId }: any) {
           <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
             <div className="flex items-center flex-1">
               <div className={`p-2 rounded-lg mr-3 ${
-                member?.photo_id_url
+                member?.main_photo_id_url
                   ? 'bg-emerald-100'
                   : 'bg-gray-100'
               }`}>
                 <FileText className={`h-6 w-6 ${
-                  member?.photo_id_url
+                  member?.main_photo_id_url
                     ? 'text-emerald-600'
                     : 'text-gray-400'
                 }`} />
@@ -3031,7 +3031,7 @@ function DocumentsTab({ member, memberId }: any) {
                 <p className="text-sm font-medium text-gray-900">
                   Photo ID (Passport / Driving Licence)
                 </p>
-                {member?.photo_id_url ? (
+                {member?.main_photo_id_url ? (
                   <p className="text-xs text-gray-500">
                     Uploaded • Required
                   </p>
@@ -3043,10 +3043,10 @@ function DocumentsTab({ member, memberId }: any) {
               </div>
             </div>
 
-            {member?.photo_id_url ? (
+            {member?.main_photo_id_url ? (
               <div className="flex items-center space-x-2">
                 <a
-                  href={member.photo_id_url}
+                  href={member.main_photo_id_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
@@ -3055,7 +3055,7 @@ function DocumentsTab({ member, memberId }: any) {
                   <Eye className="h-4 w-4 text-emerald-600" />
                 </a>
                 <a
-                  href={member.photo_id_url}
+                  href={member.main_photo_id_url}
                   download
                   className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
                   title="Download document"
@@ -3074,12 +3074,12 @@ function DocumentsTab({ member, memberId }: any) {
           <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
             <div className="flex items-center flex-1">
               <div className={`p-2 rounded-lg mr-3 ${
-                member?.proof_of_address_url
+                member?.main_proof_address_url
                   ? 'bg-emerald-100'
                   : 'bg-gray-100'
               }`}>
                 <FileText className={`h-6 w-6 ${
-                  member?.proof_of_address_url
+                  member?.main_proof_address_url
                     ? 'text-emerald-600'
                     : 'text-gray-400'
                 }`} />
@@ -3088,7 +3088,7 @@ function DocumentsTab({ member, memberId }: any) {
                 <p className="text-sm font-medium text-gray-900">
                   Proof of Address (Utility Bill / Council Tax)
                 </p>
-                {member?.proof_of_address_url ? (
+                {member?.main_proof_address_url ? (
                   <p className="text-xs text-gray-500">
                     Uploaded • Required
                   </p>
@@ -3100,10 +3100,10 @@ function DocumentsTab({ member, memberId }: any) {
               </div>
             </div>
 
-            {member?.proof_of_address_url ? (
+            {member?.main_proof_address_url ? (
               <div className="flex items-center space-x-2">
                 <a
-                  href={member.proof_of_address_url}
+                  href={member.main_proof_address_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
@@ -3112,7 +3112,7 @@ function DocumentsTab({ member, memberId }: any) {
                   <Eye className="h-4 w-4 text-emerald-600" />
                 </a>
                 <a
-                  href={member.proof_of_address_url}
+                  href={member.main_proof_address_url}
                   download
                   className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
                   title="Download document"
@@ -3130,7 +3130,7 @@ function DocumentsTab({ member, memberId }: any) {
       </div>
 
       {/* Joint Member Documents (if applicable) */}
-      {member?.has_joint_member && (
+      {member?.app_type === 'joint' && (
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
             <Users className="h-4 w-4 mr-2 text-emerald-600" />
