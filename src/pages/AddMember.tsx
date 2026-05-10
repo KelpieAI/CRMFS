@@ -685,8 +685,12 @@ export default function AddMember() {
       // Upload documents to Supabase Storage
       const uploadDoc = async (file: File, path: string): Promise<string | null> => {
         const { error } = await supabase.storage.from('member-documents').upload(path, file, { upsert: true });
-        if (error) return null;
+        if (error) {
+          console.error('Document upload failed:', path, error);
+          return null;
+        }
         const { data: urlData } = supabase.storage.from('member-documents').getPublicUrl(path);
+        console.log('Document uploaded:', path, urlData.publicUrl);
         return urlData.publicUrl;
       };
 
@@ -707,10 +711,10 @@ export default function AddMember() {
         : null;
 
       const docUpdate: Record<string, string | null> = {};
-      if (mainPhotoIdUrl) docUpdate.photo_id_url = mainPhotoIdUrl;
-      if (mainPoaUrl) docUpdate.proof_of_address_url = mainPoaUrl;
+      if (mainPhotoIdUrl) docUpdate.main_photo_id_url = mainPhotoIdUrl;
+      if (mainPoaUrl) docUpdate.main_proof_address_url = mainPoaUrl;
       if (jointPhotoIdUrl) docUpdate.joint_photo_id_url = jointPhotoIdUrl;
-      if (jointPoaUrl) docUpdate.joint_proof_of_address_url = jointPoaUrl;
+      if (jointPoaUrl) docUpdate.joint_proof_address_url = jointPoaUrl;
 
       if (Object.keys(docUpdate).length > 0) {
         await supabase.from('members').update(docUpdate).eq('id', memberId);

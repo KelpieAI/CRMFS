@@ -11,6 +11,7 @@ import SendEmailPanel from '../components/SendEmailPanel';
 import ChangeReasonModal from '../components/ChangeReasonModal';
 import { useNavigationGuard } from '../contexts/NavigationGuardContext';
 import { compareObjects } from '../hooks/useFormChangeTracker';
+import { useToast } from '../contexts/ToastContext';
 import { ArrowLeft, User, Users, Baby, Heart, Calendar, Phone, MapPin, CreditCard as Edit, Save, X, Trash2, Pause, CreditCard, AlertTriangle, PoundSterling, Stethoscope, CheckSquare, CheckCircle, FileText, Upload, AlertCircle, Eye, Download, Info, PlayCircle, Shield, MoreVertical, ChevronDown, ChevronUp, Clock, Plus } from 'lucide-react';
 
 export default function MemberDetail() {
@@ -5477,7 +5478,6 @@ function DeclarationsSignatureModal({ isOpen, onClose, memberId, member, jointMe
     joint_final_declaration: declarations?.joint_final_declaration || false,
     joint_final_signature: declarations?.joint_final_signature || '',
   });
-  const [errors, setErrors] = useState<any>({});
 
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -5516,16 +5516,7 @@ function DeclarationsSignatureModal({ isOpen, onClose, memberId, member, jointMe
   });
 
   const validate = () => {
-    const newErrors: any = {};
-    
-    // No validation needed - signatures auto-populated from member name
-    
-    if (hasJointMember) {
-      // No joint validation needed either
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return true;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -5683,6 +5674,7 @@ interface DocumentUploadModalProps {
 
 function DocumentUploadModal({ isOpen, onClose, memberId, member }: DocumentUploadModalProps) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const hasJointMember = member?.app_type === 'joint';
   
   const [files, setFiles] = useState<{
@@ -5712,16 +5704,23 @@ function DocumentUploadModal({ isOpen, onClose, memberId, member }: DocumentUplo
   };
 
   const uploadFile = async (file: File, path: string) => {
+    const ext = file.name.split('.').pop();
+    const fullPath = `${path}.${ext}`;
+
     const { error } = await supabase.storage
       .from('member-documents')
-      .upload(path, file, { upsert: true });
+      .upload(fullPath, file, { upsert: true });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Storage upload error:', fullPath, error);
+      throw error;
+    }
 
     const { publicUrl } = supabase.storage
       .from('member-documents')
-      .getPublicUrl(path).data;
+      .getPublicUrl(fullPath).data;
 
+    console.log('Upload success:', publicUrl);
     return publicUrl;
   };
 
@@ -5762,11 +5761,12 @@ function DocumentUploadModal({ isOpen, onClose, memberId, member }: DocumentUplo
 
       if (error) throw error;
 
-      queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+      await queryClient.resetQueries({ queryKey: ['member-detail', memberId] });
+      toast.success('Documents uploaded successfully');
       onClose();
-    } catch (error) {
-      console.error('Upload error:', error);
-      alert('Failed to upload documents. Please try again.');
+    } catch (err) {
+      console.error('Upload error:', err);
+      toast.error('Failed to upload documents. Please try again.');
     } finally {
       setUploading(false);
     }
