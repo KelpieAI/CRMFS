@@ -12,6 +12,8 @@ import ChangeReasonModal from '../components/ChangeReasonModal';
 import { useNavigationGuard } from '../contexts/NavigationGuardContext';
 import { compareObjects } from '../hooks/useFormChangeTracker';
 import { useToast } from '../contexts/ToastContext';
+import { checkOutstandingPayments } from '../lib/activationHelpers';
+import { ActivationConfirmModal } from '../components/ActivationConfirmModal';
 import { ArrowLeft, User, Users, Baby, Heart, Calendar, Phone, MapPin, CreditCard as Edit, Save, X, Trash2, Pause, CreditCard, AlertTriangle, PoundSterling, Stethoscope, CheckSquare, CheckCircle, FileText, Upload, AlertCircle, Eye, Download, Info, PlayCircle, Shield, MoreVertical, ChevronDown, ChevronUp, Clock, Plus } from 'lucide-react';
 
 export default function MemberDetail() {
@@ -27,6 +29,10 @@ export default function MemberDetail() {
   const [deleteError, setDeleteError] = useState('');
   const [showUnpauseModal, setShowUnpauseModal] = useState(false);
   const [paymentReceived, setPaymentReceived] = useState(false);
+  const [showActivationConfirm, setShowActivationConfirm] = useState(false);
+  const [activationPendingTotal, setActivationPendingTotal] = useState(0);
+  const [isCheckingActivation, setIsCheckingActivation] = useState(false);
+  const [unpausePendingTotal, setUnpausePendingTotal] = useState(0);
 
   // GDPR Admin Tools
   const [showDeletionRequestModal, setShowDeletionRequestModal] = useState(false);
@@ -715,8 +721,10 @@ export default function MemberDetail() {
 
                         {member.status === 'paused' ? (
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               calculateUnpauseFees();
+                              const { pendingTotal } = await checkOutstandingPayments(id!);
+                              setUnpausePendingTotal(pendingTotal);
                               setShowUnpauseModal(true);
                               setShowActionsMenu(false);
                             }}
@@ -742,18 +750,22 @@ export default function MemberDetail() {
                           </button>
                         ) : member.status === 'inactive' && (
                           <button
-                            onClick={() => {
-                              updateStatus.mutate({
-                                memberId: id!,
-                                newStatus: 'active',
-                              });
+                            onClick={async () => {
                               setShowActionsMenu(false);
+                              setIsCheckingActivation(true);
+                              try {
+                                const { pendingTotal } = await checkOutstandingPayments(id!);
+                                setActivationPendingTotal(pendingTotal);
+                                setShowActivationConfirm(true);
+                              } finally {
+                                setIsCheckingActivation(false);
+                              }
                             }}
-                            disabled={updateStatus.isPending}
+                            disabled={updateStatus.isPending || isCheckingActivation}
                             className="w-full px-4 py-2 text-left text-sm text-green-600 hover:bg-green-50 flex items-center disabled:opacity-50"
                           >
                             <CheckCircle className="h-4 w-4 mr-3" />
-                            {updateStatus.isPending ? 'Activating...' : 'Activate Member'}
+                            {isCheckingActivation ? 'Checking...' : 'Activate Member'}
                           </button>
                         )}
 
@@ -1093,6 +1105,19 @@ export default function MemberDetail() {
         />
       )}
 
+      <ActivationConfirmModal
+        isOpen={showActivationConfirm}
+        onClose={() => setShowActivationConfirm(false)}
+        onConfirm={() => {
+          setShowActivationConfirm(false);
+          updateStatus.mutate({ memberId: id!, newStatus: 'active' });
+        }}
+        memberName={member ? `${member.first_name} ${member.last_name}` : ''}
+        hasPendingPayments={activationPendingTotal > 0}
+        pendingTotal={activationPendingTotal}
+        isLoading={updateStatus.isPending}
+      />
+
       {/* Unpause Membership Modal */}
       {showUnpauseModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -1153,6 +1178,19 @@ export default function MemberDetail() {
                 </div>
               </div>
             </div>
+
+            {/* Outstanding payments warning */}
+            {unpausePendingTotal > 0 && (
+              <div className="mb-4 p-4 bg-amber-50 border border-amber-300 rounded-lg flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">Outstanding balance: £{unpausePendingTotal.toFixed(2)}</p>
+                  <p className="text-xs text-amber-800 mt-0.5">
+                    This member has existing pending payments. Reactivating will subject them to the late payment process for the outstanding amount.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Important Notice */}
             <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">

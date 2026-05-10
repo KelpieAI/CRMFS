@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { TableSkeleton } from '../components/SkeletonComponents';
 import { usePaymentStatusUpdate } from '../hooks/useOptimisticUpdates';
+import { checkOutstandingPayments } from '../lib/activationHelpers';
+import { ActivationConfirmModal } from '../components/ActivationConfirmModal';
 import {
   CreditCard,
   Plus,
@@ -28,6 +30,13 @@ export default function Payments() {
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [activationConfirm, setActivationConfirm] = useState<{
+    paymentId: string;
+    memberId: string;
+    memberName: string;
+    pendingTotal: number;
+  } | null>(null);
+  const [isCheckingActivation, setIsCheckingActivation] = useState(false);
 
   const updatePaymentStatus = usePaymentStatusUpdate();
 
@@ -452,14 +461,30 @@ export default function Payments() {
                       <div className="flex items-center justify-end gap-2">
                         {payment.payment_status === 'pending' && (
                           <button
-                            onClick={() => {
-                              updatePaymentStatus.mutate({
-                                paymentId: payment.id,
-                                newStatus: 'completed',
-                                memberId: payment.member_id,
-                              });
+                            onClick={async () => {
+                              setIsCheckingActivation(true);
+                              try {
+                                const memberStatus = payment.members?.status;
+                                if (memberStatus === 'pending') {
+                                  const { pendingTotal } = await checkOutstandingPayments(payment.member_id);
+                                  setActivationConfirm({
+                                    paymentId: payment.id,
+                                    memberId: payment.member_id,
+                                    memberName: `${payment.members?.first_name} ${payment.members?.last_name}`,
+                                    pendingTotal,
+                                  });
+                                } else {
+                                  updatePaymentStatus.mutate({
+                                    paymentId: payment.id,
+                                    newStatus: 'completed',
+                                    memberId: payment.member_id,
+                                  });
+                                }
+                              } finally {
+                                setIsCheckingActivation(false);
+                              }
                             }}
-                            disabled={updatePaymentStatus.isPending}
+                            disabled={updatePaymentStatus.isPending || isCheckingActivation}
                             className="inline-flex items-center px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Mark as completed"
                           >
@@ -528,6 +553,24 @@ export default function Payments() {
       {showAddPayment && (
         <AddPaymentModal onClose={() => setShowAddPayment(false)} />
       )}
+
+      <ActivationConfirmModal
+        isOpen={!!activationConfirm}
+        onClose={() => setActivationConfirm(null)}
+        onConfirm={() => {
+          if (!activationConfirm) return;
+          updatePaymentStatus.mutate({
+            paymentId: activationConfirm.paymentId,
+            newStatus: 'completed',
+            memberId: activationConfirm.memberId,
+          });
+          setActivationConfirm(null);
+        }}
+        memberName={activationConfirm?.memberName ?? ''}
+        hasPendingPayments={(activationConfirm?.pendingTotal ?? 0) > 0}
+        pendingTotal={activationConfirm?.pendingTotal ?? 0}
+        isLoading={updatePaymentStatus.isPending}
+      />
     </div>
   );
 }
@@ -544,6 +587,10 @@ function AddPaymentModal({ onClose }: { onClose: () => void }) {
     reference_no: '',
     notes: '',
   });
+  const [showActivationConfirm, setShowActivationConfirm] = useState(false);
+  const [activationPendingTotal, setActivationPendingTotal] = useState(0);
+  const [pendingMemberId, setPendingMemberId] = useState('');
+  const [pendingMemberName, setPendingMemberName] = useState('');
 
   // Fetch all active members for dropdown
   const { data: members } = useQuery({
@@ -555,6 +602,19 @@ function AddPaymentModal({ onClose }: { onClose: () => void }) {
         .in('status', ['active', 'pending'])
         .order('first_name', { ascending: true });
       return data || [];
+    },
+  });
+
+  const activateMemberMutation = useMutation({
+    mutationFn: async (memberId: string) => {
+      const { error } = await supabase.from('members').update({ status: 'active' }).eq('id', memberId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      setShowActivationConfirm(false);
+      onClose();
     },
   });
 
@@ -582,22 +642,28 @@ function AddPaymentModal({ onClose }: { onClose: () => void }) {
 
       const { data: currentMember } = await supabase
         .from('members')
-        .select('status')
+        .select('status, first_name, last_name')
         .eq('id', formData.member_id)
         .maybeSingle();
+
       if (currentMember?.status === 'pending') {
-        await supabase.from('members').update({ status: 'active' }).eq('id', formData.member_id);
-        return { activated: true, insertedData: data };
+        return { needsActivation: true, member: currentMember, insertedData: data };
       }
-      return { activated: false, insertedData: data };
+      return { needsActivation: false, member: currentMember, insertedData: data };
     },
-    onSuccess: (result) => {
-      if (result?.activated) {
-        alert('Payment recorded and member status updated to Active.');
-      }
+    onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['members'] });
-      onClose();
+
+      if (result?.needsActivation && result.member) {
+        const { pendingTotal } = await checkOutstandingPayments(formData.member_id);
+        setPendingMemberId(formData.member_id);
+        setPendingMemberName(`${result.member.first_name} ${result.member.last_name}`);
+        setActivationPendingTotal(pendingTotal);
+        setShowActivationConfirm(true);
+      } else {
+        onClose();
+      }
     },
   });
 
@@ -742,6 +808,15 @@ function AddPaymentModal({ onClose }: { onClose: () => void }) {
           </div>
         </form>
       </div>
+      <ActivationConfirmModal
+        isOpen={showActivationConfirm}
+        onClose={() => { setShowActivationConfirm(false); onClose(); }}
+        onConfirm={() => activateMemberMutation.mutate(pendingMemberId)}
+        memberName={pendingMemberName}
+        hasPendingPayments={activationPendingTotal > 0}
+        pendingTotal={activationPendingTotal}
+        isLoading={activateMemberMutation.isPending}
+      />
     </div>
   );
 }

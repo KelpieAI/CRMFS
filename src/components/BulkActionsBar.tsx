@@ -8,6 +8,8 @@ import {
   XCircle, Lock,
 } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
+import { checkOutstandingPayments } from '../lib/activationHelpers';
+import { ActivationConfirmModal } from './ActivationConfirmModal';
 
 interface Member {
   id: string;
@@ -69,6 +71,8 @@ export function BulkActionsBar({
 
   const [showCannotActivateModal, setShowCannotActivateModal] = useState(false);
   const [missingReqs, setMissingReqs] = useState<MissingRequirements>({ payment: false, documents: false });
+  const [showActivationConfirm, setShowActivationConfirm] = useState(false);
+  const [activationPendingTotal, setActivationPendingTotal] = useState(0);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteReason, setDeleteReason] = useState('');
   const [deletePassword, setDeletePassword] = useState('');
@@ -165,7 +169,9 @@ export function BulkActionsBar({
         setMissingReqs(result.missingRequirements);
         setShowCannotActivateModal(true);
       } else {
-        activateMutation.mutate(selectedMember.id);
+        const { pendingTotal } = await checkOutstandingPayments(selectedMember.id);
+        setActivationPendingTotal(pendingTotal);
+        setShowActivationConfirm(true);
       }
     } finally {
       setIsCheckingActivation(false);
@@ -333,6 +339,19 @@ export function BulkActionsBar({
           </div>
         </div>
       </div>
+
+      <ActivationConfirmModal
+        isOpen={showActivationConfirm}
+        onClose={() => setShowActivationConfirm(false)}
+        onConfirm={() => {
+          setShowActivationConfirm(false);
+          if (selectedMember) activateMutation.mutate(selectedMember.id);
+        }}
+        memberName={selectedMember ? `${selectedMember.first_name} ${selectedMember.last_name}` : ''}
+        hasPendingPayments={activationPendingTotal > 0}
+        pendingTotal={activationPendingTotal}
+        isLoading={activateMutation.isPending}
+      />
 
       {/* Cannot Activate Modal */}
       {showCannotActivateModal && (

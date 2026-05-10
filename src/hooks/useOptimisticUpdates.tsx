@@ -128,18 +128,7 @@ export function usePaymentStatusUpdate() {
 
       if (error) throw error;
 
-      if (newStatus === 'completed' && memberId) {
-        const { data: currentMember } = await supabase
-          .from('members')
-          .select('status')
-          .eq('id', memberId)
-          .maybeSingle();
-        if (currentMember?.status === 'pending') {
-          await supabase.from('members').update({ status: 'active' }).eq('id', memberId);
-          return { activated: true, memberId };
-        }
-      }
-      return { activated: false, memberId };
+      return { memberId };
     },
 
     onMutate: async ({ paymentId, newStatus }) => {
