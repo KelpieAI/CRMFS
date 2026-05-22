@@ -2327,7 +2327,7 @@ function DeclarationsTab({ declarations, memberId, member, jointMember }: any) {
               {declarations.main_medical_consent && (
                 <CheckCircle className="h-5 w-5 text-green-600" />
               )}
-              Section 6: Medical Consent Declaration
+              Section 6: Medical Consent Declaration{member?.first_name || member?.last_name ? ` — ${[member.first_name, member.last_name].filter(Boolean).join(' ')}` : ''}
             </h3>
           </div>
           
@@ -2378,7 +2378,7 @@ function DeclarationsTab({ declarations, memberId, member, jointMember }: any) {
               {declarations.main_final_declaration && (
                 <CheckCircle className="h-5 w-5 text-green-600" />
               )}
-              Section 7: Final Declaration & Terms
+              Section 7: Final Declaration & Terms{member?.first_name || member?.last_name ? ` — ${[member.first_name, member.last_name].filter(Boolean).join(' ')}` : ''}
             </h3>
           </div>
           
@@ -2435,7 +2435,7 @@ function DeclarationsTab({ declarations, memberId, member, jointMember }: any) {
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="bg-blue-50 border-l-4 border-blue-500 p-3 mb-4">
               <h3 className="text-sm font-semibold text-blue-900 mb-1">
-                Section 6: Medical Consent - Applicant 2
+                Section 6: Medical Consent{jointMember?.first_name || jointMember?.last_name ? ` — ${[jointMember.first_name, jointMember.last_name].filter(Boolean).join(' ')}` : ' - Applicant 2'}
               </h3>
             </div>
             <dl className="space-y-2">
@@ -2477,7 +2477,7 @@ function DeclarationsTab({ declarations, memberId, member, jointMember }: any) {
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="bg-purple-50 border-l-4 border-purple-500 p-3 mb-4">
               <h3 className="text-sm font-semibold text-purple-900 mb-1">
-                Section 7: Final Declaration - Applicant 2
+                Section 7: Final Declaration{jointMember?.first_name || jointMember?.last_name ? ` — ${[jointMember.first_name, jointMember.last_name].filter(Boolean).join(' ')}` : ' - Applicant 2'}
               </h3>
             </div>
             <dl className="space-y-2">
