@@ -952,6 +952,7 @@ export default function MemberDetail() {
         {activeTab === 'personal' && (
           <PersonalInfoTab
             member={isEditing ? editedData : member}
+            jointMember={memberData?.jointMember}
             isEditing={isEditing}
             updateField={updateField}
             setActiveTab={setActiveTab}
@@ -1555,118 +1556,110 @@ export default function MemberDetail() {
 }
 
 // Personal Info Tab Component
-function PersonalInfoTab({ member, isEditing, updateField, setActiveTab, setShowEmailPanel }: any) {
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Personal Details Card - Featured */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300 border-l-4 border-l-[#D4AF37]">
-        <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-emerald-50">
-          <div className="p-2 bg-emerald-50 rounded-lg">
-            <User className="h-5 w-5 text-[#2d5016]" />
-          </div>
+function PersonalInfoTab({ member, jointMember, isEditing, updateField, setActiveTab, setShowEmailPanel }: any) {
+  const isJoint = member?.app_type === 'joint';
+
+  const MemberPersonalCard = ({ m, isMain }: { m: any; isMain: boolean }) => (
+    <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300 border-l-4 border-l-[#D4AF37]">
+      <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-emerald-50">
+        <div className="p-2 bg-emerald-50 rounded-lg">
+          <User className="h-5 w-5 text-[#2d5016]" />
+        </div>
+        <div>
           <h3 className="text-lg font-semibold text-gray-900">Personal Details</h3>
+          {isJoint && (
+            <p className="text-xs text-gray-500 font-medium mt-0.5">{isMain ? 'Main Member' : 'Joint Member'}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Title</label>
+            {isMain && isEditing ? (
+              <select
+                value={member?.title || ''}
+                onChange={(e) => updateField?.('title', e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              >
+                <option value="">Select...</option>
+                <option value="Mr">Mr</option>
+                <option value="Mrs">Mrs</option>
+                <option value="Miss">Miss</option>
+                <option value="Ms">Ms</option>
+                <option value="Dr">Dr</option>
+              </select>
+            ) : (
+              <p className="text-base font-medium text-gray-900">{m?.title || 'N/A'}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              {isMain ? 'Member Type' : 'Role'}
+            </label>
+            <p className="text-base font-semibold text-[#2d5016] capitalize">
+              {isMain ? member?.app_type : 'Joint'}
+            </p>
+          </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Title
-              </label>
-              {isEditing ? (
-                <select
-                  value={member?.title || ''}
-                  onChange={(e) => updateField?.('title', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                >
-                  <option value="">Select...</option>
-                  <option value="Mr">Mr</option>
-                  <option value="Mrs">Mrs</option>
-                  <option value="Miss">Miss</option>
-                  <option value="Ms">Ms</option>
-                  <option value="Dr">Dr</option>
-                </select>
-              ) : (
-                <p className="text-base font-medium text-gray-900">{member?.title || 'N/A'}</p>
-              )}
-            </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">First Name</label>
+            {isMain && isEditing ? (
+              <input
+                type="text"
+                value={member?.first_name || ''}
+                onChange={(e) => updateField?.('first_name', e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            ) : (
+              <p className="text-base font-medium text-gray-900">{m?.first_name}</p>
+            )}
+          </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Member Type
-              </label>
-              <p className="text-base font-semibold text-[#2d5016] capitalize">
-                {member?.app_type}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Last Name</label>
+            {isMain && isEditing ? (
+              <input
+                type="text"
+                value={member?.last_name || ''}
+                onChange={(e) => updateField?.('last_name', e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            ) : (
+              <p className="text-base font-medium text-gray-900">{m?.last_name}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Date of Birth</label>
+            {isMain && isEditing ? (
+              <input
+                type="date"
+                value={member?.dob || ''}
+                onChange={(e) => updateField?.('dob', e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            ) : (
+              <p className="text-base font-medium text-gray-900">
+                {m?.dob ? (
+                  <>
+                    {new Date(m.dob).toLocaleDateString()}{' '}
+                    <span className="text-gray-500 text-sm">({calculateAge(m.dob)} years)</span>
+                  </>
+                ) : 'N/A'}
               </p>
-            </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {isMain && (
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                First Name
-              </label>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={member?.first_name || ''}
-                  onChange={(e) => updateField?.('first_name', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                />
-              ) : (
-                <p className="text-base font-medium text-gray-900">{member?.first_name}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Last Name
-              </label>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={member?.last_name || ''}
-                  onChange={(e) => updateField?.('last_name', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                />
-              ) : (
-                <p className="text-base font-medium text-gray-900">{member?.last_name}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Date of Birth
-              </label>
-              {isEditing ? (
-                <input
-                  type="date"
-                  value={member?.dob || ''}
-                  onChange={(e) => updateField?.('dob', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                />
-              ) : (
-                <p className="text-base font-medium text-gray-900">
-                  {member?.dob ? (
-                    <>
-                      {new Date(member.dob).toLocaleDateString()}{' '}
-                      <span className="text-gray-500 text-sm">
-                        ({calculateAge(member.dob)} years)
-                      </span>
-                    </>
-                  ) : (
-                    'N/A'
-                  )}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Status
-              </label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Status</label>
               {isEditing ? (
                 <select
                   value={member?.status || ''}
@@ -1679,239 +1672,245 @@ function PersonalInfoTab({ member, isEditing, updateField, setActiveTab, setShow
                   <option value="paused">Paused</option>
                 </select>
               ) : (
-                <span
-                  className={`inline-flex items-center gap-1.5 text-sm font-semibold ${
-                    member?.status === 'active'
-                      ? 'text-emerald-600'
-                      : member?.status === 'paused'
-                      ? 'text-red-600'
-                      : 'text-yellow-600'
-                  }`}
-                >
+                <span className={`inline-flex items-center gap-1.5 text-sm font-semibold ${
+                  member?.status === 'active' ? 'text-emerald-600' : member?.status === 'paused' ? 'text-red-600' : 'text-yellow-600'
+                }`}>
                   <span className="w-2 h-2 rounded-full bg-current"></span>
                   {member?.status?.charAt(0).toUpperCase() + member?.status?.slice(1)}
                 </span>
               )}
             </div>
-          </div>
+          )}
         </div>
-
-        {!isEditing && (
-          <div className="mt-6 pt-5 border-t border-gray-100">
-            <button
-              onClick={() => {}}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2d5016] text-white rounded-lg hover:bg-[#1f3810] transition-all duration-200 font-semibold text-sm hover:shadow-md hover:-translate-y-0.5"
-            >
-              <Edit className="h-4 w-4" />
-              Edit Details
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Contact Information Card */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
-        <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-emerald-50">
-          <div className="p-2 bg-emerald-50 rounded-lg">
-            <Phone className="h-5 w-5 text-[#2d5016]" />
-          </div>
+      {isMain && !isEditing && (
+        <div className="mt-6 pt-5 border-t border-gray-100">
+          <button
+            onClick={() => {}}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2d5016] text-white rounded-lg hover:bg-[#1f3810] transition-all duration-200 font-semibold text-sm hover:shadow-md hover:-translate-y-0.5"
+          >
+            <Edit className="h-4 w-4" />
+            Edit Details
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  const MemberContactCard = ({ m, isMain }: { m: any; isMain: boolean }) => (
+    <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
+      <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-emerald-50">
+        <div className="p-2 bg-emerald-50 rounded-lg">
+          <Phone className="h-5 w-5 text-[#2d5016]" />
+        </div>
+        <div>
           <h3 className="text-lg font-semibold text-gray-900">Contact Information</h3>
+          {isJoint && (
+            <p className="text-xs text-gray-500 font-medium mt-0.5">{isMain ? 'Main Member' : 'Joint Member'}</p>
+          )}
         </div>
-
-        <div className="space-y-4">
-          <div className="flex items-start gap-3 p-3 bg-emerald-50/30 rounded-lg border border-emerald-100">
-            <Phone className="h-5 w-5 text-[#2d5016] mt-0.5" />
-            <div className="flex-1">
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Mobile
-              </label>
-              {isEditing ? (
-                <input
-                  type="tel"
-                  value={member?.mobile || ''}
-                  onChange={(e) => updateField?.('mobile', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                />
-              ) : (
-                <p className="text-base font-medium text-gray-900">{member?.mobile}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3 p-3 bg-emerald-50/30 rounded-lg border border-emerald-100">
-            <Upload className="h-5 w-5 text-[#2d5016] mt-0.5" />
-            <div className="flex-1">
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Email
-              </label>
-              {isEditing ? (
-                <input
-                  type="email"
-                  value={member?.email || ''}
-                  onChange={(e) => updateField?.('email', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                />
-              ) : (
-                <p className="text-base font-medium text-gray-900">{member?.email}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Home Phone
-              </label>
-              {isEditing ? (
-                <input
-                  type="tel"
-                  value={member?.home_phone || ''}
-                  onChange={(e) => updateField?.('home_phone', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                />
-              ) : (
-                <p className="text-base font-medium text-gray-400">{member?.home_phone || 'N/A'}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Work Phone
-              </label>
-              {isEditing ? (
-                <input
-                  type="tel"
-                  value={member?.work_phone || ''}
-                  onChange={(e) => updateField?.('work_phone', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                />
-              ) : (
-                <p className="text-base font-medium text-gray-400">{member?.work_phone || 'N/A'}</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {!isEditing && (
-          <div className="mt-6 pt-5 border-t border-gray-100 flex gap-3">
-            <button
-              onClick={() => setShowEmailPanel(true)}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
-            >
-              <Upload className="h-4 w-4" />
-              Send Email
-            </button>
-            <button
-              onClick={() => window.location.href = `tel:${member?.mobile}`}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
-            >
-              <Phone className="h-4 w-4" />
-              Call Member
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Address Card - Full Width */}
-      <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
-        <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-emerald-50">
-          <div className="p-2 bg-emerald-50 rounded-lg">
-            <MapPin className="h-5 w-5 text-[#2d5016]" />
+      <div className="space-y-4">
+        <div className="flex items-start gap-3 p-3 bg-emerald-50/30 rounded-lg border border-emerald-100">
+          <Phone className="h-5 w-5 text-[#2d5016] mt-0.5" />
+          <div className="flex-1">
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Mobile</label>
+            {isMain && isEditing ? (
+              <input
+                type="tel"
+                value={member?.mobile || ''}
+                onChange={(e) => updateField?.('mobile', e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            ) : (
+              <p className="text-base font-medium text-gray-900">{m?.mobile || 'N/A'}</p>
+            )}
           </div>
+        </div>
+
+        <div className="flex items-start gap-3 p-3 bg-emerald-50/30 rounded-lg border border-emerald-100">
+          <Upload className="h-5 w-5 text-[#2d5016] mt-0.5" />
+          <div className="flex-1">
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Email</label>
+            {isMain && isEditing ? (
+              <input
+                type="email"
+                value={member?.email || ''}
+                onChange={(e) => updateField?.('email', e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            ) : (
+              <p className="text-base font-medium text-gray-900">{m?.email || 'N/A'}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Home Phone</label>
+            {isMain && isEditing ? (
+              <input
+                type="tel"
+                value={member?.home_phone || ''}
+                onChange={(e) => updateField?.('home_phone', e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            ) : (
+              <p className="text-base font-medium text-gray-400">{m?.home_phone || 'N/A'}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Work Phone</label>
+            {isMain && isEditing ? (
+              <input
+                type="tel"
+                value={member?.work_phone || ''}
+                onChange={(e) => updateField?.('work_phone', e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            ) : (
+              <p className="text-base font-medium text-gray-400">{m?.work_phone || 'N/A'}</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {isMain && !isEditing && (
+        <div className="mt-6 pt-5 border-t border-gray-100 flex gap-3">
+          <button
+            onClick={() => setShowEmailPanel(true)}
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
+          >
+            <Upload className="h-4 w-4" />
+            Send Email
+          </button>
+          <button
+            onClick={() => window.location.href = `tel:${member?.mobile}`}
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
+          >
+            <Phone className="h-4 w-4" />
+            Call Member
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  const MemberAddressCard = ({ m, isMain }: { m: any; isMain: boolean }) => (
+    <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
+      <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-emerald-50">
+        <div className="p-2 bg-emerald-50 rounded-lg">
+          <MapPin className="h-5 w-5 text-[#2d5016]" />
+        </div>
+        <div>
           <h3 className="text-lg font-semibold text-gray-900">Address</h3>
+          {isJoint && (
+            <p className="text-xs text-gray-500 font-medium mt-0.5">{isMain ? 'Main Member' : 'Joint Member'}</p>
+          )}
         </div>
-
-        {!isEditing && (
-          <div className="flex items-start gap-4 p-4 bg-emerald-50/30 rounded-lg border-l-4 border-l-[#D4AF37] mb-5">
-            <MapPin className="h-8 w-8 text-[#2d5016] flex-shrink-0" />
-            <div>
-              <p className="text-base font-medium text-gray-900 leading-relaxed">
-                {member?.address_line_1}
-              </p>
-              <p className="text-base font-medium text-gray-900 leading-relaxed">
-                {member?.town}{member?.town && member?.city && ', '}{member?.city}
-              </p>
-              <p className="text-base font-semibold text-[#2d5016] leading-relaxed">
-                {member?.postcode}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {isEditing && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Address Line 1
-              </label>
-              <input
-                type="text"
-                value={member?.address_line_1 || ''}
-                onChange={(e) => updateField?.('address_line_1', e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Town
-              </label>
-              <input
-                type="text"
-                value={member?.town || ''}
-                onChange={(e) => updateField?.('town', e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                City
-              </label>
-              <input
-                type="text"
-                value={member?.city || ''}
-                onChange={(e) => updateField?.('city', e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Postcode
-              </label>
-              <input
-                type="text"
-                value={member?.postcode || ''}
-                onChange={(e) => updateField?.('postcode', e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            </div>
-          </div>
-        )}
-
-        {!isEditing && (
-          <div className="pt-5 border-t border-gray-100 flex gap-3">
-            <button
-              onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${member?.address_line_1}, ${member?.city}, ${member?.postcode}`)}`)}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
-            >
-              <MapPin className="h-4 w-4" />
-              View on Map
-            </button>
-            <button
-              onClick={() => {}}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
-            >
-              <Edit className="h-4 w-4" />
-              Edit Address
-            </button>
-          </div>
-        )}
       </div>
+
+      {!isEditing && (
+        <div className="flex items-start gap-4 p-4 bg-emerald-50/30 rounded-lg border-l-4 border-l-[#D4AF37] mb-5">
+          <MapPin className="h-8 w-8 text-[#2d5016] flex-shrink-0" />
+          <div>
+            <p className="text-base font-medium text-gray-900 leading-relaxed">{m?.address_line_1 || 'N/A'}</p>
+            <p className="text-base font-medium text-gray-900 leading-relaxed">
+              {m?.town}{m?.town && m?.city && ', '}{m?.city}
+            </p>
+            <p className="text-base font-semibold text-[#2d5016] leading-relaxed">{m?.postcode}</p>
+          </div>
+        </div>
+      )}
+
+      {isMain && isEditing && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Address Line 1</label>
+            <input
+              type="text"
+              value={member?.address_line_1 || ''}
+              onChange={(e) => updateField?.('address_line_1', e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Town</label>
+            <input
+              type="text"
+              value={member?.town || ''}
+              onChange={(e) => updateField?.('town', e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">City</label>
+            <input
+              type="text"
+              value={member?.city || ''}
+              onChange={(e) => updateField?.('city', e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Postcode</label>
+            <input
+              type="text"
+              value={member?.postcode || ''}
+              onChange={(e) => updateField?.('postcode', e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            />
+          </div>
+        </div>
+      )}
+
+      {isMain && !isEditing && (
+        <div className="pt-5 border-t border-gray-100 flex gap-3">
+          <button
+            onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${m?.address_line_1}, ${m?.city}, ${m?.postcode}`)}`)}
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
+          >
+            <MapPin className="h-4 w-4" />
+            View on Map
+          </button>
+          <button
+            onClick={() => {}}
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
+          >
+            <Edit className="h-4 w-4" />
+            Edit Address
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      {isJoint ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <MemberPersonalCard m={member} isMain={true} />
+          <MemberPersonalCard m={jointMember} isMain={false} />
+          <MemberContactCard m={member} isMain={true} />
+          <MemberContactCard m={jointMember} isMain={false} />
+          <MemberAddressCard m={member} isMain={true} />
+          <MemberAddressCard m={jointMember} isMain={false} />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <MemberPersonalCard m={member} isMain={true} />
+          <MemberContactCard m={member} isMain={true} />
+          <div className="lg:col-span-2">
+            <MemberAddressCard m={member} isMain={true} />
+          </div>
+        </div>
+      )}
 
       {/* Membership Info Card - Full Width */}
-      <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300 border-l-4 border-l-[#D4AF37]">
+      <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300 border-l-4 border-l-[#D4AF37]">
         <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-emerald-50">
           <div className="p-2 bg-emerald-50 rounded-lg">
             <Shield className="h-5 w-5 text-[#2d5016]" />
@@ -1975,7 +1974,7 @@ function PersonalInfoTab({ member, isEditing, updateField, setActiveTab, setShow
 
       {/* Notes Card (if exists) */}
       {(member?.notes || isEditing) && (
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
           <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-emerald-50">
             <div className="p-2 bg-emerald-50 rounded-lg">
               <FileText className="h-5 w-5 text-[#2d5016]" />
