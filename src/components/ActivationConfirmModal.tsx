@@ -26,15 +26,15 @@ export function ActivationConfirmModal({
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
-            <div className={`p-2.5 rounded-full ${hasPendingPayments ? 'bg-amber-100' : 'bg-emerald-100'}`}>
+            <div className={`p-2.5 rounded-full ${hasPendingPayments ? 'bg-red-100' : 'bg-emerald-100'}`}>
               {hasPendingPayments ? (
-                <AlertTriangle className="h-6 w-6 text-amber-600" />
+                <AlertTriangle className="h-6 w-6 text-red-600" />
               ) : (
                 <CheckCircle className="h-6 w-6 text-emerald-600" />
               )}
             </div>
             <h3 className="text-lg font-semibold text-gray-900">
-              {hasPendingPayments ? 'Outstanding Payments' : 'Confirm Activation'}
+              {hasPendingPayments ? 'Cannot Activate Member' : 'Confirm Activation'}
             </h3>
           </div>
           <button
@@ -46,19 +46,14 @@ export function ActivationConfirmModal({
         </div>
 
         {hasPendingPayments ? (
-          <>
-            <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="text-sm font-semibold text-amber-900 mb-1">
-                {memberName} has an outstanding balance of £{pendingTotal.toFixed(2)}
-              </p>
-              <p className="text-sm text-amber-800">
-                This member has pending payments that have not been cleared. Activating a membership with an outstanding balance will subject this member to the late payment process.
-              </p>
-            </div>
-            <p className="text-sm text-gray-600 mb-6">
-              Are you sure you want to activate this membership despite the outstanding balance?
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm font-semibold text-red-900 mb-1">
+              Cannot activate — outstanding balance of £{pendingTotal.toFixed(2)} remaining.
             </p>
-          </>
+            <p className="text-sm text-red-800">
+              Please record the full payment before activating.
+            </p>
+          </div>
         ) : (
           <p className="text-sm text-gray-600 mb-6">
             Confirm you want to set <span className="font-semibold text-gray-900">{memberName}</span> to <span className="font-semibold text-emerald-700">Active</span>. All payment requirements are met.
@@ -72,20 +67,18 @@ export function ActivationConfirmModal({
             disabled={isLoading}
             className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
           >
-            Cancel
+            {hasPendingPayments ? 'Close' : 'Cancel'}
           </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={isLoading}
-            className={`px-4 py-2 text-sm text-white rounded-lg disabled:opacity-50 transition-colors ${
-              hasPendingPayments
-                ? 'bg-amber-600 hover:bg-amber-700'
-                : 'bg-emerald-600 hover:bg-emerald-700'
-            }`}
-          >
-            {isLoading ? 'Activating...' : hasPendingPayments ? 'Activate Anyway' : 'Confirm Activation'}
-          </button>
+          {!hasPendingPayments && (
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={isLoading}
+              className="px-4 py-2 text-sm text-white rounded-lg disabled:opacity-50 transition-colors bg-emerald-600 hover:bg-emerald-700"
+            >
+              {isLoading ? 'Activating...' : 'Confirm Activation'}
+            </button>
+          )}
         </div>
       </div>
     </div>

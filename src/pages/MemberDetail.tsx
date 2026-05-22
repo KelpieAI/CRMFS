@@ -543,10 +543,15 @@ export default function MemberDetail() {
     }
   }, [showAccessLog, memberData?.member?.id]);
 
-  // Calculate total paid
+  // Calculate total paid and outstanding balance
   const totalPaid = memberData?.payments
     ?.filter((p: any) => p.payment_status === 'completed')
     .reduce((sum: number, p: any) => sum + Number(p.total_amount), 0) || 0;
+
+  const totalAmountDue = memberData?.payments
+    ?.reduce((sum: number, p: any) => sum + Number(p.total_amount), 0) || 0;
+
+  const outstandingBalance = Math.max(0, totalAmountDue - totalPaid);
 
   if (isLoading) {
     return (
@@ -749,24 +754,31 @@ export default function MemberDetail() {
                             {updateStatus.isPending ? 'Pausing...' : 'Pause Member'}
                           </button>
                         ) : member.status === 'inactive' && (
-                          <button
-                            onClick={async () => {
-                              setShowActionsMenu(false);
-                              setIsCheckingActivation(true);
-                              try {
-                                const { pendingTotal } = await checkOutstandingPayments(id!);
-                                setActivationPendingTotal(pendingTotal);
-                                setShowActivationConfirm(true);
-                              } finally {
-                                setIsCheckingActivation(false);
-                              }
-                            }}
-                            disabled={updateStatus.isPending || isCheckingActivation}
-                            className="w-full px-4 py-2 text-left text-sm text-green-600 hover:bg-green-50 flex items-center disabled:opacity-50"
-                          >
-                            <CheckCircle className="h-4 w-4 mr-3" />
-                            {isCheckingActivation ? 'Checking...' : 'Activate Member'}
-                          </button>
+                          <div className="relative group">
+                            <button
+                              onClick={async () => {
+                                setShowActionsMenu(false);
+                                setIsCheckingActivation(true);
+                                try {
+                                  const { pendingTotal } = await checkOutstandingPayments(id!);
+                                  setActivationPendingTotal(pendingTotal);
+                                  setShowActivationConfirm(true);
+                                } finally {
+                                  setIsCheckingActivation(false);
+                                }
+                              }}
+                              disabled={updateStatus.isPending || isCheckingActivation || outstandingBalance > 0}
+                              className="w-full px-4 py-2 text-left text-sm text-green-600 hover:bg-green-50 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-3" />
+                              {isCheckingActivation ? 'Checking...' : 'Activate Member'}
+                            </button>
+                            {outstandingBalance > 0 && (
+                              <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 hidden group-hover:block z-50 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 w-64 shadow-lg">
+                                Cannot activate — outstanding balance of £{outstandingBalance.toFixed(2)} remaining. Please record the full payment before activating.
+                              </div>
+                            )}
+                          </div>
                         )}
 
                         <button
@@ -3368,9 +3380,8 @@ function PaymentsTab({ payments, memberId }: any) {
     .filter((p: any) => p.payment_status === 'completed')
     .reduce((sum: number, p: any) => sum + Number(p.total_amount), 0);
 
-  const pendingAmount = payments
-    .filter((p: any) => p.payment_status === 'pending')
-    .reduce((sum: number, p: any) => sum + Number(p.total_amount), 0);
+  const totalAmountDueTab = payments.reduce((sum: number, p: any) => sum + Number(p.total_amount), 0);
+  const pendingAmount = Math.max(0, totalAmountDueTab - totalPaid);
 
   const exportPayment = (payment: any) => {
     const dataStr = JSON.stringify(payment, null, 2);
@@ -4774,7 +4785,7 @@ function MedicalInfoModal({ isOpen, onClose, memberId, info }: MedicalInfoModalP
 // Record Payment Modal Component
 function RecordPaymentModal({ memberId, onClose, onSuccess }: { memberId: string; onClose: () => void; onSuccess: () => void }) {
   const [formData, setFormData] = useState({
-    payment_type: 'renewal',
+    payment_type: '',
     payment_method: 'cash',
     amount: '',
     payment_date: new Date().toISOString().split('T')[0],
@@ -4810,6 +4821,7 @@ function RecordPaymentModal({ memberId, onClose, onSuccess }: { memberId: string
 
   const validate = () => {
     const newErrors: any = {};
+    if (!formData.payment_type) newErrors.payment_type = 'Please select a payment type';
     if (!formData.amount || isNaN(parseFloat(formData.amount)) || parseFloat(formData.amount) <= 0) {
       newErrors.amount = 'A valid amount is required';
     }
@@ -4842,13 +4854,15 @@ function RecordPaymentModal({ memberId, onClose, onSuccess }: { memberId: string
               <select
                 value={formData.payment_type}
                 onChange={(e) => setFormData({ ...formData, payment_type: e.target.value })}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${errors.payment_type ? 'border-red-500' : 'border-gray-300'}`}
               >
+                <option value="" disabled>Select payment type</option>
                 <option value="registration">Registration</option>
                 <option value="renewal">Renewal</option>
                 <option value="late_fee">Late Fee</option>
                 <option value="misc">Miscellaneous</option>
               </select>
+              {errors.payment_type && <p className="text-red-500 text-xs mt-1">{errors.payment_type}</p>}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Payment Method</label>
