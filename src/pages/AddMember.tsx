@@ -512,7 +512,7 @@ export default function AddMember() {
 
   const mainJoiningFee = calculateJoiningFee(mainDob, membershipType === 'legacy');
   const jointJoiningFee = formData.app_type === 'joint' && formData.joint_dob
-    ? calculateJoiningFee(formData.joint_dob, membershipType === 'legacy')
+    ? calculateJoiningFee(formData.joint_dob, false)
     : 0;
   const joiningFee = mainJoiningFee + jointJoiningFee;
 
@@ -537,7 +537,7 @@ export default function AddMember() {
       // Calculate the correct fees for submission
       const submitMainJoiningFee = calculateJoiningFee(mainDob, membershipType === 'legacy');
       const submitJointJoiningFee = formData.app_type === 'joint' && formData.joint_dob
-        ? calculateJoiningFee(formData.joint_dob, membershipType === 'legacy')
+        ? calculateJoiningFee(formData.joint_dob, false)
         : 0;
       const submitMainProRataFee = calculateProRataFee(signupDate);
       const submitJointProRataFee = formData.app_type === 'joint' && formData.joint_dob
