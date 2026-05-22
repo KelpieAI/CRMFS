@@ -1610,41 +1610,48 @@ function PersonalInfoTab({ member, jointMember, isEditing, isEditingJoint, updat
   const inputCls = (joint?: boolean) =>
     `w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 ${
       joint
-        ? 'border-teal-300 focus:ring-teal-500 focus:border-teal-500'
+        ? 'border-green-300 focus:ring-green-500 focus:border-green-500'
         : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
     }`;
 
   const MemberPersonalCard = ({ m, isMain }: { m: any; isMain: boolean }) => {
     const editing = isMain ? isEditing : isEditingJoint;
     const uf = isMain ? updateField : updateJointField;
+    const accent = isMain ? 'emerald' : 'green';
+    const accentColor = isMain ? 'text-[#2d5016]' : 'text-green-700';
+    const fullName = [m?.title, m?.first_name, m?.last_name].filter(Boolean).join(' ');
     return (
       <div className={`bg-white rounded-xl border p-6 hover:shadow-lg transition-all duration-300 border-l-4 ${
-        isMain ? 'border-gray-200 border-l-[#D4AF37]' : 'border-teal-200 border-l-teal-500'
+        isMain ? 'border-gray-200 border-l-[#D4AF37]' : 'border-green-200 border-l-green-600'
       }`}>
-        <div className={`flex items-center gap-3 pb-4 mb-5 border-b-2 ${isMain ? 'border-emerald-50' : 'border-teal-50'}`}>
-          <div className={`p-2 rounded-lg ${isMain ? 'bg-emerald-50' : 'bg-teal-50'}`}>
-            <User className={`h-5 w-5 ${isMain ? 'text-[#2d5016]' : 'text-teal-700'}`} />
+        {/* Header */}
+        <div className={`flex items-center justify-between pb-4 mb-5 border-b-2 border-${accent}-50`}>
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg bg-${accent}-50`}>
+              <User className={`h-5 w-5 ${accentColor}`} />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Personal Details</h3>
+              {isJoint && (
+                <p className={`text-xs font-semibold mt-0.5 ${accentColor}`}>
+                  {isMain ? 'Main Member' : 'Joint Member'}
+                </p>
+              )}
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">Personal Details</h3>
-            {isJoint && (
-              <p className={`text-xs font-semibold mt-0.5 ${isMain ? 'text-emerald-700' : 'text-teal-700'}`}>
-                {isMain ? 'Main Member' : 'Joint Member'}
-              </p>
-            )}
-          </div>
+          {fullName && (
+            <p className={`text-xl font-bold ${accentColor} text-right leading-tight`}>{fullName}</p>
+          )}
         </div>
 
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        {/* Fields as a clean list */}
+        <div className="divide-y divide-gray-50">
+          {/* Title + Member Type row */}
+          <div className="grid grid-cols-2 gap-x-6 py-2.5">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Title</label>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Title</p>
               {editing ? (
-                <select
-                  value={m?.title || ''}
-                  onChange={(e) => uf?.('title', e.target.value)}
-                  className={inputCls(!isMain)}
-                >
+                <select value={m?.title || ''} onChange={(e) => uf?.('title', e.target.value)} className={inputCls(!isMain)}>
                   <option value="">Select...</option>
                   <option value="Mr">Mr</option>
                   <option value="Mrs">Mrs</option>
@@ -1653,56 +1660,50 @@ function PersonalInfoTab({ member, jointMember, isEditing, isEditingJoint, updat
                   <option value="Dr">Dr</option>
                 </select>
               ) : (
-                <p className="text-base font-medium text-gray-900">{m?.title || 'N/A'}</p>
+                <p className="text-sm font-medium text-gray-900">{m?.title || '—'}</p>
               )}
             </div>
-
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                {isMain ? 'Member Type' : 'Role'}
-              </label>
-              <p className={`text-base font-semibold capitalize ${isMain ? 'text-[#2d5016]' : 'text-teal-700'}`}>
-                {isMain ? member?.app_type : 'Joint'}
-              </p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{isMain ? 'Member Type' : 'Role'}</p>
+              <p className={`text-sm font-semibold capitalize ${accentColor}`}>{isMain ? member?.app_type : 'Joint'}</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* First + Last name row */}
+          <div className="grid grid-cols-2 gap-x-6 py-2.5">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">First Name</label>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">First Name</p>
               {editing ? (
                 <input type="text" value={m?.first_name || ''} onChange={(e) => uf?.('first_name', e.target.value)} className={inputCls(!isMain)} />
               ) : (
-                <p className="text-base font-medium text-gray-900">{m?.first_name}</p>
+                <p className="text-sm font-medium text-gray-900">{m?.first_name || '—'}</p>
               )}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Last Name</label>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Last Name</p>
               {editing ? (
                 <input type="text" value={m?.last_name || ''} onChange={(e) => uf?.('last_name', e.target.value)} className={inputCls(!isMain)} />
               ) : (
-                <p className="text-base font-medium text-gray-900">{m?.last_name}</p>
+                <p className="text-sm font-medium text-gray-900">{m?.last_name || '—'}</p>
               )}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* DOB + Status row */}
+          <div className="grid grid-cols-2 gap-x-6 py-2.5">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Date of Birth</label>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Date of Birth</p>
               {editing ? (
                 <input type="date" value={m?.dob || ''} onChange={(e) => uf?.('dob', e.target.value)} className={inputCls(!isMain)} />
               ) : (
-                <p className="text-base font-medium text-gray-900">
-                  {m?.dob ? (
-                    <>{new Date(m.dob).toLocaleDateString()}{' '}<span className="text-gray-500 text-sm">({calculateAge(m.dob)} years)</span></>
-                  ) : 'N/A'}
+                <p className="text-sm font-medium text-gray-900">
+                  {m?.dob ? <>{new Date(m.dob).toLocaleDateString()} <span className="text-gray-400">({calculateAge(m.dob)} yrs)</span></> : '—'}
                 </p>
               )}
             </div>
-
             {isMain && (
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Status</label>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Status</p>
                 {isEditing ? (
                   <select value={member?.status || ''} onChange={(e) => updateField?.('status', e.target.value)} className={inputCls()}>
                     <option value="pending">Pending</option>
@@ -1724,7 +1725,7 @@ function PersonalInfoTab({ member, jointMember, isEditing, isEditingJoint, updat
         </div>
 
         {isMain && !isEditing && (
-          <div className="mt-6 pt-5 border-t border-gray-100">
+          <div className="mt-5 pt-4 border-t border-gray-100">
             <button onClick={() => {}} className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2d5016] text-white rounded-lg hover:bg-[#1f3810] transition-all duration-200 font-semibold text-sm hover:shadow-md hover:-translate-y-0.5">
               <Edit className="h-4 w-4" />
               Edit Details
@@ -1732,20 +1733,20 @@ function PersonalInfoTab({ member, jointMember, isEditing, isEditingJoint, updat
           </div>
         )}
         {!isMain && !isEditingJoint && (
-          <div className="mt-6 pt-5 border-t border-teal-100">
-            <button onClick={onEditJoint} className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-700 text-white rounded-lg hover:bg-teal-800 transition-all duration-200 font-semibold text-sm hover:shadow-md hover:-translate-y-0.5">
+          <div className="mt-5 pt-4 border-t border-green-100">
+            <button onClick={onEditJoint} className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-all duration-200 font-semibold text-sm hover:shadow-md hover:-translate-y-0.5">
               <Edit className="h-4 w-4" />
               Edit Joint Member
             </button>
           </div>
         )}
         {!isMain && isEditingJoint && (
-          <div className="mt-6 pt-5 border-t border-teal-100 flex gap-3">
+          <div className="mt-5 pt-4 border-t border-green-100 flex gap-3">
             <button onClick={onCancelJoint} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm">
               <X className="h-4 w-4" />
               Cancel
             </button>
-            <button onClick={onSaveJoint} disabled={isSavingJoint} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-700 text-white rounded-lg hover:bg-teal-800 transition-all duration-200 font-semibold text-sm">
+            <button onClick={onSaveJoint} disabled={isSavingJoint} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-all duration-200 font-semibold text-sm">
               {isSavingJoint ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>Saving...</> : <><Save className="h-4 w-4" />Save</>}
             </button>
           </div>
@@ -1758,15 +1759,15 @@ function PersonalInfoTab({ member, jointMember, isEditing, isEditingJoint, updat
     const editing = isMain ? isEditing : isEditingJoint;
     const uf = isMain ? updateField : updateJointField;
     return (
-      <div className={`bg-white rounded-xl border p-6 hover:shadow-lg transition-all duration-300 ${isMain ? 'border-gray-200' : 'border-teal-200'}`}>
-        <div className={`flex items-center gap-3 pb-4 mb-5 border-b-2 ${isMain ? 'border-emerald-50' : 'border-teal-50'}`}>
-          <div className={`p-2 rounded-lg ${isMain ? 'bg-emerald-50' : 'bg-teal-50'}`}>
-            <Phone className={`h-5 w-5 ${isMain ? 'text-[#2d5016]' : 'text-teal-700'}`} />
+      <div className={`bg-white rounded-xl border p-6 hover:shadow-lg transition-all duration-300 ${isMain ? 'border-gray-200' : 'border-green-200'}`}>
+        <div className={`flex items-center gap-3 pb-4 mb-5 border-b-2 ${isMain ? 'border-emerald-50' : 'border-green-50'}`}>
+          <div className={`p-2 rounded-lg ${isMain ? 'bg-emerald-50' : 'bg-green-50'}`}>
+            <Phone className={`h-5 w-5 ${isMain ? 'text-[#2d5016]' : 'text-green-700'}`} />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Contact Information</h3>
             {isJoint && (
-              <p className={`text-xs font-semibold mt-0.5 ${isMain ? 'text-emerald-700' : 'text-teal-700'}`}>
+              <p className={`text-xs font-semibold mt-0.5 ${isMain ? 'text-emerald-700' : 'text-green-700'}`}>
                 {isMain ? 'Main Member' : 'Joint Member'}
               </p>
             )}
@@ -1774,8 +1775,8 @@ function PersonalInfoTab({ member, jointMember, isEditing, isEditingJoint, updat
         </div>
 
         <div className="space-y-4">
-          <div className={`flex items-start gap-3 p-3 rounded-lg border ${isMain ? 'bg-emerald-50/30 border-emerald-100' : 'bg-teal-50/30 border-teal-100'}`}>
-            <Phone className={`h-5 w-5 mt-0.5 ${isMain ? 'text-[#2d5016]' : 'text-teal-700'}`} />
+          <div className={`flex items-start gap-3 p-3 rounded-lg border ${isMain ? 'bg-emerald-50/30 border-emerald-100' : 'bg-green-50/30 border-green-100'}`}>
+            <Phone className={`h-5 w-5 mt-0.5 ${isMain ? 'text-[#2d5016]' : 'text-green-700'}`} />
             <div className="flex-1">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Mobile</label>
               {editing ? (
@@ -1786,8 +1787,8 @@ function PersonalInfoTab({ member, jointMember, isEditing, isEditingJoint, updat
             </div>
           </div>
 
-          <div className={`flex items-start gap-3 p-3 rounded-lg border ${isMain ? 'bg-emerald-50/30 border-emerald-100' : 'bg-teal-50/30 border-teal-100'}`}>
-            <Upload className={`h-5 w-5 mt-0.5 ${isMain ? 'text-[#2d5016]' : 'text-teal-700'}`} />
+          <div className={`flex items-start gap-3 p-3 rounded-lg border ${isMain ? 'bg-emerald-50/30 border-emerald-100' : 'bg-green-50/30 border-green-100'}`}>
+            <Upload className={`h-5 w-5 mt-0.5 ${isMain ? 'text-[#2d5016]' : 'text-green-700'}`} />
             <div className="flex-1">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Email</label>
               {editing ? (
@@ -1838,15 +1839,15 @@ function PersonalInfoTab({ member, jointMember, isEditing, isEditingJoint, updat
     const editing = isMain ? isEditing : isEditingJoint;
     const uf = isMain ? updateField : updateJointField;
     return (
-      <div className={`bg-white rounded-xl border p-6 hover:shadow-lg transition-all duration-300 ${isMain ? 'border-gray-200' : 'border-teal-200'}`}>
-        <div className={`flex items-center gap-3 pb-4 mb-5 border-b-2 ${isMain ? 'border-emerald-50' : 'border-teal-50'}`}>
-          <div className={`p-2 rounded-lg ${isMain ? 'bg-emerald-50' : 'bg-teal-50'}`}>
-            <MapPin className={`h-5 w-5 ${isMain ? 'text-[#2d5016]' : 'text-teal-700'}`} />
+      <div className={`bg-white rounded-xl border p-6 hover:shadow-lg transition-all duration-300 ${isMain ? 'border-gray-200' : 'border-green-200'}`}>
+        <div className={`flex items-center gap-3 pb-4 mb-5 border-b-2 ${isMain ? 'border-emerald-50' : 'border-green-50'}`}>
+          <div className={`p-2 rounded-lg ${isMain ? 'bg-emerald-50' : 'bg-green-50'}`}>
+            <MapPin className={`h-5 w-5 ${isMain ? 'text-[#2d5016]' : 'text-green-700'}`} />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Address</h3>
             {isJoint && (
-              <p className={`text-xs font-semibold mt-0.5 ${isMain ? 'text-emerald-700' : 'text-teal-700'}`}>
+              <p className={`text-xs font-semibold mt-0.5 ${isMain ? 'text-emerald-700' : 'text-green-700'}`}>
                 {isMain ? 'Main Member' : 'Joint Member'}
               </p>
             )}
@@ -1855,15 +1856,15 @@ function PersonalInfoTab({ member, jointMember, isEditing, isEditingJoint, updat
 
         {!editing && (
           <div className={`flex items-start gap-4 p-4 rounded-lg border-l-4 mb-5 ${
-            isMain ? 'bg-emerald-50/30 border-l-[#D4AF37]' : 'bg-teal-50/30 border-l-teal-500'
+            isMain ? 'bg-emerald-50/30 border-l-[#D4AF37]' : 'bg-green-50/30 border-l-green-600'
           }`}>
-            <MapPin className={`h-8 w-8 flex-shrink-0 ${isMain ? 'text-[#2d5016]' : 'text-teal-700'}`} />
+            <MapPin className={`h-8 w-8 flex-shrink-0 ${isMain ? 'text-[#2d5016]' : 'text-green-700'}`} />
             <div>
               <p className="text-base font-medium text-gray-900 leading-relaxed">{m?.address_line_1 || 'N/A'}</p>
               <p className="text-base font-medium text-gray-900 leading-relaxed">
                 {m?.town}{m?.town && m?.city && ', '}{m?.city}
               </p>
-              <p className={`text-base font-semibold leading-relaxed ${isMain ? 'text-[#2d5016]' : 'text-teal-700'}`}>{m?.postcode}</p>
+              <p className={`text-base font-semibold leading-relaxed ${isMain ? 'text-[#2d5016]' : 'text-green-700'}`}>{m?.postcode}</p>
             </div>
           </div>
         )}
@@ -2080,9 +2081,9 @@ function ConfirmModal({ title, message, confirmText, confirmColor, onConfirm, on
 function JointMemberTab({ jointMember, isEditing, onEdit, onSave, onCancel, updateField, isSaving }: any) {
   if (!jointMember) {
     return (
-      <div className="bg-white rounded-xl border border-teal-200 p-6">
+      <div className="bg-white rounded-xl border border-green-200 p-6">
         <div className="text-center py-8">
-          <Users className="h-12 w-12 mx-auto mb-4 text-teal-300" />
+          <Users className="h-12 w-12 mx-auto mb-4 text-green-300" />
           <p className="text-gray-500 font-medium">No joint member registered</p>
           <p className="text-sm text-gray-400 mt-1">
             This is a single membership or joint member details haven't been added yet.
@@ -2102,25 +2103,25 @@ function JointMemberTab({ jointMember, isEditing, onEdit, onSave, onCancel, upda
     return age;
   };
 
-  const inputCls = 'w-full px-3 py-2 text-sm border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500';
+  const inputCls = 'w-full px-3 py-2 text-sm border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500';
 
   return (
     <div className="space-y-6">
       {/* Joint member identity banner */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-teal-50 border border-teal-200 rounded-xl">
-        <div className="p-2 bg-teal-100 rounded-lg">
-          <Users className="h-5 w-5 text-teal-700" />
+      <div className="flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-200 rounded-xl">
+        <div className="p-2 bg-green-100 rounded-lg">
+          <Users className="h-5 w-5 text-green-700" />
         </div>
         <div className="flex-1">
-          <p className="text-sm font-semibold text-teal-900">
+          <p className="text-sm font-semibold text-green-900">
             {[jointMember.title, jointMember.first_name, jointMember.last_name].filter(Boolean).join(' ')}
           </p>
-          <p className="text-xs text-teal-600 capitalize">{jointMember.relation ? `Relationship: ${jointMember.relation}` : 'Joint Member'}</p>
+          <p className="text-xs text-green-600 capitalize">{jointMember.relation ? `Relationship: ${jointMember.relation}` : 'Joint Member'}</p>
         </div>
         {!isEditing && (
           <button
             onClick={onEdit}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-teal-700 text-white rounded-lg hover:bg-teal-800 transition-all duration-200 font-semibold text-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-all duration-200 font-semibold text-sm"
           >
             <Edit className="h-4 w-4" />
             Edit
@@ -2132,7 +2133,7 @@ function JointMemberTab({ jointMember, isEditing, onEdit, onSave, onCancel, upda
               <X className="h-4 w-4" />
               Cancel
             </button>
-            <button onClick={onSave} disabled={isSaving} className="inline-flex items-center gap-2 px-4 py-2 bg-teal-700 text-white rounded-lg hover:bg-teal-800 transition-all duration-200 font-semibold text-sm">
+            <button onClick={onSave} disabled={isSaving} className="inline-flex items-center gap-2 px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-all duration-200 font-semibold text-sm">
               {isSaving ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>Saving...</> : <><Save className="h-4 w-4" />Save</>}
             </button>
           </div>
@@ -2141,14 +2142,14 @@ function JointMemberTab({ jointMember, isEditing, onEdit, onSave, onCancel, upda
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Personal Details Card */}
-        <div className="bg-white rounded-xl border border-teal-200 border-l-4 border-l-teal-500 p-6 hover:shadow-lg transition-all duration-300">
-          <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-teal-50">
-            <div className="p-2 bg-teal-50 rounded-lg">
-              <User className="h-5 w-5 text-teal-700" />
+        <div className="bg-white rounded-xl border border-green-200 border-l-4 border-l-green-600 p-6 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-green-50">
+            <div className="p-2 bg-green-50 rounded-lg">
+              <User className="h-5 w-5 text-green-700" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">Personal Details</h3>
-              <p className="text-xs font-semibold text-teal-700 mt-0.5">Joint Member</p>
+              <p className="text-xs font-semibold text-green-700 mt-0.5">Joint Member</p>
             </div>
           </div>
 
@@ -2179,7 +2180,7 @@ function JointMemberTab({ jointMember, isEditing, onEdit, onSave, onCancel, upda
                     <option value="other">Other</option>
                   </select>
                 ) : (
-                  <p className="text-base font-semibold text-teal-700 capitalize">{jointMember?.relation || 'N/A'}</p>
+                  <p className="text-base font-semibold text-green-700 capitalize">{jointMember?.relation || 'N/A'}</p>
                 )}
               </div>
             </div>
@@ -2219,20 +2220,20 @@ function JointMemberTab({ jointMember, isEditing, onEdit, onSave, onCancel, upda
         </div>
 
         {/* Contact Information Card */}
-        <div className="bg-white rounded-xl border border-teal-200 p-6 hover:shadow-lg transition-all duration-300">
-          <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-teal-50">
-            <div className="p-2 bg-teal-50 rounded-lg">
-              <Phone className="h-5 w-5 text-teal-700" />
+        <div className="bg-white rounded-xl border border-green-200 p-6 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-green-50">
+            <div className="p-2 bg-green-50 rounded-lg">
+              <Phone className="h-5 w-5 text-green-700" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">Contact Information</h3>
-              <p className="text-xs font-semibold text-teal-700 mt-0.5">Joint Member</p>
+              <p className="text-xs font-semibold text-green-700 mt-0.5">Joint Member</p>
             </div>
           </div>
 
           <div className="space-y-4">
-            <div className="flex items-start gap-3 p-3 bg-teal-50/30 rounded-lg border border-teal-100">
-              <Phone className="h-5 w-5 text-teal-700 mt-0.5" />
+            <div className="flex items-start gap-3 p-3 bg-green-50/30 rounded-lg border border-green-100">
+              <Phone className="h-5 w-5 text-green-700 mt-0.5" />
               <div className="flex-1">
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Mobile</label>
                 {isEditing ? (
@@ -2243,8 +2244,8 @@ function JointMemberTab({ jointMember, isEditing, onEdit, onSave, onCancel, upda
               </div>
             </div>
 
-            <div className="flex items-start gap-3 p-3 bg-teal-50/30 rounded-lg border border-teal-100">
-              <Upload className="h-5 w-5 text-teal-700 mt-0.5" />
+            <div className="flex items-start gap-3 p-3 bg-green-50/30 rounded-lg border border-green-100">
+              <Upload className="h-5 w-5 text-green-700 mt-0.5" />
               <div className="flex-1">
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Email</label>
                 {isEditing ? (
@@ -2276,7 +2277,7 @@ function JointMemberTab({ jointMember, isEditing, onEdit, onSave, onCancel, upda
           </div>
 
           {!isEditing && (
-            <div className="mt-6 pt-5 border-t border-teal-100 flex gap-3">
+            <div className="mt-6 pt-5 border-t border-green-100 flex gap-3">
               <button onClick={() => window.location.href = `tel:${jointMember?.mobile}`} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm">
                 <Phone className="h-4 w-4" />
                 Call
@@ -2286,26 +2287,26 @@ function JointMemberTab({ jointMember, isEditing, onEdit, onSave, onCancel, upda
         </div>
 
         {/* Address Card */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-teal-200 p-6 hover:shadow-lg transition-all duration-300">
-          <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-teal-50">
-            <div className="p-2 bg-teal-50 rounded-lg">
-              <MapPin className="h-5 w-5 text-teal-700" />
+        <div className="lg:col-span-2 bg-white rounded-xl border border-green-200 p-6 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-green-50">
+            <div className="p-2 bg-green-50 rounded-lg">
+              <MapPin className="h-5 w-5 text-green-700" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">Address</h3>
-              <p className="text-xs font-semibold text-teal-700 mt-0.5">Joint Member</p>
+              <p className="text-xs font-semibold text-green-700 mt-0.5">Joint Member</p>
             </div>
           </div>
 
           {!isEditing && (
-            <div className="flex items-start gap-4 p-4 bg-teal-50/30 rounded-lg border-l-4 border-l-teal-500 mb-5">
-              <MapPin className="h-8 w-8 text-teal-700 flex-shrink-0" />
+            <div className="flex items-start gap-4 p-4 bg-green-50/30 rounded-lg border-l-4 border-l-green-600 mb-5">
+              <MapPin className="h-8 w-8 text-green-700 flex-shrink-0" />
               <div>
                 <p className="text-base font-medium text-gray-900 leading-relaxed">{jointMember?.address_line_1 || 'N/A'}</p>
                 <p className="text-base font-medium text-gray-900 leading-relaxed">
                   {jointMember?.town}{jointMember?.town && jointMember?.city && ', '}{jointMember?.city}
                 </p>
-                <p className="text-base font-semibold text-teal-700 leading-relaxed">{jointMember?.postcode}</p>
+                <p className="text-base font-semibold text-green-700 leading-relaxed">{jointMember?.postcode}</p>
               </div>
             </div>
           )}
@@ -2332,7 +2333,7 @@ function JointMemberTab({ jointMember, isEditing, onEdit, onSave, onCancel, upda
           )}
 
           {!isEditing && (
-            <div className="pt-5 border-t border-teal-100">
+            <div className="pt-5 border-t border-green-100">
               <button
                 onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${jointMember?.address_line_1}, ${jointMember?.city}, ${jointMember?.postcode}`)}`)}
                 className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
