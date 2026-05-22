@@ -3,7 +3,7 @@
 > A comprehensive member and payment management system built for Falkirk Central Mosque's death committee (Central Region Muslim Funeral Service).
 
 **Built by:** [Kelpie AI](https://kelpieai.co.uk)  
-**Version:** 0.10.2  
+**Version:** 0.11.0  
 **Status:** Active Development  
 **Tech Stack:** React + TypeScript + Supabase + Tailwind CSS + Resend
 
@@ -90,7 +90,7 @@ This CRM serves the death committee's operational needs by:
   - Searchable access history per member
 
 ### 👥 Member Management
-- **8-Step Registration Wizard** with professional sidebar navigation:
+- **10-Step Registration Wizard** with professional sidebar navigation:
   - Fixed left sidebar showing all steps with clear progress indicators
   - Green checkmarks for completed steps, dark green for active, gray for pending
   - Click completed steps to navigate back and review
@@ -99,15 +99,17 @@ This CRM serves the death committee's operational needs by:
   - Application references displayed in header and tracked in database
   - Auto-save on every step change
   - Resume saved applications from dashboard widget
-  - **8 Registration Steps:**
+  - **10 Registration Steps:**
     1. Membership Type (Single/Joint)
     2. Main Member (personal details with age auto-calculation)
-    3. Children (add multiple children with details)
-    4. Next of Kin (mandatory emergency contact - Last Name + Relationship on same row)
-    5. Medical Info (conditional Yes/No health questions, no default selection)
-    6. GP Details & Medical Consent (practice info + consent declaration - Postcode on address row, Phone + Email on same row)
-    7. Declaration (T&Cs acceptance, emergency fund agreement, information accuracy + signature)
-    8. Payment (pro-rata calculation with age-based fees, read-only adjustment field, payment status toggle)
+    3. Joint Member (if applicable)
+    4. Children (add multiple children with details)
+    5. Next of Kin (mandatory emergency contact)
+    6. Medical Info (conditional Yes/No health questions, no default selection)
+    7. GP Details & Medical Consent (practice info + consent declaration showing applicant's actual name)
+    8. Declaration (T&Cs acceptance, emergency fund agreement, information accuracy + signature — separate dedicated step)
+    9. Documents (Photo ID, Proof of Address upload)
+    10. Payment (pro-rata calculation with age-based fees, payment status toggle)
   - **Human-Readable Membership IDs:**
     - Format: FCM-XXXXX (e.g., FCM-32614)
     - FCM = Falkirk Central Mosque
@@ -133,7 +135,7 @@ This CRM serves the death committee's operational needs by:
     - "Resend" buttons for expired or pending links
     - Real-time status updates with toast notifications
   - Sub-navigation sidebar with 10 information tabs
-  - Personal Info tab (editable, redesigned with better visual hierarchy)
+  - Personal Info tab (two-card side-by-side layout for joint members — main member left, joint member right)
   - Joint Member tab (partner details)
   - Children tab (add/edit/delete with premium modals)
   - Next of Kin tab (mandatory emergency contacts with CRUD)
@@ -146,6 +148,7 @@ This CRM serves the death committee's operational needs by:
   - **GDPR Data Rights section (committee actions)**
 - **Member Actions:**
   - Edit mode with inline field editing
+  - Activate Member directly from Member Detail (with full validation check)
   - View payment history with status badges
   - Pause membership (temporary suspension with warning system)
   - Unpause membership (reactivation with age-based fees)
@@ -160,7 +163,7 @@ This CRM serves the death committee's operational needs by:
   - Age display next to date of birth
   - Mandatory GP and Next of Kin fields
   - Document upload validation (file size, type)
-  - Paper form confirmation required
+  - Activation blocked if outstanding balance remains
 
 ### 📄 Document Management System
 - **Secure Email Token System:**
@@ -189,11 +192,13 @@ This CRM serves the death committee's operational needs by:
   - Status indicators (uploaded/missing)
   - Organized by member type (main/joint/children)
   - Empty state guidance for missing documents
+  - Documents refresh immediately after upload (no manual page refresh needed)
 - **Secure Storage:**
-  - All files stored in Supabase Storage bucket
+  - All files stored in Supabase Storage bucket (member-documents)
+  - RLS policies correctly configured for authenticated uploads and reads
   - Encrypted at rest and in transit
   - Public URLs for authenticated access
-  - Organized file structure with timestamps
+  - Organized file structure with timestamps and file extensions
   - Easy search by member in database
 
 ### 💰 Payment Management
@@ -204,19 +209,25 @@ This CRM serves the death committee's operational needs by:
   - Ages 36-45: £200
   - Ages 46-55: £300
   - Ages 56-65+: £500
-  - Legacy members: £0 (waived for children turning 18 within 90 days)
+  - Legacy members: £0 joining fee waived for main member only (joint member still pays age-based fee)
 - **Smart Payment Features:**
   - Automatic fee calculation based on age and signup date
   - Adjustment field for prepaying following year
   - Clear coverage period display (signup date - Dec 31, YYYY)
   - Payment received toggle (sets member Active/Pending)
   - Multiple payment methods (cash, card, bank transfer, cheque)
+  - Payment type must be actively selected — no pre-filled default (prevents wrong entries)
 - **Payment Tracking:**
   - Payment status badges (Pending, Completed, Overdue, Failed, Refunded)
   - Payment Summary Cards (Total Paid, Pending, Transaction Count)
+  - Pending amount shows actual remaining balance (total due minus completed payments)
   - Late Payment Widget with highlights
   - Search and filter by member, status, or date range
   - Complete payment history per member
+- **Activation Protection:**
+  - Member cannot be activated if outstanding balance remains
+  - Clear error shown: "Cannot activate — outstanding balance of £X.XX remaining"
+  - Activate Member button disabled with tooltip when balance unpaid
 - **Reactivation Payments:**
   - Age-based joining fee + annual membership
   - Late fees waived on reactivation
@@ -268,8 +279,6 @@ This CRM serves the death committee's operational needs by:
 - **Pending Status by Default:**
   - Deceased members marked as "pending" until Record of Death form completed
   - Ensures data integrity for funeral service documentation
-  - Prevents incomplete death records from appearing in active workflows
-  - **Note:** Record of Death form workflow to be implemented in future release
 - Deceased member list with search and filter
 - **7 Information Tabs per Deceased Member:**
   - Overview (deceased info, family contacts)
@@ -335,22 +344,22 @@ This CRM serves the death committee's operational needs by:
   - Clear call-to-action buttons
 
 ### 📝 Legal Compliance & Declarations
+- **Declaration as Dedicated Registration Step (Step 8):**
+  - Separated from other steps for clear focus
+  - T&Cs acceptance, emergency fund agreement, information accuracy
+  - Electronic signature capture
+  - Sits between GP Details and Documents steps
 - **Digital Signature Modal (Member Detail Page):**
   - Sign declarations directly from Declarations tab
   - Professional modal interface with checkbox + signature fields
-  - Italic signature fields matching AddMember form style
+  - Auto-populates member's actual name as signature
   - Color-coded sections (blue for medical consent, purple for final declaration)
   - Separate sections for main and joint members
   - Auto-date stamping on signature submission
-  - Smart validation (signature required if consent checkbox checked)
 - **Medical Disclosure Declaration (Section 6):**
-  - Electronic signature capture with italic font
+  - Displays applicant's actual first and last name (not generic "Main Member" label)
+  - Electronic signature auto-populated from member name
   - Timestamp recording
-  - Statement: "I confirm that I have no known medical conditions or illnesses, other than those I have already disclosed in Section 14 (Medical History) of this application, that could invalidate my application"
-- **Posthumous Medical Authorization (Section 6):**
-  - Electronic signature capture with italic font
-  - Timestamp recording
-  - Statement: "In the event of my death, I authorise CRMFS to request information from my medical records relevant to my application for funeral cover"
 - **Final Declaration (Section 7):**
   - T&Cs acceptance with signature
   - Emergency fund contribution agreement
@@ -389,6 +398,10 @@ This CRM serves the death committee's operational needs by:
   - Accents: Mosque Gold (#D4AF37)
   - Clean white content areas
   - Professional typography
+- **Persistent Footer:**
+  - Fixed footer on all registration steps
+  - Always shows "Kelpie AI" and current version number
+  - Never overlaps form content or navigation buttons
 - **Dark Mode (Experimental):**
   - Toggle switch in Settings > Appearance
   - App-wide theme context with localStorage persistence
@@ -427,11 +440,7 @@ This CRM serves the death committee's operational needs by:
   - Toast notifications for user feedback
   - Empty states with helpful guidance
   - React Error Boundary for crash handling
-  - Custom error pages with personality:
-    - 404 Not Found - "break CRMFS" humour with error details
-    - 500 Server Error - professional error reporting
-    - Application Crash - detailed stack trace with copy button
-    - All include email support link and unique log references
+  - Custom error pages (404, 500, crash) with support links
   - Proper spacing and breathing room
 
 ### 📈 Reports (Basic)
@@ -448,7 +457,7 @@ Built on Supabase PostgreSQL with the following tables:
 ### Core Tables
 - **members** - Primary member records with age-based fees, document URLs, pause status, GDPR consents, email preferences
 - **joint_members** - Joint membership details
-- **children** - Dependent information
+- **children** - Dependent information (with document_url for birth certificates)
 - **next_of_kin** - Mandatory emergency contacts
 - **gp_details** - Mandatory medical practitioner information
 - **medical_info** - Conditional health declarations
@@ -482,7 +491,7 @@ Built on Supabase PostgreSQL with the following tables:
 - **admin_users** - System administrators
 
 **Storage:**
-- **member-documents** - Supabase Storage bucket for uploaded files
+- **member-documents** - Supabase Storage bucket for uploaded files (RLS policies configured for authenticated access)
 
 **Edge Functions:**
 - **send-renewal-reminders** - Daily automated renewal reminder emails
@@ -538,13 +547,12 @@ All tables include Row Level Security (RLS) policies for data protection.
 3. Add joint member (if applicable)
 4. Register children
 5. Provide mandatory next of kin information
-6. Add mandatory GP details
+6. Add mandatory GP details + confirm medical consent (shows applicant's actual name)
 7. Complete conditional medical declarations
-8. Sign legal declarations electronically
-9. Upload supporting documents (Photo ID, Proof of Address, Children certificates)
-10. **Record paper form details (GDPR compliance)**
-11. Review pro-rata fees and submit
-12. Mark payment as received (sets Active/Pending status)
+8. Sign legal declarations electronically (dedicated step)
+9. Upload supporting documents (Photo ID, Proof of Address)
+10. Review pro-rata fees and submit
+11. Mark payment as received (sets Active/Pending status)
 
 **Progress can be saved at any step and resumed later.**
 
@@ -559,13 +567,21 @@ All tables include Row Level Security (RLS) policies for data protection.
 **All data access is logged in accordance with GDPR Article 30.**
 
 ### Document Management
-1. Upload documents during registration
-2. Files saved to Supabase Storage bucket
+1. Upload documents during registration or from Member Detail
+2. Files saved to Supabase Storage bucket with correct RLS permissions
 3. URLs stored in members table
-4. View documents in Member Detail → Documents tab
+4. View documents in Member Detail → Documents tab (refreshes immediately after upload)
 5. Preview documents in new tab (eye icon)
 6. Download documents locally (download icon)
 7. Search documents by member in Supabase Table Editor
+
+### Membership Activation
+1. Record payment in Member Detail → Payments tab
+2. System checks: all completed payments must cover the total amount due
+3. If balance remains outstanding, activation is blocked with clear message
+4. Once fully paid, "Activate Member" button available directly in Member Detail
+5. Validation check runs: payment complete + documents uploaded
+6. If requirements met, member status updates to Active immediately
 
 ### Membership Pause & Reactivation
 1. Member misses 3 renewal payments
@@ -624,21 +640,13 @@ All tables include Row Level Security (RLS) policies for data protection.
 9. Escalating warning emails sent with color-coded urgency
 10. After 90 days: Manual or automated membership pause triggered
 
-**Example Email Journey:**
-- Dec 1: Member receives 30-day renewal reminder (calm green)
-- Dec 17: 14-day reminder (getting serious)
-- Dec 24: 7-day URGENT reminder (red badge)
-- Jan 2: Day 0 overdue notification
-- Jan 31: Warning 1 - £10 late fee (orange)
-- Mar 2: Warning 2 - £20 total late fees (deep red)
-- Apr 1: Warning 3 - £30 total, membership will pause (⚠️ FINAL)
-
 ---
 
 ## 🎯 Planned Features
 
-### Phase 3 (Q1 2026)
+### Phase 3 (Q1–Q2 2026)
 - [x] **Email automation system** ✅ (Completed Jan 2026)
+- [x] **Document upload system** ✅ (Fixed May 2026)
 - [ ] Automated pause after Warning 3 (currently manual)
 - [ ] Welcome email for new member registrations
 - [ ] Membership paused notification email
@@ -648,10 +656,9 @@ All tables include Row Level Security (RLS) policies for data protection.
 - [ ] SMS reminders (via Twilio integration)
 - [ ] Advanced reporting and analytics
 - [ ] Export to CSV/Excel
-- [ ] Bulk operations (mass email, status updates)
 - [ ] PDF receipt generation
 
-### Phase 4 (Q2 2026)
+### Phase 4 (Q3 2026)
 - [ ] User authentication with role-based access control
 - [ ] Multi-language support (Arabic, Urdu)
 - [ ] Mobile app (React Native)
@@ -685,7 +692,7 @@ All tables include Row Level Security (RLS) policies for data protection.
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/CRMFS.git
+   git clone https://github.com/KelpieAI/CRMFS.git
    cd CRMFS
    ```
 
@@ -717,13 +724,14 @@ All tables include Row Level Security (RLS) policies for data protection.
 2. Run the provided SQL schema (see `/supabase` directory)  
 3. Enable Row Level Security on all tables
 4. Create Storage bucket: `member-documents`
-5. Set up authentication provider  
-6. Run activity log trigger creation script
-7. Run GDPR compliance table creation script
-8. Run email automation table creation script
-9. Deploy Edge Functions (send-renewal-reminders, send-late-payment-warnings)
-10. Configure pg_cron scheduled jobs
-11. Update environment variables  
+5. Configure RLS policies on storage bucket (authenticated uploads, reads, updates, deletes)
+6. Set up authentication provider  
+7. Run activity log trigger creation script
+8. Run GDPR compliance table creation script
+9. Run email automation table creation script
+10. Deploy Edge Functions (send-renewal-reminders, send-late-payment-warnings)
+11. Configure pg_cron scheduled jobs
+12. Update environment variables  
 
 ---
 
@@ -754,7 +762,7 @@ See `STYLING_GUIDE.md` for detailed instructions.
 - **Cron Jobs:** 3 (9:00 AM, 10:00 AM, 10:30 AM UTC daily)
 - **Database Triggers:** 3 (welcome email, payment confirmation, reactivation success)
 - **Email Templates:** 11 (8 cron-based + 3 instant trigger-based)
-- **Lines of Code:** ~42,000
+- **Lines of Code:** ~44,000
 - **Pages:** 18
 - **API Endpoints:** 115+ (via Supabase + Resend)
 - **Member Detail Tabs:** 10
@@ -762,7 +770,7 @@ See `STYLING_GUIDE.md` for detailed instructions.
 - **Registration Steps:** 10
 - **Document Types:** 5
 - **Premium Modals:** 7
-- **Premium Features:** 17 (including complete email automation + redesigned interfaces)
+- **Premium Features:** 18
 
 ---
 
@@ -809,7 +817,7 @@ For technical support or feature requests:
 This system handles sensitive personal data. Security measures include:
 - Encrypted data at rest and in transit
 - Row Level Security (RLS) enabled on all database tables
-- Secure file storage with Supabase Storage
+- Supabase Storage RLS policies for authenticated file access
 - Secure authentication with Supabase Auth
 - Password-protected destructive operations
 - Document access control
@@ -827,20 +835,113 @@ This system handles sensitive personal data. Security measures include:
 
 ## 📈 Version History
 
+### v0.11.0 (22 May 2026)
+**Pre-launch polish and bug fixes** based on final committee testing. This release resolves the last batch of outstanding issues before go-live, covering document uploads, payment data integrity, registration wizard improvements, and a range of UI/UX fixes across Member Detail and the registration flow.
+
+- **Document Upload System (Full Fix):**
+  - Fixed Supabase Storage RLS policies blocking uploads from the frontend — all four policies now correctly configured (INSERT, UPDATE, SELECT, DELETE for authenticated users)
+  - Fixed document URLs not being saved to the `members` table on AddMember submission — all URL fields now included in the member insert object
+  - Fixed DocumentUploadModal in MemberDetail not refreshing after upload — now uses `resetQueries` to force a full fresh fetch
+  - Added file extension to storage paths (previously missing, causing broken previews)
+  - Added `upsert: true` to all upload calls to allow document replacement
+  - Documents tab now refreshes immediately after upload without needing a manual page refresh
+  - Children's birth certificate URLs now saved to `children` table via `document_url` column
+  - All upload errors now show proper toast notifications instead of `alert()` calls
+  - Added `console.log` success/error logging throughout upload flow for easier debugging
+
+- **Legacy Fee Fix:**
+  - Legacy membership fee waiver now correctly applies to main member only
+  - Joint member always pays their normal age-based joining fee, regardless of membership type
+  - Fixed both the live fee calculation and the submission calculation in `AddMember.tsx`
+
+- **Declaration as Dedicated Step:**
+  - Declaration (Section 7) is now its own separate step in the registration wizard
+  - Sits between GP Details and Documents steps
+  - Step count updated to 10 and progress bar reflects correctly
+  - Declaration validation (main + joint required) runs on this step only
+  - No change to declaration content or fields
+
+- **Payment Type Forced Selection:**
+  - Record Payment modal no longer pre-fills payment type as "renewal"
+  - Default is now blank with a "Select payment type" placeholder
+  - Form cannot be submitted without selecting a payment type
+  - Prevents accidental wrong-type entries
+
+- **Partial Payment Activation Block:**
+  - Members can no longer be activated if their outstanding balance hasn't been fully paid
+  - Activation button is disabled with a tooltip showing the remaining balance
+  - Clear error message shown: "Cannot activate — outstanding balance of £X.XX remaining"
+  - Pending amount in the Payments tab summary now shows the actual remaining balance (total due minus completed payments) rather than the original full amount
+
+- **Child Details Saving Fixed:**
+  - Add Child and Edit Child now correctly save to Supabase in all cases
+  - Confirmed `child.id` is correctly passed on update, `member_id` on insert
+  - `queryClient.invalidateQueries` correctly targets `['member-detail', memberId]`
+  - Error logging added on mutation failure for easier debugging
+  - Children list refreshes immediately after save
+
+- **Medical Consent Names:**
+  - Section 6 declarations now show the applicant's actual name instead of the generic "Main Member" / "Joint Member" labels
+  - Uses `formData.first_name + formData.last_name` for main member
+  - Uses `formData.joint_first_name + formData.joint_last_name` for joint member
+  - Falls back to "Main Member" / "Joint Member" only if name fields are empty
+  - Same fix applied to DeclarationsSignatureModal in MemberDetail
+
+- **Two-Card Layout in View Member:**
+  - Personal Info tab now shows main member and joint member as two cards side by side for joint applications (`grid-cols-1 lg:grid-cols-2`)
+  - Main member on left, joint member on right, pulling `joint_` prefixed fields
+  - Single member applications continue to display the single-card layout unchanged
+  - Joint member card styled consistently with the main member card
+
+- **Persistent Footer on Registration:**
+  - Fixed footer bar added to all AddMember registration steps
+  - Always visible, never overlaps form content or navigation buttons
+  - Shows "Kelpie AI" left-aligned and version number right-aligned
+  - 44px height with subtle top border
+  - Bottom padding added to form container to accommodate footer
+
+**Committee Impact:**
+- Document uploads now fully working — resolves the main blocker from final testing
+- Legacy members' joint partners now correctly charged their joining fee
+- Payment type errors prevented at source
+- Partial payments can no longer bypass activation requirements
+- Children records now reliably save and update
+- Declarations feel more personal with applicant names shown
+- Joint member info visible at a glance in View Member
+- Kelpie AI branding and version always visible at the bottom of registration
+
+**Bug Fixes:**
+- Fixed: Documents not uploading from AddMember or MemberDetail
+- Fixed: Documents not visible after upload without page refresh
+- Fixed: Legacy fee incorrectly waiving joint member's joining fee
+- Fixed: Payment type defaulting to "renewal" in Record Payment modal
+- Fixed: Partial payment allowing membership activation
+- Fixed: Pending amount not updating after partial payment
+- Fixed: Add/Edit Child not saving in MemberDetail
+- Fixed: Medical consent showing "Main Member" instead of applicant name
+- Fixed: Joint member info not shown in Personal Info tab
+- Fixed: Kelpie AI footer missing from registration steps
+
+**Files Changed:**
+- `AddMember.tsx` — Legacy fee fix, declaration step, consent names, footer, upload fixes
+- `MemberDetail.tsx` — Child save fix, payment type default, activation block, two-card layout, consent names
+
+---
+
 ### v0.10.2 (18 April 2026)
-**Declaration signature workflow simplification** based on committee feedback that text signature inputs were "annoying and pointless." This release removes all manual signature typing from the declaration process—when members tick the checkbox, their full name is automatically used as the signature. Also fixes field name bugs in AddMember that were causing "undefined undefined" signatures.
- 
+**Declaration signature workflow simplification** based on committee feedback that text signature inputs were "annoying and pointless." This release removes all manual signature typing from the declaration process — when members tick the checkbox, their full name is automatically used as the signature. Also fixes field name bugs in AddMember that were causing "undefined undefined" signatures.
+
 - **Signature Text Inputs Removed:**
   - Removed ALL "Type your signature" text input fields from declaration modals
-  - Declarations now only require checkboxes—dead simple
-  - When checkbox ticked, member's full name (`First Name Last Name`) automatically saved as signature
+  - Declarations now only require checkboxes — dead simple
+  - When checkbox ticked, member's full name automatically saved as signature
   - Works for both main member and joint member
-  - No validation on signature text anymore—just checkbox required
+  - No validation on signature text anymore — just checkbox required
   - Signature still displays in Member Detail but user never has to type it
 - **Declaration Display Cleanup:**
   - Removed redundant "Signed by: John Smith" display from Member Detail
   - Now just shows: ✅ "Signed and Agreed" + "Signed on 18 April 2026"
-  - Cleaner interface—we already know whose record we're looking at
+  - Cleaner interface — we already know whose record we're looking at
   - Amber warning box for unsigned declarations unchanged
 - **AddMember Signature Auto-Population:**
   - Fixed field name bug: was using `formData.main_first_name` (doesn't exist)
@@ -850,775 +951,226 @@ This system handles sensitive personal data. Security measures include:
   - No more "undefined undefined" in declaration signatures
 - **MemberDetail Modal Fixes:**
   - Sign Declarations modal updated to use member's actual name
-  - Joint member name displayed in modal heading: "Joint Member (First Last)"
+  - Joint member name displayed in modal heading
   - Auto-populates signatures with correct member names when saving
   - Fixed database table: was trying to update `members` table instead of `declarations` table
   - Now uses `upsert` on `declarations` table so works whether record exists or not
-  - Joint member sections hidden for single memberships (already fixed in v0.10.1)
-**Committee Impact:**
-- Faster declaration signing—just tick boxes, no typing
-- Eliminates confusion about what to type as signature
-- Fixes broken "Sign & Save" button that was doing nothing
-- Cleaner declaration display reduces visual clutter
-- New members from AddMember now have proper signatures immediately
+  - Joint member sections hidden for single memberships
+
 **Bug Fixes:**
 - Fixed: "Sign & Save" button not working (wrong database table)
 - Fixed: "undefined undefined" signatures in new members
 - Fixed: Joint member name not showing in signature modal
 - Fixed: Joint member getting main member's name as signature
+
 **Files Changed:**
-- AddMember.tsx - Auto-populate signatures with member names
-- MemberDetail.tsx - Remove signature inputs, fix table, hide signature display
+- `AddMember.tsx` — Auto-populate signatures with member names
+- `MemberDetail.tsx` — Remove signature inputs, fix table, hide signature display
 
 ---
 
 ### v0.10.1 (17 April 2026)
-**Critical bug fixes and UX improvements** based on extensive committee testing. This release addresses data integrity issues, routing errors, form layout problems, and workflow gaps discovered during live usage. The focus is on safety (preventing invalid activations), usability (better form layouts), and completeness (fixing broken workflows).
+**Critical bug fixes and UX improvements** based on extensive committee testing. This release addresses data integrity issues, routing errors, form layout problems, and workflow gaps discovered during live usage.
 
 - **Bulk Action Safety System (CRITICAL FIX):**
-  - **Activation Validation:** Members can no longer be activated without meeting requirements
-    - Payment requirement: At least one completed payment must exist
-    - Document requirement: Both photo_id_url AND proof_of_address_url must be uploaded
-    - Blocking modal displays missing requirements with red warning icon
-    - Shows checklist: [ ] Payment not received, [ ] Documents not uploaded
-    - Activation only proceeds if BOTH requirements are met
-  - **Context-Aware Action Bar:**
-    - Single member selected: View, Activate (validated), Pause, Delete available
-    - Multiple members selected: View/Activate/Pause disabled (grayed out), only Export/Email available
-    - Delete button hidden when multiple members selected
-  - **Enhanced Delete Protection:**
-    - Removed from bulk actions bar entirely
-    - Only accessible from Member Detail page or single-member selection
-    - Mandatory reason field (500 char max, cannot be empty)
-    - Password confirmation required
-    - Logs deletion reason and deleted_by user_id to activity_log
-    - NEVER allows bulk deletion of multiple members
-  - **Visual Feedback:**
-    - Disabled actions shown with 50% opacity and not-allowed cursor
-    - Tooltips explain why actions are disabled
-    - Selection counter badge: "X members selected"
-    - Clear "Deselect All" option
-
+  - Activation validation: members can no longer be activated without payment + documents
+  - Context-aware action bar: single vs multiple member selections handled differently
+  - Enhanced delete protection: mandatory reason field + password confirmation
+  - Visual feedback: disabled actions at 50% opacity with tooltips
 - **Routing & Navigation Fixes:**
-  - **Payments Page View Button:** Fixed 404 error when viewing members from Payments screen
-    - Changed route from `/member/` to `/members/` to match App.tsx router
-    - View button now correctly navigates to member detail page
-  - **Documents Display Fix:** Documents uploaded during registration now visible in Member Detail
-    - Fixed column name mismatch between AddMember and DocumentsTab
-    - AddMember saves to: `photo_id_url`, `proof_of_address_url`
-    - DocumentsTab now checks correct columns (removed erroneous `main_` prefix)
-    - Documents now appear with preview and download options
-    - Proper status indicators (uploaded/missing) display correctly
-
-- **Form Layout Improvements (AddMember Wizard):**
-  - **Next of Kin Step Reorganization:**
-    - Row 1: Title (150px) + First Name (flex-1)
-    - Row 2: Last Name (40%) + Relationship (60%) - now on same row as requested
-    - Row 3: Address Line 1 (full width)
-    - Row 4: Town (40%) + City (60%)
-    - Row 5: Postcode (150px)
-    - Row 6: Mobile Phone (50%) + Home Phone (50%)
-    - Row 7: Email (full width)
-    - Better visual grouping, less vertical scrolling
-  - **GP Details & Medical Consent Step Reorganization:**
-    - Row 1: Practice Name (full width)
-    - Row 2: Address Line 1 (60%) + Postcode (40%) - postcode moved up as requested
-    - Row 3: Town (50%) + City (50%)
-    - Row 4: Telephone (50%) + Email (50%) - now on same row as requested
-    - Medical Consent section below (unchanged)
-    - More compact, natural layout
-
+  - Payments Page View Button: fixed 404 error (wrong route `/member/` → `/members/`)
+  - Documents Display Fix: fixed column name mismatch between AddMember and DocumentsTab
+- **Form Layout Improvements:**
+  - Next of Kin step reorganized into logical rows
+  - GP Details step reorganized with Postcode on address row, Phone + Email on same row
 - **Registration Workflow Split:**
-  - **Separated Declaration & Payment into 2 steps (8 steps total now):**
-    - Step 7: Declaration (T&Cs acceptance, emergency fund, information accuracy + signature)
-    - Step 8: Payment (pro-rata breakdown + payment status toggle)
-    - Navigation sidebar updated: Shows both steps separately
-    - Clearer separation of legal acceptance from financial info
-    - Better UX - members focus on one thing at a time
-
+  - Declaration and Payment separated into 2 distinct steps (8 steps total)
 - **Payment Status Auto-Update:**
-  - **Recording payment now automatically activates member:**
-    - When payment marked as "Completed" from Payments tab in Member Detail
-    - AND member status is "Pending"
-    - System automatically updates member status to "Active"
-    - Query invalidation refreshes UI immediately
-    - Toast notification: "Payment recorded and member activated"
-    - Works for both new payments and marking existing payments as completed
-
-- **Document Upload During Registration (FIXED):**
-  - **Re-enabled document upload in AddMember:**
-    - Files now successfully upload to Supabase Storage during registration
-    - URLs correctly saved to members table (photo_id_url, proof_of_address_url, etc.)
-    - Upload happens after member is created (requires member_id)
-    - Progress feedback shown to user during upload
-    - Documents immediately visible in Member Detail after completion
-    - Debug logging added for troubleshooting upload process
-
+  - Recording a completed payment automatically activates a pending member
+- **Document Upload During Registration (Re-enabled):**
+  - Files upload to Supabase Storage during registration
+  - URLs saved correctly to members table
 - **UI/UX Improvements:**
-  - **Joint Member Declaration Hiding:** Single applicants no longer see "Applicant 2" sections
-    - Declarations tab checks `membership_type === 'joint'` before rendering joint sections
-    - Conditional rendering prevents confusion for single memberships
-    - Only shows relevant declarations based on membership type
-    - Cleaner, less cluttered interface
-  - **Declarations Tab Redesign:**
-    - Shows actual declaration text with disabled checkboxes (grayed out if signed)
-    - Medical Consent section: Checkbox + full declaration text + signature display
-    - Final Declaration section: 3 checkboxes + full texts + signature display
-    - Date stamps: "Signed on: 12 Jan 2026" for completed declarations
-    - No more Yes/No - shows actual legal text the member agreed to
-    - Joint member sections hidden for single applicants
-  - **Members List Search Fix:**
-    - Fixed View button not clickable in search results
-    - Removed/fixed blocking "hover bar" overlay
-    - Z-index layering corrected
-    - Clicking row OR View button properly navigates to /members/{id}
-    - Search results now fully functional
+  - Joint member declaration sections hidden for single applicants
+  - Declarations tab redesigned to show actual legal text
+  - Members List search View button fixed
+  - Hover bar overlay causing unclickable rows removed
 
-- **Database & Validation:**
-  - Created helper function `canActivateMember(memberId)` for activation validation
-  - Queries payments table for completed payments
-  - Queries members table for required document URLs
-  - Returns detailed validation status with missing requirements breakdown
-  - Used before EVERY activation attempt across the app
-  - Prevents data integrity issues from incomplete activations
+**Files Changed:**
+- `AddMember.tsx`, `MemberDetail.tsx`, `BulkActionsBar.tsx`, `Payments.tsx`
 
-**Committee Impact:**
-- Prevents accidental activation of unpaid/undocumented members (data integrity protection)
-- Reduces confusion for single applicants seeing irrelevant joint member fields
-- Fixes broken navigation from Payments screen (productivity improvement)
-- Documents uploaded during registration now immediately visible (eliminates follow-up questions)
-- Safer bulk operations prevent accidental mass deletions
-- Better form layouts reduce scrolling and training time
-- Clearer registration workflow with separated declaration and payment steps
-- Payment recording now automatically activates members (one less manual step)
-- Better visual feedback makes bulk action bar more intuitive
-
-**Bug Fixes:**
-- Fixed: Members could be activated without payment or documents
-- Fixed: 404 error when clicking "View" on Payments page
-- Fixed: Documents uploaded in AddMember not appearing in Member Detail
-- Fixed: Single members seeing joint member declaration sections
-- Fixed: Delete button appearing for multi-member selections
-- Fixed: Payment recording not updating member status to Active
-- Fixed: Documents not uploading during registration
-- Fixed: View button not clickable in Members List search
-- Fixed: Form layouts too cramped with excessive scrolling
-
-**Known Issues:**
-- Payment status note field still pending implementation
-- Membership confirmation email wording updates pending
-- Some edge cases in search filtering may still need refinement
+---
 
 ### v0.10.0 (19 February 2026)
-**Major registration workflow overhaul based on committee feedback.** This release streamlines the member registration process from 9 steps to 7 steps, introduces human-readable membership IDs, implements automatic application tracking, and gives the committee full control over when emails are sent. The result is a faster, more natural registration experience with better tracking and less administrative overhead.
+**Major registration workflow overhaul based on committee feedback.** Streamlines member registration from 9 steps to 7 steps, introduces human-readable membership IDs, implements automatic application tracking, and gives the committee full control over when emails are sent.
 
-- **Streamlined 7-Step Registration:**
-  - Removed GDPR Compliance step entirely (reduced from 9 to 7 steps)
-  - Removed Paper Form Record step (GDPR tracking no longer needed)
-  - New flow: Membership Type → Main Member → Children → Next of Kin → Medical Info → GP Details → Payment
-  - Faster registration process with less scrolling and fewer screens
-  - Updated step counter and sidebar navigation throughout
-- **Human-Readable Membership IDs:**
-  - Replaced UUID-based system (#f4d5a52d) with professional format: **FCM-XXXXX**
-  - FCM = Falkirk Central Mosque (future-proof with mosque-specific prefixes)
-  - Sequential 5-digit numbers starting from random offset (10000-99999)
-  - Examples: FCM-32614, FCM-32615, FCM-32616
-  - Privacy-focused: Random starting point prevents revealing total member count
-  - Displayed throughout app: Member Detail header, Members List, emails, activity logs
-  - Database function `get_next_membership_number()` generates IDs atomically
-  - Searchable by membership number in Members List
-  - Existing members backfilled with sequential IDs based on join date
-- **Automatic Application Tracking:**
-  - Application reference generated immediately when "New Member" clicked
-  - Format: **APP-YYYYMMDD-XXXX** (e.g., APP-20260219-0001)
-  - Reference displayed prominently in AddMember header
-  - Auto-save on every step change (no manual save button needed)
-  - Resume saved applications via Applications In Progress widget
-  - Search applications by reference number or applicant name
-  - Track current step, last updated time, created by user
-  - Database: `draft_applications` table with reference_number, created_at, last_updated_at, current_step
-  - Widget shows: Reference, applicant name, step progress (Step X/7), time since last update
-  - Clickable rows navigate to `/add-member?draft={reference}` to resume
-- **Manual Email Control (No More Auto-Send):**
-  - Removed automatic email sending from registration success page
-  - Committee now manually sends document upload and declarations emails from Member Detail
-  - Better workflow: Verify email address before sending, control timing
-  - Success page focuses on completion message and next steps
-  - Email Token Status widget remains primary email management interface
-- **Form Input Sizing (Natural Layout):**
-  - Redesigned form fields to use content-appropriate widths
-  - Title dropdown: ~150px (Mr/Mrs/Dr fits naturally)
-  - Name fields: Title + First Name on same row, Last Name full width below
-  - Address fields: Town + City on same row, Postcode appropriately sized
-  - Phone fields: Mobile + Home on same row (~200px each)
-  - Email: Full width for long email addresses
-  - Applied across Main Member, Joint Member, Next of Kin, GP Details steps
-  - Reduced excessive white space and scrolling
-  - CSS Grid layout with 16px gaps for clean spacing
-  - Mobile: Single column, full width for all fields
-- **Medical Info Default State Change:**
-  - Health condition radio buttons no longer default to "No"
-  - Initial state is empty/unanswered
-  - User must actively select Yes or No before proceeding
-  - Validation prevents skipping without selection
-  - More accurate data collection (no accidental "No" selections)
-- **Payment Adjustment Field (Read-Only):**
-  - Adjustment field disabled but still visible in Payment step
-  - Shows £0 by default, grayed out
-  - Help text: "Contact committee if adjustment needed"
-  - Prevents accidental modifications during registration
-  - Committee can still adjust from Member Detail after registration
-- **Revamped Registration Success Screen:**
-  - Removed email sending buttons (now manual from Member Detail)
-  - Clear "Registration Complete" heading with success icon ✓
-  - Displays new membership ID prominently (FCM-32614)
-  - Displays application reference number
-  - Explains membership is pending document approval
-  - Lists next steps for member (upload docs, sign declarations)
-  - Action buttons: "View Member Profile" and "Register Another Member"
-  - Professional, celebratory design with clear expectations
-- **Database Schema Updates:**
-  - `members.membership_number` column (VARCHAR(12), UNIQUE, INDEXED)
-  - `membership_sequence` table for atomic ID generation
-  - `draft_applications.reference_number` column (VARCHAR(20), UNIQUE, INDEXED)
-  - `draft_applications.created_at`, `last_updated_at`, `created_by`, `current_step` columns
-  - Indexes on reference_number and created_at for fast searching
-  - Database function `get_next_membership_number(prefix)` for ID generation
+- Streamlined 7-step registration (removed GDPR and Paper Form steps)
+- Human-readable membership IDs: FCM-XXXXX format
+- Automatic application reference tracking: APP-YYYYMMDD-XXXX format
+- Manual email control (removed auto-send from registration)
+- Form input sizing redesigned for natural content-appropriate widths
+- Medical Info default state changed (no longer defaults to "No")
+- Payment adjustment field made read-only during registration
+- Revamped registration success screen
 
-**Committee Impact:**
-- 22% faster registration (7 steps vs 9 steps)
-- Professional membership IDs instead of confusing hashes
-- Full control over when emails are sent (verify addresses first)
-- Better tracking of in-progress applications with searchable references
-- More natural form layout reduces committee training time
-- Clearer success screen sets proper expectations with members
-
-**Breaking Changes:**
-- GDPR step removed from registration flow
-- Paper form tracking removed
-- Automatic email sending disabled (now manual)
-- Membership IDs changed from UUID to FCM-XXXXX format
-- Existing members backfilled with new ID format
+---
 
 ### v0.9.6.0 (15 February 2026)
-This release focuses on administrative experience improvements with an expanded Settings page, actionable dashboard alerts, and comprehensive error handling. The committee now has better visibility into pending member actions and more control over system configuration, while dark mode provides a modern alternative interface for late-night administrative work.
+Administrative experience improvements with expanded Settings page, actionable dashboard alerts, dark mode, and comprehensive error handling.
 
-- **Dashboard Alerts Widget:**
-  - Replaced redundant "Upcoming Renewals" with actionable "Alerts" widget
-  - Shows 4 categories: Documents Pending, Declarations Pending, Payments Overdue, Emails Failed
-  - Each alert type displays member count and is clickable to filter Members List
-  - Shows "No alerts - all members up to date ✓" when everything is current
-  - Orange/amber theme with warning icon for visibility
-  - Real-time updates based on email token status and payment data
-- **Settings Page Expansion:**
-  - Redesigned with 6 organized tabs: Profile, Appearance, Email Preferences, Payment Configuration, GDPR & Privacy, About
-  - **Email Preferences:** Customizable sender name, email signature, CC toggles, notification settings
-  - **Payment Configuration:** Read-only display of fees and schedules with "Request Changes" button (prevents accidental modifications)
-  - **About Tab:** System version, database statistics, email metrics, system health indicators
-  - All settings stored in new `system_settings` table with proper audit trail
-- **Dark Mode (Experimental):**
-  - Toggle switch in Settings > Appearance
-  - App-wide dark theme with localStorage persistence
-  - Dark variants for Dashboard, Members List, Member Detail, AddMember wizard
-  - Islamic green (#2d5016) and mosque gold (#D4AF37) branding maintained in both themes
-  - Secondary sidebars (registration steps, member detail tabs) support dark mode
-  - Marked as "EXPERIMENTAL" badge - ongoing polish for remaining white backgrounds
-  - Form inputs, cards, and tables styled for dark theme
-- **Error Pages with Personality:**
-  - Custom 404 Not Found page with humorous "break CRMFS" messaging
-  - Custom 500 Server Error page with professional error reporting
-  - React Error Boundary component catches application crashes
-  - All error pages include:
-    - Copy-able error details with unique log reference
-    - Email link to sami@kelpieai.co.uk for support
-    - Timestamp and context for debugging
-    - Action buttons (Go Back, Reload, Go to Dashboard)
-  - Strikethrough "break CRMFS" joke inspired by corporate error messages
-- **UI/UX Improvements:**
-  - Toast notifications replace blocking alert() calls throughout app
-  - Better visual hierarchy in Settings with tabbed navigation
-  - Improved form styling for dark mode compatibility
-  - Enhanced card layouts for better readability
-- **Database Updates:**
-  - Created `system_settings` table for storing configuration
-  - JSONB columns for flexible settings storage
-  - Audit trail columns (updated_by, updated_at) for all settings changes
+- Dashboard Alerts Widget (Documents, Declarations, Payments, Emails)
+- Settings Page expanded with 6 tabs
+- Dark Mode (Experimental)
+- Custom error pages (404, 500, crash) with support links
+- Toast notifications replace blocking alerts throughout
 
-**Committee Impact:**
-- Dashboard now shows what needs attention instead of redundant renewal info
-- Settings page provides transparency into system configuration
-- Dark mode reduces eye strain for evening administrative work
-- Error pages provide clear support pathway when issues occur
-- More professional, polished interface increases committee confidence
+---
 
 ### v0.9.5.0 (08 February 2026)
-This release completes the email token system by adding comprehensive admin controls for managing member document uploads and declaration signatures. The registration wizard has been streamlined to 9 steps, removing the redundant in-person document upload step in favour of the more secure and convenient email-based workflow.
+Email token system admin controls and registration wizard streamlined to 9 steps.
 
-- **Admin Email Token Management:**
-  - Email Token Status widget on Member Detail page
-  - Real-time status tracking (pending/expired/completed/not sent)
-  - Send/Resend buttons with intelligent labelling
-  - Toast notifications instead of blocking alerts
-  - Email sent timestamps and expiry date displays
-  - Automatic status updates after member actions
-- **Registration Wizard Streamlined:**
-  - Reduced from 10 steps to 9 steps
-  - Removed Step 6 (Documents) - now handled via email
-  - Success page with manual email send buttons
-  - Committee control over when emails are sent
-  - Clear explanation of each email's purpose
-- **Edge Function Improvements:**
-  - Fixed 401 authentication issues
-  - Removed JWT verification requirement
-  - Added comprehensive logging for debugging
-  - Better error handling and messaging
-- **Public Page Enhancements:**
-  - Fixed RLS policies for anonymous access
-  - Proper token validation on upload pages
-  - Improved error states (invalid/expired/used)
-  - Better visual feedback and messaging
-- **Database Updates:**
-  - RLS policies added for public token validation
-  - RLS policies added for public member lookup
-  - Optimised queries for token status checks
+- Email Token Status widget on Member Detail
+- Registration reduced from 10 to 9 steps (documents now via email)
+- Edge Function authentication fixes
+- Public upload page RLS policy fixes
+
+---
 
 ### v0.9.4.0 (05 February 2026)
-🎊 **Instant Email Triggers Complete!** This release completes the email automation system with three instant-trigger emails that fire immediately when key events occur. Combined with the cron-based system from v0.9.0.0, the mosque now has complete automated communication for the entire member lifecycle. The system now handles 11 different email scenarios without any manual intervention.
+🎊 **Instant Email Triggers Complete!** Three instant-trigger emails completing the full email automation system.
 
-- **Instant Trigger Emails (Database Triggers):**
-  - Welcome email sent immediately on new member registration
-  - Payment confirmation email sent instantly when payment recorded
-  - Reactivation success email when paused member returns to active status
-  - All three use PostgreSQL triggers with HTTP extension for instant delivery
-- **Auto-Pause System:**
-  - Third Edge Function (auto-pause-members) deployed
-  - Runs daily at 10:30 AM UTC via cron job
-  - Automatically pauses members 90+ days overdue
-  - Sends membership paused notification with reactivation instructions
-  - Waives late fees message included as courtesy
-- **Technical Implementation:**
-  - PostgreSQL http extension enabled for database triggers
-  - Three new trigger functions: send_welcome_email, send_payment_confirmation, send_reactivation_email
-  - Triggers fire on INSERT (members, payments) and UPDATE (member status changes)
-  - All emails logged to email_activity table with full audit trail
-  - Error handling ensures trigger failures don't block database operations
-- **Complete Email Suite (11 Total):**
-  - 4 renewal reminders (30/14/7/0 days)
-  - 3 late payment warnings (30/60/90 days)
-  - 1 auto-pause notification
-  - 1 welcome email
-  - 1 payment confirmation
-  - 1 reactivation success
-- **System Status:**
-  - Email automation: 100% complete
-  - Member lifecycle: Fully automated
-  - Committee intervention: Only for edge cases
-  - Time saved: 10-15 hours/month estimated
+- Welcome email on registration, payment confirmation, reactivation success
+- Auto-pause system (third Edge Function deployed)
+- 11 total email scenarios now fully automated
 
-**Technical Details:**
-- Edge Functions: send-renewal-reminders, send-late-payment-warnings, auto-pause-members
-- Database Triggers: welcome_email_trigger, payment_confirmation_trigger, reactivation_email_trigger
-- Cron Jobs: 3 (9:00 AM, 10:00 AM, 10:30 AM UTC)
-- Email Types: 11 (8 scheduled + 3 instant)
-
-**Note:** Deceased member workflow enhancement scheduled for future release
+---
 
 ### v0.9.3.0 (03 February 2026)
-🎨 **Registration Flow Redesign!** This release dramatically improves the user experience of the member registration process by replacing the cramped horizontal progress stepper with a professional sidebar navigation that matches the MemberSubNav styling. The new design provides better visual hierarchy, clearer progress tracking, and improved usability on all screen sizes.
+🎨 **Registration Flow Redesign** — horizontal stepper replaced with professional sidebar navigation.
 
-- **Registration Sidebar Navigation:**
-  - Fixed left sidebar replacing horizontal stepper
-  - All 9 steps clearly listed with numbered circles
-  - Visual progress indicators: green checkmark (completed), dark green circle (active), gray circle (pending)
-  - Click completed steps to navigate back and review
-  - Matches MemberSubNav styling (Islamic green #2d5016, mosque gold #D4AF37)
-  - Better spacing and typography throughout
-  - Smooth transitions and hover effects
-- **Quick Actions Section:**
-  - Save Progress button (green/prominent) for resuming later
-  - Back to Members link for easy navigation
-  - Email Copy function to send progress to member
-  - Print Progress for physical records
-  - All actions styled consistently with system theme
-- **Deceased Member Enhancement:**
-  - Deceased members now marked as "pending" by default
-  - Proper status only assigned after Record of Death form completed in-app
-  - Prevents incomplete death records from appearing in active workflows
-  - Ensures data integrity for funeral service documentation
-  - **Note:** Record of Death form workflow to be implemented in future release
-- **UX Improvements:**
-  - Much cleaner visual hierarchy
-  - No more cramped horizontal stepper
-  - Better mobile responsiveness
-  - Consistent branding with rest of system
-  - Professional appearance matching production standards
+- Fixed left sidebar replacing horizontal stepper
+- Click completed steps to navigate back
+- Quick Actions section (Save Progress, Back to Members, etc.)
+- Deceased members now marked as "pending" by default
 
-**Technical Details:**
-- New component: RegistrationSidebar.tsx
-- Props: currentStep, completedSteps, onStepChange, onSaveProgress, onBack, onSendCopy, onPrintProgress
-- Styling: Tailwind CSS with Islamic green + mosque gold theme
-- Icons: lucide-react (User, Baby, Heart, Stethoscope, Upload, CheckSquare, FileText, CreditCard)
-
-**User Impact:**
-- Clearer progress tracking during registration
-- Easier to review previous steps
-- Better understanding of where they are in the process
-- Reduced confusion about next steps
-- More professional appearance increases trust
-
+---
 
 ### v0.9.2.0 (01 February 2026)
-🎨 **Member Detail Interface Revamp!** Following user feedback about the bland and cramped member detail interface, this release introduces a complete visual redesign that transforms the page from boring white boxes into a modern, professional interface with proper Islamic branding and visual hierarchy.
+🎨 **Member Detail Interface Revamp** — complete visual redesign with Islamic branding.
 
-- **Hero Section Redesign:**
-  - Islamic green gradient background (from #2d5016 to #3d6622)
-  - Large prominent member name display (32px bold)
-  - Status badge next to name (green for active, red for paused, yellow for pending)
-  - Mosque gold member ID (#D4AF37) for easy reference
-  - Quick info strip showing phone, email, age, total paid, location at a glance
-  - Removed cramped stat cards that cluttered the interface
-  - Professional appearance matching production standards
-- **Personal Info Tab Redesign:**
-  - Modern card-based layout with rounded corners and shadows
-  - Hover effects (cards lift up 2px on hover)
-  - Mosque gold accent borders on featured cards (4px left border)
-  - Better spacing throughout (24px padding vs previous 16px)
-  - Grouped information in 2-column grid for related data
-  - Visual icons in card headers for quick scanning
-  - Action buttons at bottom of each card for clear CTAs
-  - Address displayed in attractive block format with icon
-  - New Membership Information card showing member ID, join date, renewal, total paid
-  - Contact items styled with green background boxes for visibility
-- **Subnav Sidebar Enhancement:**
-  - Wider sidebar (288px vs 224px) for breathing room
-  - Bigger icons (18px) for better visibility
-  - Active state: light green background + dark green left border
-  - Hover state: mosque gold left border for visual feedback
-  - More padding throughout (16px on steps)
-  - Bolder fonts for better readability
-  - Quick Actions section properly styled with hover effects
-  - Smooth transitions on all interactive elements
-- **Visual Improvements:**
-  - Islamic branding throughout (green #2d5016 + gold #D4AF37)
-  - Proper visual hierarchy with font sizes and weights
-  - Professional shadows and rounded corners
-  - Consistent spacing and alignment
-  - Better use of white space
-  - Modern color palette matching mosque identity
-- **Technical Implementation:**
-  - Updated MemberDetail.tsx hero section (lines 436-678)
-  - Redesigned PersonalInfoTab component (lines 1238-1378)
-  - Completely rebuilt MemberSubNav.tsx component
-  - All changes maintain existing functionality
-  - No breaking changes to data structure or logic
+- Islamic green gradient hero section
+- Modern card-based Personal Info tab with mosque gold accents
+- Enhanced sub-navigation sidebar
+- Quick info strip in hero (phone, email, age, total paid, location)
 
-**User Impact:**
-- Much more visually appealing interface
-- Information easier to scan and understand
-- Professional appearance increases committee confidence
-- Islamic branding creates sense of ownership
-- Better UX reduces training time for new users
-- Reduced visual clutter improves focus
-
-**Note:** Registration progress stepper redesign scheduled for v0.9.3.0
+---
 
 ### v0.9.1.0 (26 January 2026)
-🎉 **Email Automation Complete!** This release introduces a fully automated email communication system that eliminates the need for manual renewal reminders and late payment follow-ups. The committee can now focus on serving members rather than chasing paperwork, with the system automatically handling all routine communications through professional branded emails.
+🎉 **Email Automation Complete!** Fully automated email communication system.
 
-- **Email Infrastructure:**
-  - Resend API integration with crmfs@kelpieai.co.uk domain
-  - SPF, DKIM, and DMARC verification for deliverability
-  - DNS configuration via Netlify (after Fasthosts propagation issues)
-  - Professional HTML email templates with Islamic branding
-  - Mobile-responsive design that works across all email clients
-- **7 Automated Email Types:**
-  - Renewal reminders (30/14/7 days before + day 0 overdue)
-  - Late payment warnings (30/60/90 days with escalating urgency)
-  - Color-coded badges (green → orange → red)
-  - Personalized with member names and amounts
-  - Clear payment breakdowns and call-to-action buttons
-- **Automation System:**
-  - Two Supabase Edge Functions (Deno runtime)
-  - Daily cron jobs at 9:00 AM and 10:00 AM UTC
-  - Database helper functions for member identification
-  - Duplicate prevention (won't send same email twice in 24 hours)
-  - Activity logging to email_activity table
-  - Unsubscribe token generation and management
-- **Member Preferences:**
-  - Email preferences JSONB column in members table
-  - Opt-out capabilities for non-critical emails
-  - Renewal reminders can be disabled
-  - Late payment warnings are mandatory (business requirement)
-  - 90-day expiring unsubscribe tokens
-- **GDPR Compliance:**
-  - Email activity logged for audit trail
-  - Unsubscribe links in all non-critical emails
-  - Member preferences respected automatically
-  - Complete transparency on email communications
-- **Testing & Deployment:**
-  - 7 test emails sent to committee for review
-  - Domain verification completed via Netlify DNS
-  - Cron jobs scheduled and verified working
-  - Email templates tested across Gmail, Outlook, Apple Mail
-  - Delivered to inbox (not spam) with proper authentication
+- Resend API integration with crmfs@kelpieai.co.uk
+- 7 automated email types with progressive urgency
+- Daily cron jobs (9:00 AM and 10:00 AM UTC)
+- Member email preferences and unsubscribe tokens
+- Saves ~10 hours/month on manual reminders
 
-**Technical Details:**
-- Edge Functions: send-renewal-reminders, send-late-payment-warnings
-- Database Tables: email_activity, email_queue, unsubscribe_tokens
-- Helper Functions: get_members_needing_renewal_reminders, get_members_with_late_payments
-- Cron Schedule: 0 9 * * * (renewals), 0 10 * * * (late payments)
-- Email Service: Resend API (3,000/month free tier)
-
-**Committee Impact:**
-- Saves ~10 hours/month on manual reminder calls and emails
-- Reduces payment delays through timely automated reminders
-- Provides professional consistent communication to all members
-- Complete audit trail of all member communications
-- Zero ongoing maintenance required (fully automated)
+---
 
 ### v0.8.0.0 (22 January 2026)
-🔐 **Production Ready!** After two weeks of intensive debugging, the authentication system is now fully operational and battle-tested. This release marks a critical milestone as the system transitions from development to production-ready status with proper security, GDPR compliance, and reliable authentication flows. The auth issues that plagued earlier versions have been completely resolved through systematic debugging of Supabase integration, RLS policies, and session management.
+🔐 **Production Ready!** Authentication system fully operational and battle-tested.
 
-- **Authentication System Overhaul:**
-  - Fixed critical infinite recursion bug in users table RLS policy
-  - Corrected Supabase client configuration (anon key vs service_role key)
-  - Implemented non-blocking profile fetching to prevent login hangs
-  - Added comprehensive logging throughout auth flow for debugging
-  - Auth state changes now complete instantly without blocking on profile load
-  - Profile loads asynchronously in background after successful login
-- **Security Enhancements:**
-  - Removed circular RLS policy dependencies causing 500 errors
-  - Simplified admin access control to prevent recursion loops
-  - All authenticated users now have proper committee-level access
-  - Session persistence working correctly across page refreshes
-  - Protected routes now redirect properly to login when needed
-- **User Experience Improvements:**
-  - Personalized dashboard greetings ("Good afternoon, Mohammed!")
-  - Profile display in sidebar showing user name and role
-  - Smooth login flow with instant redirect to dashboard
-  - Dev Bypass button for development testing
-  - Clear error messages when authentication fails
-- **Technical Debt Cleanup:**
-  - Refactored AuthContext to handle async operations correctly
-  - Removed blocking await calls in auth state change listeners
-  - Cleaned up supabase.ts configuration file
-  - Added proper timeout handling for profile fetching
-  - Improved console logging for troubleshooting
-- **Production Readiness:**
-  - All committee members can now log in successfully
-  - Profile data loads correctly for personalization
-  - No more hanging or infinite loading states
-  - Auth flows tested extensively across multiple scenarios
-  - System ready for deployment to Falkirk Central Mosque
+- Fixed infinite recursion in RLS policy
+- Corrected Supabase client configuration (anon key vs service_role key)
+- Non-blocking profile fetching
+- Personalized dashboard greetings
+- All committee members can log in successfully
 
-**Critical Bug Fixes:**
-- Fixed: Infinite recursion in "Admins can manage all users" RLS policy
-- Fixed: Wrong API key causing auth hangs (service_role → anon)
-- Fixed: Profile fetch blocking login completion
-- Fixed: Auth state changes taking 5+ seconds to complete
-- Fixed: Session persistence across page reloads
-
-**Testing Notes:**
-- Tested with multiple user accounts (admin, chairman, treasurer)
-- Verified login works on localhost and production URLs
-- Confirmed profile loading doesn't block dashboard access
-- Validated RLS policies allow proper committee access
-- Verified GDPR audit logging captures user actions correctly
+---
 
 ### v0.7.1.0 (1 January 2026)
-🎉 **Happy New Year!** This New Year's Day release completes the modal functionality across all Member Detail tabs, ensuring every section has full CRUD capabilities. The focus is on empowering committee members to manage all member information directly from the detail page without needing to navigate elsewhere. Three professional modals were added with modern UX patterns including drag-and-drop file uploads and digital signature capture.
+🎉 **Happy New Year!** Modal functionality completed across all Member Detail tabs.
 
-- **GP Details Modal:**
-  - Add/Edit GP practice information from GP Details tab
-  - 7 fields: practice name, address, town, city, postcode, phone, email
-  - Required field validation (practice name, postcode)
-  - Auto-uppercase postcode formatting
-  - Pre-fills existing data when editing
-  - Empty state button to add GP details for first time
-- **Declarations Signature Modal:**
-  - Sign medical consent + final declaration digitally from Declarations tab
-  - Checkbox-based consent capture (Section 6 & 7)
-  - Text signature fields with italic font (matching AddMember style)
-  - Color-coded sections (blue for medical, purple for final declaration)
-  - Separate sections for main and joint members
-  - Auto-date stamping on signature submission
-  - Smart validation (signature required if checkbox checked)
-  - Enables retroactive signing for members missing declarations
-- **Document Upload Modal:**
-  - Upload/manage member documents from Documents tab
-  - Professional drag & drop interface with visual feedback
-  - Browse files button for traditional file selection
-  - Green border when file selected, blue when dragging over
-  - Shows current filename and upload status
-  - Supports JPG, PNG, and PDF files
-  - Upload multiple documents at once
-  - Replace existing documents (upsert functionality)
-  - Uploads to Supabase Storage with organized file structure
-  - Main member: Photo ID + Proof of Address
-  - Joint member: Photo ID + Proof of Address (if applicable)
-- **Payment Tab Enhancement:**
-  - Collapsible payment breakdown (clean, compact list by default)
-  - Click payment header to expand/collapse details
-  - Chevron icons show state (up/down)
-  - Each payment remembered independently
-  - Much cleaner UI for scanning multiple payments
+- GP Details Modal
+- Declarations Signature Modal
+- Document Upload Modal
+- Collapsible payment breakdown in Payments tab
+
+---
 
 ### v0.7.0.0 (30 December 2025)
-This release focuses on GDPR compliance and data protection, implementing the final administrative tools needed for handling member data requests. The system now provides complete transparency around data access and gives committee members the ability to respond to member requests efficiently while maintaining full audit trails.
+GDPR compliance and data protection tools.
 
-- **GDPR Admin Tools:**
-  - Export Member Data function with one-click JSON generation
-  - Create Deletion Request workflow with committee approval process
-  - View Access Log for complete transparency of data access
-  - All tools accessible from Member Detail page for convenience
-  - Automatic logging of all data exports and access
-- **Paper Form Compliance:**
-  - New Step 9 in registration wizard for paper form tracking
-  - Records paper application form version (v01.25)
-  - Captures main and joint member signatures from Section 7
-  - Tracks who entered data and when for audit purposes
-  - Confirms physical paper forms are filed for 7-year retention
-  - Auto-records all GDPR consents obtained via paper form
-- **Access Logging System:**
-  - Automatic logging whenever member data is accessed
-  - Tracks who viewed data, what was accessed, and when
-  - Complete audit trail for GDPR Article 30 compliance
-  - Searchable access history per member
-  - Access logs viewable from Member Detail page
+- Export Member Data (GDPR Article 15)
+- Deletion Request workflow (GDPR Article 17)
+- Access Log for audit transparency
+- Paper Form compliance tracking
+
+---
 
 ### v0.6.0.0 (30 December 2025)
-Following user feedback about the previous navigation structure, this release introduces a cleaner interface with better organization of system settings and privacy controls. The new profile-based navigation makes it easier for committee members to access their settings while keeping the main sidebar focused on core workflows.
+Profile-based navigation and Settings page.
 
-- **Profile & Settings Navigation:**
-  - Profile button with user avatar added to bottom of sidebar
-  - Dropdown menu for Settings and Sign Out (cleaner than before)
-  - Automatic user identification from Supabase Auth session
-  - Responsive dropdown positioning on mobile and desktop
-- **Settings Page:**
-  - New dedicated page for system administration and privacy
-  - Privacy Policy download section for member distribution
-  - Deletion Requests management with pending/approved/rejected stats
-  - Committee approval workflow with 30-day deadline tracking
-  - Data protection obligations guidance for committee members
-  - GDPR Article 17 compliance (right to erasure)
-- **Database Updates:**
-  - Created deletion_requests table with review workflow
-  - Created access_log table for audit trail
-  - Added consent_withdrawals and data_breaches tables
-  - Implemented proper indexes for performance
+- Profile button in sidebar with dropdown
+- Settings page with deletion requests and GDPR guidance
+
+---
 
 ### v0.5.0.0 (30 December 2025)
-This release addresses two critical operational needs: document management and membership lifecycle handling. The document system eliminates the need for physical filing of ID copies, while the pause/unpause system provides a more humane approach to handling members who fall behind on payments.
+Document management and membership lifecycle handling.
 
-- **Document Management System:**
-  - Document upload during registration (Photo ID, Proof of Address, Children certificates)
-  - Supabase Storage integration with secure file handling
-  - Document viewing in Member Detail with preview and download options
-  - Upload progress indicators and delete functionality
-  - File validation (type, size, format) for security
-  - Organized display by member type with status indicators
-- **Membership Pause/Unpause System:**
-  - Paused status tracking with reason and warning counter
-  - Red status badges throughout app for visibility
-  - "Unpause Membership" button with payment modal
-  - Age-based reactivation fee calculation (£75-£600)
-  - Late fees waived on reactivation as one-time courtesy
-  - Filter members by paused status for bulk management
-- **Database Enhancements:**
-  - Added 5 document URL columns for file references
-  - Added 3 pause tracking columns (status, reason, warnings)
-  - Storage bucket policies configured for secure access
-  - Payment types enum updated with "reactivation"
+- Document upload during registration
+- Supabase Storage integration
+- Membership Pause/Unpause system
+- Age-based reactivation fee calculation
+
+---
 
 ### v0.4.0.0 (29 December 2025)
-The Phase 1 critical features release brings the system to production-ready status with proper legal compliance and payment accuracy. This version implements the core business logic that was missing from earlier builds, including the age-based fee structure requested by the committee and the legal declarations required for funeral cover validity.
+Phase 1 critical features — legal compliance and payment accuracy.
 
-- **Payment System Accuracy:**
-  - Pro-rata calculations from signup date to December 31st
-  - Age-based joining fees in 5 tiers (£75-£500)
-  - Registration success screens with payment status indicators
-- **Legal Compliance:**
-  - Password-protected member deletion for safety
-  - Medical disclosure declaration with electronic signatures
-  - Posthumous medical authorization with electronic signatures
-  - Final T&Cs acceptance requirement
-  - GP details integration as mandatory field
+- Pro-rata and age-based fee calculations
+- Medical and posthumous authorization declarations
+- Password-protected member deletion
+
+---
 
 ### v0.3.1.0 (29 December 2025)
-Security hardening release addressing vulnerabilities discovered during internal audit. Row Level Security (RLS) was not properly enabled on all tables, creating potential data exposure risks. This release also fixed several routing bugs that were causing 404 errors when navigating to deceased member records.
+Security hardening — RLS enabled on all 18 tables, routing bug fixes.
 
-- Enabled Row Level Security (RLS) on all 18 database tables
-- Fixed deceased system routing issues (404 errors)
-- Resolved table name mismatches in deceased workflows
-- Added debug logging for troubleshooting
+---
 
 ### v0.3.0.0 (28 December 2025)
-Legal compliance focused release implementing the two critical declarations required for funeral cover validity. Without these signed declarations, the mosque cannot legally provide funeral services, making this a non-negotiable requirement before production deployment.
+Legal compliance — electronic declarations required for funeral cover validity.
 
-- Medical disclosure declaration with electronic signatures
-- Posthumous medical authorization with electronic signatures
-- Registration success screen redesigned with payment-based status
-- Removed generic "What happens next?" section
-- Added prominent "Register Another Member" button
+---
 
 ### v0.2.5.0 (28 December 2025)
-Major payment system overhaul to implement fair pricing based on age brackets and signup timing. The previous flat-rate system didn't account for the actuarial risk differences across age groups or the unfairness of charging full annual fees for December signups.
+Payment system overhaul — pro-rata fees, age-based joining fees, legacy membership.
 
-- Pro-rata annual fee calculation (signup date → Dec 31)
-- Age-based joining fees (£75-£500 across 5 age brackets)
-- Legacy membership support (£0 joining fee for children turning 18)
-- Adjustment field for prepaying following year
-- Clear coverage period display on all payment screens
-- Conditional medical information (Yes/No question with text box)
+---
 
 ### v0.2.3 (27 December 2025)
-Branding update to align with Islamic visual identity and fix several form validation gaps discovered during user testing. Mobile number validation was particularly important as incorrect numbers were causing payment reminder failures.
+Islamic branding and form validation improvements.
 
-- Sidebar redesigned with Islamic Green (#06420c)
-- Mosque Gold (#D4AF37) accents throughout
-- Mobile number validation (must be 11 digits)
-- Email format validation
-- GP details now mandatory
-- Next of Kin fields now mandatory with relation dropdown
-- Age auto-calculation next to date of birth
+---
 
 ### v0.2.2 (27 December 2025)
-Premium polish release adding professional UX features that significantly improve daily usage. The loading skeletons and caching prevent the jarring "blank screen" experience, while Command Palette enables power users to navigate quickly.
+Loading skeletons, Command Palette, aggressive caching, bulk actions.
 
-- Loading skeletons with shimmer animations
-- Command Palette (Cmd+K / Ctrl+K) for quick navigation
-- Aggressive caching (5min stale, 30min cache)
-- Optimistic UI updates with rollback
-- Bulk actions with floating action bar
-- 4-step Death Record Wizard with Islamic verse display
+---
 
 ### v0.2.1 (26 December 2025)
-Major UI/UX overhaul based on feedback that the previous interface felt cramped and difficult to navigate. The Supabase-style collapsible navigation creates more breathing room while maintaining quick access to all features.
+Major UI/UX overhaul — collapsible sidebar, Member Detail with 10 tabs, Activity Log, Deceased Member System.
 
-- Supabase-style collapsible navigation sidebar
-- Mobile hamburger menu for responsive design
-- Member Detail page completely redesigned with 10 tabs
-- Premium CRUD modals for Children and Next of Kin
-- Activity Logging System with automatic database triggers
-- Deceased Member System with 7 information tabs
+---
 
 ### v0.1.5 (24 December 2025)
-Feature complete MVP with all core workflows functional. This version was the first to be tested with real data from existing members, revealing several pain points that were addressed in subsequent releases.
+Feature complete MVP — registration wizard, payment management, dashboard analytics.
 
-- Complete member registration wizard
-- Payment management system with tracking
-- Dashboard with real-time analytics
-- Late payment identification and tracking
-- Upcoming renewals widget with colour-coded urgency
-- Responsive mobile design
+---
 
 ### v0.1.4 (22 December 2025)
-Initial MVP release demonstrating core CRUD operations and database connectivity. This version established the technical foundation and proved the Supabase integration was viable for the mosque's needs.
-
-- Basic CRUD operations for members
-- Authentication system with Supabase Auth
-- Database schema implementation
-- Initial UI components and routing
+Initial MVP — basic CRUD, Supabase Auth, database schema, routing.
 
 ---
 
@@ -1626,7 +1178,7 @@ Initial MVP release demonstrating core CRUD operations and database connectivity
 
 **Mission:** Modernise and streamline the administrative operations of Central Region Muslim Funeral Service, enabling the committee to focus on serving the community rather than managing paperwork, while ensuring full GDPR compliance and data protection for all members.
 
-**Vision:** A fully integrated, automated system that handles member lifecycle management, financial tracking, document management, GDPR compliance, and community engagement—setting the standard for mosque administrative systems in Scotland and demonstrating that data protection and operational efficiency can coexist.
+**Vision:** A fully integrated, automated system that handles member lifecycle management, financial tracking, document management, GDPR compliance, and community engagement — setting the standard for mosque administrative systems in Scotland and demonstrating that data protection and operational efficiency can coexist.
 
 ---
 
