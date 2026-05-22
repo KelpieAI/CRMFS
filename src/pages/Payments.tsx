@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { TableSkeleton } from '../components/SkeletonComponents';
 import { usePaymentStatusUpdate } from '../hooks/useOptimisticUpdates';
+import { checkOutstandingPayments } from '../lib/activationHelpers';
+import { ActivationConfirmModal } from '../components/ActivationConfirmModal';
 import {
   CreditCard,
   Plus,
@@ -28,6 +30,13 @@ export default function Payments() {
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [activationConfirm, setActivationConfirm] = useState<{
+    paymentId: string;
+    memberId: string;
+    memberName: string;
+    pendingTotal: number;
+  } | null>(null);
+  const [isCheckingActivation, setIsCheckingActivation] = useState(false);
 
   const updatePaymentStatus = usePaymentStatusUpdate();
 
@@ -126,8 +135,8 @@ export default function Payments() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Payments</h1>
-            <p className="mt-1 text-sm text-gray-600">Manage membership payments and renewals</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Payments</h1>
+            <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">Manage membership payments and renewals</p>
           </div>
         </div>
         <TableSkeleton rows={7} />
@@ -140,8 +149,8 @@ export default function Payments() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Payments</h1>
-          <p className="mt-1 text-sm text-gray-600">Manage membership payments and renewals</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Payments</h1>
+          <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">Manage membership payments and renewals</p>
         </div>
         <button
           onClick={() => setShowAddPayment(true)}
@@ -215,17 +224,17 @@ export default function Payments() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-green-100">
-                <PoundSterling className="h-6 w-6 text-green-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-green-100 dark:bg-green-900/30">
+                <PoundSterling className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Revenue</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Revenue</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">£{stats.totalRevenue.toFixed(2)}</div>
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">£{stats.totalRevenue.toFixed(2)}</div>
                   </dd>
                 </dl>
               </div>
@@ -234,17 +243,17 @@ export default function Payments() {
           <div className="h-2 bg-gradient-to-r from-green-500 to-green-600"></div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-yellow-100">
-                <Clock className="h-6 w-6 text-yellow-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-yellow-100 dark:bg-yellow-900/30">
+                <Clock className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Pending Payments</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Pending Payments</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">{stats.pendingPayments}</div>
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{stats.pendingPayments}</div>
                   </dd>
                 </dl>
               </div>
@@ -253,17 +262,17 @@ export default function Payments() {
           <div className="h-2 bg-gradient-to-r from-yellow-500 to-yellow-600"></div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-blue-100">
-                <TrendingUp className="h-6 w-6 text-blue-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-blue-100 dark:bg-blue-900/30">
+                <TrendingUp className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Completed Today</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Completed Today</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">{stats.completedToday}</div>
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{stats.completedToday}</div>
                   </dd>
                 </dl>
               </div>
@@ -272,17 +281,17 @@ export default function Payments() {
           <div className="h-2 bg-gradient-to-r from-blue-500 to-blue-600"></div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-red-100">
-                <AlertCircle className="h-6 w-6 text-red-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-red-100 dark:bg-red-900/30">
+                <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Overdue Payments</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Overdue Payments</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">{stats.overdueRenewals}</div>
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{stats.overdueRenewals}</div>
                   </dd>
                 </dl>
               </div>
@@ -293,7 +302,7 @@ export default function Payments() {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200">
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 transition-colors">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1 relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -377,9 +386,9 @@ export default function Payments() {
       </div>
 
       {/* Payments List */}
-      <div className="bg-white shadow-lg rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gradient-to-r from-emerald-600 to-emerald-700">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
@@ -405,10 +414,10 @@ export default function Payments() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700 transition-colors">
               {filteredPayments && filteredPayments.length > 0 ? (
                 filteredPayments.map((payment: any) => (
-                  <tr key={payment.id} className="hover:bg-emerald-50 transition-colors">
+                  <tr key={payment.id} className="hover:bg-emerald-50 dark:hover:bg-gray-700 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">
@@ -452,13 +461,30 @@ export default function Payments() {
                       <div className="flex items-center justify-end gap-2">
                         {payment.payment_status === 'pending' && (
                           <button
-                            onClick={() => {
-                              updatePaymentStatus.mutate({
-                                paymentId: payment.id,
-                                newStatus: 'completed',
-                              });
+                            onClick={async () => {
+                              setIsCheckingActivation(true);
+                              try {
+                                const memberStatus = payment.members?.status;
+                                if (memberStatus === 'pending') {
+                                  const { pendingTotal } = await checkOutstandingPayments(payment.member_id);
+                                  setActivationConfirm({
+                                    paymentId: payment.id,
+                                    memberId: payment.member_id,
+                                    memberName: `${payment.members?.first_name} ${payment.members?.last_name}`,
+                                    pendingTotal,
+                                  });
+                                } else {
+                                  updatePaymentStatus.mutate({
+                                    paymentId: payment.id,
+                                    newStatus: 'completed',
+                                    memberId: payment.member_id,
+                                  });
+                                }
+                              } finally {
+                                setIsCheckingActivation(false);
+                              }
                             }}
-                            disabled={updatePaymentStatus.isPending}
+                            disabled={updatePaymentStatus.isPending || isCheckingActivation}
                             className="inline-flex items-center px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Mark as completed"
                           >
@@ -483,7 +509,7 @@ export default function Payments() {
                           </button>
                         )}
                         <Link
-                          to={`/member/${payment.member_id}`}
+                          to={`/members/${payment.member_id}`}
                           className="inline-flex items-center px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
                         >
                           <Eye className="h-4 w-4 mr-1" />
@@ -527,6 +553,24 @@ export default function Payments() {
       {showAddPayment && (
         <AddPaymentModal onClose={() => setShowAddPayment(false)} />
       )}
+
+      <ActivationConfirmModal
+        isOpen={!!activationConfirm}
+        onClose={() => setActivationConfirm(null)}
+        onConfirm={() => {
+          if (!activationConfirm) return;
+          updatePaymentStatus.mutate({
+            paymentId: activationConfirm.paymentId,
+            newStatus: 'completed',
+            memberId: activationConfirm.memberId,
+          });
+          setActivationConfirm(null);
+        }}
+        memberName={activationConfirm?.memberName ?? ''}
+        hasPendingPayments={(activationConfirm?.pendingTotal ?? 0) > 0}
+        pendingTotal={activationConfirm?.pendingTotal ?? 0}
+        isLoading={updatePaymentStatus.isPending}
+      />
     </div>
   );
 }
@@ -543,6 +587,10 @@ function AddPaymentModal({ onClose }: { onClose: () => void }) {
     reference_no: '',
     notes: '',
   });
+  const [showActivationConfirm, setShowActivationConfirm] = useState(false);
+  const [activationPendingTotal, setActivationPendingTotal] = useState(0);
+  const [pendingMemberId, setPendingMemberId] = useState('');
+  const [pendingMemberName, setPendingMemberName] = useState('');
 
   // Fetch all active members for dropdown
   const { data: members } = useQuery({
@@ -554,6 +602,19 @@ function AddPaymentModal({ onClose }: { onClose: () => void }) {
         .in('status', ['active', 'pending'])
         .order('first_name', { ascending: true });
       return data || [];
+    },
+  });
+
+  const activateMemberMutation = useMutation({
+    mutationFn: async (memberId: string) => {
+      const { error } = await supabase.from('members').update({ status: 'active' }).eq('id', memberId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      setShowActivationConfirm(false);
+      onClose();
     },
   });
 
@@ -578,11 +639,31 @@ function AddPaymentModal({ onClose }: { onClose: () => void }) {
       });
 
       if (error) throw error;
-      return data;
+
+      const { data: currentMember } = await supabase
+        .from('members')
+        .select('status, first_name, last_name')
+        .eq('id', formData.member_id)
+        .maybeSingle();
+
+      if (currentMember?.status === 'pending') {
+        return { needsActivation: true, member: currentMember, insertedData: data };
+      }
+      return { needsActivation: false, member: currentMember, insertedData: data };
     },
-    onSuccess: () => {
+    onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
-      onClose();
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+
+      if (result?.needsActivation && result.member) {
+        const { pendingTotal } = await checkOutstandingPayments(formData.member_id);
+        setPendingMemberId(formData.member_id);
+        setPendingMemberName(`${result.member.first_name} ${result.member.last_name}`);
+        setActivationPendingTotal(pendingTotal);
+        setShowActivationConfirm(true);
+      } else {
+        onClose();
+      }
     },
   });
 
@@ -727,6 +808,15 @@ function AddPaymentModal({ onClose }: { onClose: () => void }) {
           </div>
         </form>
       </div>
+      <ActivationConfirmModal
+        isOpen={showActivationConfirm}
+        onClose={() => { setShowActivationConfirm(false); onClose(); }}
+        onConfirm={() => activateMemberMutation.mutate(pendingMemberId)}
+        memberName={pendingMemberName}
+        hasPendingPayments={activationPendingTotal > 0}
+        pendingTotal={activationPendingTotal}
+        isLoading={activateMemberMutation.isPending}
+      />
     </div>
   );
 }

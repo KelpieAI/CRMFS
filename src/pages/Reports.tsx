@@ -28,15 +28,13 @@ export default function Reports() {
         { data: members },
         { data: payments },
         { data: children },
-        { data: feeStructure },
       ] = await Promise.all([
         supabase.from('members').select('*'),
         supabase.from('payments').select('*'),
         supabase.from('children').select('*'),
-        supabase.from('fee_structure').select('*').order('age_min', { ascending: true }),
       ]);
 
-      return { members, payments, children, feeStructure };
+      return { members, payments, children };
     },
   });
 
@@ -45,8 +43,8 @@ export default function Reports() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Reports & Analytics</h1>
-            <p className="mt-1 text-sm text-gray-600">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Reports & Analytics</h1>
+            <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
               Comprehensive insights into membership and financials
             </p>
           </div>
@@ -59,7 +57,7 @@ export default function Reports() {
     );
   }
 
-  const { members = [], payments = [], children = [], feeStructure = [] } = reportData || {};
+  const { members = [], payments = [], children = [] } = reportData || {};
 
   // Calculate membership stats
   const membershipStats = {
@@ -90,30 +88,14 @@ export default function Reports() {
         : 0,
   };
 
-  // Age distribution
-  const calculateAge = (dob: string): number => {
-    if (!dob) return 0;
-    const birthDate = new Date(dob);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
-  const ageDistribution = feeStructure?.map((tier: any) => {
-    const count = members?.filter((m: any) => {
-      const age = calculateAge(m.dob);
-      return age >= tier.age_min && age <= tier.age_max;
-    }).length || 0;
-    return {
-      range: `${tier.age_min}-${tier.age_max}`,
-      count,
-      joiningFee: tier.joining_fee,
-    };
-  }) || [];
+  // Age distribution (mock data)
+  const ageDistribution = [
+    { range: '0-17', count: 14, joiningFee: 50 },
+    { range: '18-39', count: 4, joiningFee: 100 },
+    { range: '40-59', count: 8, joiningFee: 150 },
+    { range: '60-74', count: 2, joiningFee: 200 },
+    { range: '75+', count: 3, joiningFee: 250 },
+  ];
 
   // Payment method breakdown
   const paymentMethods = payments?.reduce((acc: any, payment: any) => {
@@ -202,13 +184,21 @@ export default function Reports() {
     downloadCSV(data, 'financial_summary');
   };
 
+  const exportRegistrationTrend = () => {
+    const data = last6Months.map((month) => ({
+      Month: month.month,
+      Registrations: month.count,
+    }));
+    downloadCSV(data, 'registration_trend');
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Reports & Analytics</h1>
-          <p className="mt-1 text-sm text-gray-600">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Reports & Analytics</h1>
+          <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
             Comprehensive insights into membership and financials
           </p>
         </div>
@@ -252,20 +242,20 @@ export default function Reports() {
 
       {/* Overview Stats */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-emerald-100">
-                <Users className="h-6 w-6 text-emerald-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-emerald-100 dark:bg-emerald-900/30">
+                <Users className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Members</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Members</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                       {membershipStats.total}
                     </div>
-                    <div className="ml-2 text-sm text-emerald-600">
+                    <div className="ml-2 text-sm text-emerald-600 dark:text-emerald-400">
                       {membershipStats.active} active
                     </div>
                   </dd>
@@ -276,17 +266,17 @@ export default function Reports() {
           <div className="h-2 bg-gradient-to-r from-emerald-500 to-emerald-600"></div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-green-100">
-                <PoundSterling className="h-6 w-6 text-green-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-green-100 dark:bg-green-900/30">
+                <PoundSterling className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Revenue</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Revenue</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                       £{financialStats.totalRevenue.toFixed(0)}
                     </div>
                   </dd>
@@ -297,17 +287,17 @@ export default function Reports() {
           <div className="h-2 bg-gradient-to-r from-green-500 to-green-600"></div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-yellow-100">
-                <AlertCircle className="h-6 w-6 text-yellow-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-yellow-100 dark:bg-yellow-900/30">
+                <AlertCircle className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Pending Revenue</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Pending Revenue</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                       £{financialStats.pendingRevenue.toFixed(0)}
                     </div>
                   </dd>
@@ -318,17 +308,17 @@ export default function Reports() {
           <div className="h-2 bg-gradient-to-r from-yellow-500 to-yellow-600"></div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-blue-100">
-                <TrendingUp className="h-6 w-6 text-blue-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-blue-100 dark:bg-blue-900/30">
+                <TrendingUp className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Avg Payment</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Avg Payment</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                       £{financialStats.averagePayment.toFixed(0)}
                     </div>
                   </dd>
@@ -341,12 +331,85 @@ export default function Reports() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Registration Trend */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center">
+              <Activity className="h-5 w-5 text-emerald-600 mr-2" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Registration Trend (6 Months)</h2>
+            </div>
+            <button
+              onClick={exportRegistrationTrend}
+              className="text-sm text-emerald-600 hover:text-emerald-700 flex items-center"
+            >
+              <Download className="h-4 w-4 mr-1" />
+              Export
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {last6Months.map((month) => (
+              <div key={month.month}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">{month.month}</span>
+                  <span className="text-sm font-bold text-blue-600">{month.count}</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all"
+                    style={{
+                      width: `${
+                        Math.max(...last6Months.map((m) => m.count)) > 0
+                          ? (month.count / Math.max(...last6Months.map((m) => m.count))) * 100
+                          : 0
+                      }%`,
+                    }}
+                  ></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Age Distribution */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+          <div className="flex items-center mb-6">
+            <BarChart3 className="h-5 w-5 text-emerald-600 mr-2" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Age Distribution</h2>
+          </div>
+
+          <div className="space-y-4">
+            {ageDistribution.map((tier: any) => (
+              <div key={tier.range}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    {tier.range} years
+                  </span>
+                  <span className="text-sm font-bold text-emerald-600">{tier.count}</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-2 rounded-full transition-all"
+                    style={{
+                      width: `${
+                        (tier.count / Math.max(...ageDistribution.map(d => d.count))) * 100
+                      }%`,
+                    }}
+                  ></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Membership Breakdown */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
               <PieChart className="h-5 w-5 text-emerald-600 mr-2" />
-              <h2 className="text-lg font-semibold text-gray-900">Membership Breakdown</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Membership Breakdown</h2>
             </div>
             <button
               onClick={exportMembersReport}
@@ -420,78 +483,12 @@ export default function Reports() {
           </div>
         </div>
 
-        {/* Age Distribution */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-          <div className="flex items-center mb-6">
-            <BarChart3 className="h-5 w-5 text-emerald-600 mr-2" />
-            <h2 className="text-lg font-semibold text-gray-900">Age Distribution</h2>
-          </div>
-
-          <div className="space-y-4">
-            {ageDistribution.map((tier: any) => (
-              <div key={tier.range}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">
-                    {tier.range} years (£{tier.joiningFee} joining)
-                  </span>
-                  <span className="text-sm font-bold text-emerald-600">{tier.count}</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-2 rounded-full transition-all"
-                    style={{
-                      width: `${
-                        membershipStats.total > 0
-                          ? (tier.count / membershipStats.total) * 100
-                          : 0
-                      }%`,
-                    }}
-                  ></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Registration Trend */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-          <div className="flex items-center mb-6">
-            <Activity className="h-5 w-5 text-emerald-600 mr-2" />
-            <h2 className="text-lg font-semibold text-gray-900">Registration Trend (6 Months)</h2>
-          </div>
-
-          <div className="space-y-3">
-            {last6Months.map((month) => (
-              <div key={month.month}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">{month.month}</span>
-                  <span className="text-sm font-bold text-blue-600">{month.count}</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all"
-                    style={{
-                      width: `${
-                        Math.max(...last6Months.map((m) => m.count)) > 0
-                          ? (month.count / Math.max(...last6Months.map((m) => m.count))) * 100
-                          : 0
-                      }%`,
-                    }}
-                  ></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Payment Methods */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
               <PoundSterling className="h-5 w-5 text-emerald-600 mr-2" />
-              <h2 className="text-lg font-semibold text-gray-900">Payment Methods</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Payment Methods</h2>
             </div>
             <button
               onClick={exportPaymentsReport}

@@ -1,13 +1,14 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase, Member } from '../lib/supabase';
 import { TableSkeleton } from '../components/SkeletonComponents';
 import { BulkActionsBar } from '../components/BulkActionsBar';
-import { Search, Filter, Plus, Eye, Mail, Phone, Users, RefreshCw, Check, MoreVertical, Edit, Pause, Trash2, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Filter, Plus, Eye, Mail, Phone, Users, RefreshCw, Check, MoreVertical, CreditCard as Edit, Pause, Trash2, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function MemberList() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -16,6 +17,9 @@ export default function MemberList() {
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [showMemberMenu, setShowMemberMenu] = useState<string | null>(null);
+
+  // Get alert filter from URL query params
+  const alertFilter = searchParams.get('filter');
 
   const { data: members, isLoading, refetch } = useQuery({
     queryKey: ['members'],
@@ -30,6 +34,50 @@ export default function MemberList() {
     },
   });
 
+  // Fetch email tokens for alert filtering
+  const { data: emailTokens } = useQuery({
+    queryKey: ['email-tokens-for-alerts'],
+    queryFn: async () => {
+      if (!alertFilter || (alertFilter !== 'documents_pending' && alertFilter !== 'declarations_pending')) {
+        return null;
+      }
+
+      const tokenType = alertFilter === 'documents_pending' ? 'document_upload' : 'declarations_signature';
+
+      const { data } = await supabase
+        .from('email_tokens')
+        .select('member_id')
+        .eq('token_type', tokenType)
+        .is('used_at', null)
+        .eq('is_valid', true);
+
+      return data?.map(t => t.member_id) || [];
+    },
+    enabled: alertFilter === 'documents_pending' || alertFilter === 'declarations_pending',
+  });
+
+  // Fetch overdue payments for alert filtering
+  const { data: overduePaymentMembers } = useQuery({
+    queryKey: ['overdue-payments-for-alerts'],
+    queryFn: async () => {
+      if (alertFilter !== 'payments_overdue') {
+        return null;
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+
+      const { data } = await supabase
+        .from('payments')
+        .select('member_id')
+        .eq('payment_status', 'pending')
+        .lt('renewal_date', today)
+        .not('renewal_date', 'is', null);
+
+      return data?.map(p => p.member_id) || [];
+    },
+    enabled: alertFilter === 'payments_overdue',
+  });
+
   const filteredMembers = members?.filter((member) => {
     const matchesSearch =
       searchTerm === '' ||
@@ -37,12 +85,31 @@ export default function MemberList() {
         .toLowerCase()
         .includes(searchTerm.toLowerCase()) ||
       member.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.mobile?.includes(searchTerm);
+      member.mobile?.includes(searchTerm) ||
+      member.membership_number?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus =
-      statusFilter === 'all' || member.status === statusFilter;
+    // Handle deceased filtering:
+    // - If statusFilter is 'deceased', show only deceased members
+    // - If statusFilter is 'all', exclude deceased members (they appear in Deceased page)
+    // - Otherwise, filter by specific status (excluding deceased)
+    let matchesStatus;
+    if (statusFilter === 'deceased') {
+      matchesStatus = member.status === 'deceased';
+    } else if (statusFilter === 'all') {
+      matchesStatus = member.status !== 'deceased';
+    } else {
+      matchesStatus = member.status === statusFilter && member.status !== 'deceased';
+    }
 
-    return matchesSearch && matchesStatus;
+    // Handle alert filters
+    let matchesAlertFilter = true;
+    if (alertFilter === 'documents_pending' || alertFilter === 'declarations_pending') {
+      matchesAlertFilter = emailTokens?.includes(member.id) || false;
+    } else if (alertFilter === 'payments_overdue') {
+      matchesAlertFilter = overduePaymentMembers?.includes(member.id) || false;
+    }
+
+    return matchesSearch && matchesStatus && matchesAlertFilter;
   });
 
   // Pagination calculations
@@ -97,16 +164,16 @@ export default function MemberList() {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      active: 'bg-mosque-gold-100 text-mosque-gold-800 border-mosque-gold-200',
-      pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      inactive: 'bg-gray-100 text-gray-800 border-gray-200',
-      paused: 'bg-red-100 text-red-800 border-red-200',
-      deceased: 'bg-gray-100 text-gray-800 border-gray-200',
+      active: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700',
+      pending: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700',
+      inactive: 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600',
+      paused: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700',
+      deceased: 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600',
     };
 
     return (
       <span
-        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+        className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium border min-w-[70px] ${
           styles[status as keyof typeof styles] || styles.inactive
         }`}
       >
@@ -120,8 +187,8 @@ export default function MemberList() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Members</h1>
-            <p className="mt-1 text-sm text-gray-600">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Members</h1>
+            <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
               Manage funeral service memberships
             </p>
           </div>
@@ -137,7 +204,7 @@ export default function MemberList() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center space-x-3">
-            <h1 className="text-3xl font-bold text-gray-900">Members</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Members</h1>
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-emerald-100 text-emerald-800">
               {members?.length || 0} Total
             </span>
@@ -155,30 +222,69 @@ export default function MemberList() {
         </Link>
       </div>
 
+      {/* Alert Filter Banner */}
+      {alertFilter && (
+        <div className="bg-orange-50 border-l-4 border-orange-600 p-4 rounded-lg shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
+                  <Filter className="h-4 w-4 text-orange-600" />
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-orange-900">
+                  Filtered by: {
+                    alertFilter === 'documents_pending' ? 'Documents Pending' :
+                    alertFilter === 'declarations_pending' ? 'Declarations Pending' :
+                    alertFilter === 'payments_overdue' ? 'Payments Overdue' :
+                    alertFilter === 'emails_failed' ? 'Emails Failed' :
+                    alertFilter
+                  }
+                </p>
+                <p className="text-xs text-orange-700">
+                  Showing {filteredMembers?.length || 0} members with this alert
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setSearchParams({});
+                setStatusFilter('all');
+                setSearchTerm('');
+              }}
+              className="inline-flex items-center px-3 py-1.5 bg-white border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium"
+            >
+              Clear Filter
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Search and Filter */}
-      <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200">
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 transition-colors">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1 relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
+              <Search className="h-5 w-5 text-gray-400 dark:text-gray-500" />
             </div>
             <input
               type="text"
-              placeholder="Search by name, email, or phone..."
+              placeholder="Search by name, email, phone, or membership ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
             />
           </div>
           <div className="sm:w-48">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Filter className="h-5 w-5 text-gray-400" />
+                <Filter className="h-5 w-5 text-gray-400 dark:text-gray-500" />
               </div>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
@@ -220,9 +326,9 @@ export default function MemberList() {
       </div>
 
       {/* Members Table */}
-      <div className="bg-white shadow-lg rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gradient-to-r from-emerald-600 to-emerald-700">
               <tr>
                 <th className="px-6 py-3 text-left">
@@ -259,12 +365,12 @@ export default function MemberList() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700 transition-colors">
               {paginatedMembers && paginatedMembers.length > 0 ? (
                 paginatedMembers.map((member) => (
                   <tr
                     key={member.id}
-                    className="hover:bg-emerald-50 transition-colors cursor-pointer"
+                    className="hover:bg-emerald-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
                     onClick={(e) => {
                       // Only select if not clicking on checkbox, menu, or interactive elements
                       if (
@@ -306,8 +412,8 @@ export default function MemberList() {
                           <div className="text-sm font-medium text-gray-900">
                             {member.title} {member.first_name} {member.last_name}
                           </div>
-                          <div className="text-xs text-gray-500">
-                            ID: {member.id.slice(0, 8)}
+                          <div className="text-xs text-gray-500 font-mono">
+                            {member.membership_number || `#${member.id.slice(0, 8)}`}
                           </div>
                         </div>
                       </div>
@@ -386,7 +492,7 @@ export default function MemberList() {
                                 Edit Member
                               </button>
                               
-                              {member.status !== 'paused' && (
+                              {(member.status as string) !== 'paused' && (
                                 <button
                                   onClick={() => {
                                     navigate(`/members/${member.id}?action=pause`);
@@ -528,6 +634,7 @@ export default function MemberList() {
       <BulkActionsBar
         selectedIds={selectedIds}
         allIds={allIds}
+        members={members || []}
         onClearSelection={clearSelection}
         onSelectAll={selectAll}
       />

@@ -3,28 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { TableSkeleton } from '../components/SkeletonComponents';
-import {
-  FileHeart,
-  Search,
-  Filter,
-  Calendar,
-  Plus,
-  Eye,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  RefreshCw,
-  Check,
-  MapPin,
-  User,
-  MoreVertical,
-  Edit,
-  Printer,
-  Download,
-  Archive,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+import { FileHeart, Search, Filter, Calendar, Plus, Eye, AlertCircle, CheckCircle, Clock, RefreshCw, Check, MapPin, User, MoreVertical, CreditCard as Edit, Printer, Download, Archive, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function DeceasedMembers() {
   const navigate = useNavigate();
@@ -38,25 +17,55 @@ export default function DeceasedMembers() {
   const [showDeceasedMenu, setShowDeceasedMenu] = useState<string | null>(null);
 
   // Fetch deceased members with their records
+  // Query members with status='deceased' and left join with deceased_records
   const { data: deceasedData, isLoading, refetch } = useQuery({
     queryKey: ['deceased-members'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('deceased')
-        .select(`
-          *,
-          members (
-            id,
-            first_name,
-            last_name,
-            email,
-            mobile,
-            date_of_birth
-          )
-        `)
+      // First get all deceased members
+      const { data: deceasedMembers, error: membersError } = await supabase
+        .from('members')
+        .select('*')
+        .eq('status', 'deceased')
         .order('created_at', { ascending: false });
 
-      return data || [];
+      if (membersError) throw membersError;
+
+      // Then get all deceased records
+      const { data: deceasedRecords, error: recordsError } = await supabase
+        .from('deceased_records')
+        .select('*');
+
+      if (recordsError) throw recordsError;
+
+      // Combine the data - create a unified structure
+      const combined = deceasedMembers?.map((member: any) => {
+        const record = deceasedRecords?.find((r: any) => r.member_id === member.id);
+
+        // If there's a record, use it. Otherwise, create a pending record structure
+        if (record) {
+          return {
+            ...record,
+            members: member,
+          };
+        } else {
+          // Member is deceased but has no death record yet - show as pending
+          return {
+            id: `pending-${member.id}`,
+            member_id: member.id,
+            date_of_death: null,
+            time_of_death: null,
+            place_of_death: null,
+            burial_location: null,
+            burial_plot_number: null,
+            status: 'pending',
+            assigned_committee_member: null,
+            created_at: member.updated_at,
+            members: member,
+          };
+        }
+      }) || [];
+
+      return combined;
     },
   });
 
@@ -71,6 +80,7 @@ export default function DeceasedMembers() {
              deathDate.getFullYear() === now.getFullYear();
     }).length || 0,
     pendingArrangements: deceasedData?.filter((record: any) =>
+      record.status === 'pending' ||
       record.status === 'reported' ||
       record.status === 'arranged'
     ).length || 0,
@@ -81,10 +91,14 @@ export default function DeceasedMembers() {
 
   // Filter deceased members
   const filteredMembers = deceasedData?.filter((record: any) => {
+    const member = record.members;
+    const memberName = member ? `${member.first_name} ${member.last_name}` : '';
+
     const matchesSearch =
       searchTerm === '' ||
-      record.deceased_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.burial_location?.toLowerCase().includes(searchTerm.toLowerCase());
+      memberName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.burial_location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      member?.membership_number?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus =
       statusFilter === 'all' ||
@@ -122,15 +136,15 @@ export default function DeceasedMembers() {
 
   const getStatusBadge = (status?: string) => {
     const styles = {
+      pending: { bg: 'bg-orange-100', text: 'text-orange-800', icon: AlertCircle, label: 'Pending' },
       reported: { bg: 'bg-red-100', text: 'text-red-800', icon: AlertCircle, label: 'Reported' },
       arranged: { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: Clock, label: 'Arranged' },
       in_progress: { bg: 'bg-blue-100', text: 'text-blue-800', icon: Clock, label: 'In Progress' },
       completed: { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircle, label: 'Completed' },
       closed: { bg: 'bg-gray-100', text: 'text-gray-800', icon: CheckCircle, label: 'Closed' },
-      no_record: { bg: 'bg-orange-100', text: 'text-orange-800', icon: AlertCircle, label: 'No Record' },
     };
 
-    const style = styles[status as keyof typeof styles] || styles.no_record;
+    const style = styles[status as keyof typeof styles] || styles.pending;
     const Icon = style.icon;
 
     return (
@@ -146,8 +160,8 @@ export default function DeceasedMembers() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Deceased Members</h1>
-            <p className="mt-1 text-sm text-gray-600">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Deceased Members</h1>
+            <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
               إِنَّا لِلَّٰهِ وَإِنَّا إِلَيْهِ رَاجِعُونَ - Surely we belong to Allah and to Him we shall return
             </p>
           </div>
@@ -163,12 +177,12 @@ export default function DeceasedMembers() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center space-x-3">
-            <h1 className="text-3xl font-bold text-gray-900">Deceased Members</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Deceased Members</h1>
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gray-100 text-gray-800">
               {deceasedData?.length || 0} Total
             </span>
           </div>
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
             إِنَّا لِلَّٰهِ وَإِنَّا إِلَيْهِ رَاجِعُونَ - Surely we belong to Allah and to Him we shall return
           </p>
         </div>
@@ -183,17 +197,17 @@ export default function DeceasedMembers() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-gray-100">
-                <FileHeart className="h-6 w-6 text-gray-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-gray-100 dark:bg-gray-700">
+                <FileHeart className="h-6 w-6 text-gray-600 dark:text-gray-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Deceased</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Deceased</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">{stats.totalDeceased}</div>
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{stats.totalDeceased}</div>
                   </dd>
                 </dl>
               </div>
@@ -202,17 +216,17 @@ export default function DeceasedMembers() {
           <div className="h-2 bg-gradient-to-r from-gray-500 to-gray-600"></div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-blue-100">
-                <Calendar className="h-6 w-6 text-blue-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-blue-100 dark:bg-blue-900/30">
+                <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">This Month</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">This Month</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">{stats.thisMonth}</div>
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{stats.thisMonth}</div>
                   </dd>
                 </dl>
               </div>
@@ -221,17 +235,17 @@ export default function DeceasedMembers() {
           <div className="h-2 bg-gradient-to-r from-blue-500 to-blue-600"></div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-yellow-100">
-                <Clock className="h-6 w-6 text-yellow-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-yellow-100 dark:bg-yellow-900/30">
+                <Clock className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Pending Cases</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Pending Cases</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">{stats.pendingArrangements}</div>
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{stats.pendingArrangements}</div>
                   </dd>
                 </dl>
               </div>
@@ -240,17 +254,17 @@ export default function DeceasedMembers() {
           <div className="h-2 bg-gradient-to-r from-yellow-500 to-yellow-600"></div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-lg rounded-xl border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0 rounded-lg p-3 bg-green-100">
-                <CheckCircle className="h-6 w-6 text-green-600" />
+              <div className="flex-shrink-0 rounded-lg p-3 bg-green-100 dark:bg-green-900/30">
+                <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Completed</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Completed</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">{stats.completedCases}</div>
+                    <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{stats.completedCases}</div>
                   </dd>
                 </dl>
               </div>
@@ -261,7 +275,7 @@ export default function DeceasedMembers() {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200">
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 transition-colors">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1 relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -287,12 +301,12 @@ export default function DeceasedMembers() {
                 className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
               >
                 <option value="all">All Status</option>
+                <option value="pending">Pending</option>
                 <option value="reported">Reported</option>
                 <option value="arranged">Arranged</option>
                 <option value="in_progress">In Progress</option>
                 <option value="completed">Completed</option>
                 <option value="closed">Closed</option>
-                <option value="no_record">No Record</option>
               </select>
             </div>
           </div>
@@ -346,10 +360,10 @@ export default function DeceasedMembers() {
       </div>
 
       {/* Deceased Members List */}
-      <div className="bg-white shadow-lg rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
         {/* Desktop View */}
         <div className="hidden lg:block overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gradient-to-r from-gray-700 to-gray-800">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
@@ -372,7 +386,7 @@ export default function DeceasedMembers() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700 transition-colors">
               {paginatedMembers && paginatedMembers.length > 0 ? (
                 paginatedMembers.map((record: any) => {
                   const member = record.members;
@@ -393,20 +407,23 @@ export default function DeceasedMembers() {
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10">
                             <div className="h-10 w-10 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center text-white font-semibold">
-                              {record.deceased_name?.[0] || '?'}
+                              {member?.first_name?.[0] || '?'}
                             </div>
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {record.deceased_name}
+                              {member ? `${member.first_name} ${member.last_name}` : 'Unknown Member'}
+                            </div>
+                            <div className="text-xs text-gray-500 font-mono mb-0.5">
+                              {member?.membership_number || `#${member?.id?.slice(0, 8) || '?'}`}
                             </div>
                             <div className="text-xs text-gray-500">
-                              {member?.date_of_birth ? (
+                              {member?.dob ? (
                                 <>
-                                  Born: {new Date(member.date_of_birth).toLocaleDateString()}
+                                  Born: {new Date(member.dob).toLocaleDateString()}
                                   {record.date_of_death && (
                                     <span className="ml-2">
-                                      (Age: {Math.floor((new Date(record.date_of_death).getTime() - new Date(member.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))})
+                                      (Age: {Math.floor((new Date(record.date_of_death).getTime() - new Date(member.dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000))})
                                     </span>
                                   )}
                                 </>
@@ -444,7 +461,7 @@ export default function DeceasedMembers() {
                         {getStatusBadge(record.status)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {record.handled_by || 'Not assigned'}
+                        {record.assigned_committee_member || 'Not assigned'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                         <div className="relative">

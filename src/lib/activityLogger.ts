@@ -1,32 +1,30 @@
 import { supabase } from './supabase';
 
-/**
- * Log an activity to the activity_log table with the current user
- * The performed_by field is automatically set to auth.uid() in the database function
- * 
- * @param memberId - UUID of the member this activity relates to
- * @param action - Description of the action (e.g., "Member created", "Payment updated")
- * @param details - Optional JSON details about the action
- */
+export interface ActivityLogOptions {
+  oldValues?: Record<string, any>;
+  newValues?: Record<string, any>;
+  changeReason?: string;
+}
+
 export async function logActivity(
   memberId: string,
   action: string,
-  details?: Record<string, any>
+  options?: ActivityLogOptions
 ) {
   try {
     const { error } = await supabase.rpc('log_activity', {
       member_id_param: memberId,
       action_param: action,
-      details_param: details || null,
+      old_values_param: options?.oldValues || null,
+      new_values_param: options?.newValues || null,
+      change_reason_param: options?.changeReason || null,
     });
 
     if (error) {
       console.error('Failed to log activity:', error);
-      // Don't throw - we don't want activity logging to break the main flow
     }
   } catch (err) {
     console.error('Exception logging activity:', err);
-    // Don't throw - we don't want activity logging to break the main flow
   }
 }
 

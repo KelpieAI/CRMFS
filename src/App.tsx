@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from './contexts/ToastContext';
 import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { NavigationGuardProvider } from './contexts/NavigationGuardContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import CompactLayout from './components/CompactLayout';
@@ -22,7 +22,22 @@ import RegistrationSuccess from './pages/RegistrationSuccess';
 import Settings from './pages/Settings';
 import DeletionRequests from './pages/DeletionRequests';
 import NotFound from './pages/NotFound';
+import ServerError from './pages/ServerError';
 import CommandPalette from './components/CommandPalette';
+import UploadDocuments from './pages/UploadDocuments';
+import SignDeclarations from './pages/SignDeclarations';
+import ApplicationsInProgressPage from './pages/ApplicationsInProgressPage';
+
+// Scroll to top on route change
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [pathname]);
+
+  return null;
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,14 +57,20 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <AuthProvider>
-            <ToastProvider>
-              {/* Command Palette - OUTSIDE Routes */}
-              <CommandPalette />
-              
+          {/* Scroll to top on route change */}
+          <ScrollToTop />
+          <ThemeProvider>
+            <AuthProvider>
+              <ToastProvider>
+                <NavigationGuardProvider>
+                {/* Command Palette - OUTSIDE Routes */}
+                <CommandPalette />
+
               <Routes>
-                {/* Public Route - Login Only */}
+                {/* Public Routes — no login required */}
                 <Route path="/login" element={<Login />} />
+                <Route path="/upload-documents" element={<UploadDocuments />} />
+                <Route path="/sign-declarations" element={<SignDeclarations />} />
 
                 {/* Protected Routes - Require Authentication */}
                 <Route path="/" element={
@@ -69,14 +90,18 @@ function App() {
                   <Route path="settings" element={<Settings />} />
                   <Route path="deletion-requests" element={<DeletionRequests />} />
                   <Route path="registration-success" element={<RegistrationSuccess />} />
+                  <Route path="applications-in-progress" element={<ApplicationsInProgressPage />} />
                 </Route>
 
-                {/* 404 Not Found */}
+                {/* Error Pages */}
                 <Route path="/404" element={<NotFound />} />
+                <Route path="/500" element={<ServerError />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
-            </ToastProvider>
-          </AuthProvider>
+                </NavigationGuardProvider>
+              </ToastProvider>
+            </AuthProvider>
+          </ThemeProvider>
         </BrowserRouter>
       </QueryClientProvider>
     </ErrorBoundary>

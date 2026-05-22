@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { logActivity, ActivityTypes } from '../lib/activityLogger';
 import DateInput from '../components/DateInput';
+import RegistrationSidebar from '../components/RegistrationSidebar';
+import { ActivationConfirmModal } from '../components/ActivationConfirmModal';
 import {
   ArrowLeft,
   ArrowRight,
@@ -12,22 +14,50 @@ import {
   Users,
   User,
   Baby,
-  Heart,
-  Stethoscope,
-  FileText,
-  Upload,
-  CheckSquare,
-  CreditCard,
   Loader2,
   Plus,
   Trash2,
   CheckCircle,
   Clock,
   Copy,
-  Shield,
+  Info,
+  FileText,
+  Upload,
+  X,
+  Image,
+  AlertTriangle,
 } from 'lucide-react';
 
-const stepIcons = [Users, User, Users, Baby, Heart, Stethoscope, FileText, Upload, CheckSquare, FileText, CreditCard];
+
+// Reusable Info Tooltip Component
+function InfoTooltip({ title, children }: { title: string; children: React.ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative inline-flex items-center">
+      <button
+        type="button"
+        onMouseEnter={() => setIsOpen(true)}
+        onMouseLeave={() => setIsOpen(false)}
+        onClick={() => setIsOpen(!isOpen)}
+        className="p-1 text-gray-400 hover:text-[#2d5016] hover:bg-emerald-50 rounded-full transition-colors"
+        aria-label={`Info: ${title}`}
+      >
+        <Info className="h-4 w-4" />
+      </button>
+      {isOpen && (
+        <div className="absolute z-50 left-6 top-0 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 text-left transition-colors">
+          <div className="absolute -left-2 top-2 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-r-8 border-r-white dark:border-r-gray-800"></div>
+          <div className="absolute -left-[9px] top-2 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-r-8 border-r-gray-200 dark:border-r-gray-700"></div>
+          <h5 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">{title}</h5>
+          <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+            {children}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface Child {
   first_name: string;
@@ -40,6 +70,7 @@ interface FormData {
   app_type: 'single' | 'joint';
   title: string;
   first_name: string;
+  middle_name: string;
   last_name: string;
   dob: string;
   address_line_1: string;
@@ -52,6 +83,7 @@ interface FormData {
   email: string;
   joint_title: string;
   joint_first_name: string;
+  joint_middle_name: string;
   joint_last_name: string;
   joint_dob: string;
   joint_address_line_1: string;
@@ -93,6 +125,16 @@ interface FormData {
   funding_sig_2: boolean;
   declaration_sig_1: boolean;
   declaration_sig_2: boolean;
+  main_medical_consent: boolean;
+  main_medical_signature: string;
+  joint_medical_consent: boolean;
+  joint_medical_signature: string;
+  main_final_tc: boolean;
+  main_final_emergency: boolean;
+  main_final_declaration: boolean;
+  main_final_signature: string;
+  joint_final_declaration: boolean;
+  joint_final_signature: string;
   main_joining_fee: number;
   main_membership_fee: number;
   joint_joining_fee: number;
@@ -117,56 +159,58 @@ function calculateAge(dob: string): number {
 export default function AddMember() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const savedApplication = location.state?.savedApplication;
+  const draftRef = searchParams.get('draft');
+  const initializingRef = useRef(false);
+  const lastSavedStepRef = useRef<number | null>(null);
 
-  const [currentStep, setCurrentStep] = useState(savedApplication?.current_step || 0);
-  const [highestStepReached, setHighestStepReached] = useState(savedApplication?.current_step || 0);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [highestStepReached, setHighestStepReached] = useState(0);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [childValidationErrors, setChildValidationErrors] = useState<Record<number, Record<string, string>>>({});
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState('');
-  const [applicationReference, setApplicationReference] = useState<string | null>(savedApplication?.application_reference || null);
-  const [mainHasMedicalCondition, setMainHasMedicalCondition] = useState(false);
-  const [jointHasMedicalCondition, setJointHasMedicalCondition] = useState(false);
+  const [applicationReference, setApplicationReference] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [mainHasMedicalCondition, setMainHasMedicalCondition] = useState<boolean | null>(null);
+  const [jointHasMedicalCondition, setJointHasMedicalCondition] = useState<boolean | null>(null);
   const [membershipType, setMembershipType] = useState('new');
   const [signupDate, setSignupDate] = useState(new Date().toISOString().split('T')[0]);
   const [adjustmentAmount, setAdjustmentAmount] = useState('');
   const [adjustmentReason, setAdjustmentReason] = useState('');
   const [paymentReceived, setPaymentReceived] = useState(false);
-  const [mainDob, setMainDob] = useState(savedApplication?.form_data?.dob || '');
+  const [showActivationConfirm, setShowActivationConfirm] = useState(false);
+  const [mainDob, setMainDob] = useState('');
 
-  // Medical Consent
-  const [mainMedicalConsent, setMainMedicalConsent] = useState(false);
-  const [mainMedicalSignature, setMainMedicalSignature] = useState('');
-  const [jointMedicalConsent, setJointMedicalConsent] = useState(false);
-  const [jointMedicalSignature, setJointMedicalSignature] = useState('');
-
-  // Final Declaration
-  const [mainFinalDeclaration, setMainFinalDeclaration] = useState(false);
-  const [mainFinalSignature, setMainFinalSignature] = useState('');
-  const [jointFinalDeclaration, setJointFinalDeclaration] = useState(false);
-  const [jointFinalSignature, setJointFinalSignature] = useState('');
-
-  // Paper form tracking
-  const [paperFormVersion, setPaperFormVersion] = useState('v01.25');
-  const [applicationDate, setApplicationDate] = useState(new Date().toISOString().split('T')[0]);
-  const [mainSignature, setMainSignature] = useState('');
-  const [jointSignature, setJointSignature] = useState('');
-  const [paperFormConfirmed, setPaperFormConfirmed] = useState(false);
-  const [dataEnteredBy, setDataEnteredBy] = useState('');
+  // Paper form tracking (kept for data submission, no longer shown as a step)
+  const paperFormVersion = 'v01.25';
+  const applicationDate = new Date().toISOString().split('T')[0];
 
   // GP Details (shared for both applicants)
   const [gpPracticeName, setGpPracticeName] = useState('');
   const [gpPracticeAddress, setGpPracticeAddress] = useState('');
+  const [gpTown, setGpTown] = useState('');
+  const [gpCity, setGpCity] = useState('');
   const [gpPostcode, setGpPostcode] = useState('');
   const [gpTelephone, setGpTelephone] = useState('');
   const [gpEmail, setGpEmail] = useState('');
-  
-  const [formData, setFormData] = useState<FormData>(savedApplication?.form_data || {
+
+  // Document upload files (File objects, not serializable to JSON draft)
+  const [mainPhotoId, setMainPhotoId] = useState<File | null>(null);
+  const [mainProofOfAddress, setMainProofOfAddress] = useState<File | null>(null);
+  const [jointPhotoId, setJointPhotoId] = useState<File | null>(null);
+  const [jointProofOfAddress, setJointProofOfAddress] = useState<File | null>(null);
+  const [childBirthCerts, setChildBirthCerts] = useState<(File | null)[]>([]);
+  const [documentValidationErrors, setDocumentValidationErrors] = useState<Record<string, string>>({});
+  const [showDocWarningModal, setShowDocWarningModal] = useState(false);
+
+
+  const [formData, setFormData] = useState<FormData>({
     app_type: 'single',
     title: '',
     first_name: '',
+    middle_name: '',
     last_name: '',
     dob: '',
     address_line_1: '',
@@ -179,6 +223,7 @@ export default function AddMember() {
     email: '',
     joint_title: '',
     joint_first_name: '',
+    joint_middle_name: '',
     joint_last_name: '',
     joint_dob: '',
     joint_address_line_1: '',
@@ -220,6 +265,16 @@ export default function AddMember() {
     funding_sig_2: false,
     declaration_sig_1: false,
     declaration_sig_2: false,
+    main_medical_consent: false,
+    main_medical_signature: '',
+    joint_medical_consent: false,
+    joint_medical_signature: '',
+    main_final_tc: false,
+    main_final_emergency: false,
+    main_final_declaration: false,
+    main_final_signature: '',
+    joint_final_declaration: false,
+    joint_final_signature: '',
     main_joining_fee: 0,
     main_membership_fee: 100,
     joint_joining_fee: 0,
@@ -228,21 +283,6 @@ export default function AddMember() {
     payment_method: '',
   });
 
-  const [mainPhotoId, setMainPhotoId] = useState<File | null>(null);
-  const [mainPhotoIdUrl, setMainPhotoIdUrl] = useState<string>('');
-  const [mainProofAddress, setMainProofAddress] = useState<File | null>(null);
-  const [mainProofAddressUrl, setMainProofAddressUrl] = useState<string>('');
-
-  const [jointPhotoId, setJointPhotoId] = useState<File | null>(null);
-  const [jointPhotoIdUrl, setJointPhotoIdUrl] = useState<string>('');
-  const [jointProofAddress, setJointProofAddress] = useState<File | null>(null);
-  const [jointProofAddressUrl, setJointProofAddressUrl] = useState<string>('');
-
-  const [childrenDocuments, setChildrenDocuments] = useState<Record<string, File | null>>({});
-  const [childrenDocumentUrls, setChildrenDocumentUrls] = useState<Record<string, string>>({});
-
-  const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
-
   const { data: feeStructure } = useQuery({
     queryKey: ['fee-structure'],
     queryFn: async () => {
@@ -250,6 +290,135 @@ export default function AddMember() {
       return data || [];
     },
   });
+
+  const initializeDraft = useCallback(async () => {
+    if (initializingRef.current || !user) return;
+    initializingRef.current = true;
+
+    try {
+      if (draftRef) {
+        const { data: existingDraft, error } = await supabase
+          .from('applications_in_progress')
+          .select('*')
+          .eq('application_reference', draftRef)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (existingDraft) {
+          setApplicationReference(existingDraft.application_reference);
+          setCurrentStep(existingDraft.current_step || 0);
+          setHighestStepReached(existingDraft.current_step || 0);
+          lastSavedStepRef.current = existingDraft.current_step || 0;
+          if (existingDraft.form_data) {
+            setFormData({ ...existingDraft.form_data, children: existingDraft.form_data.children ?? [] });
+            setMainDob(existingDraft.form_data.dob || '');
+          }
+          setIsInitialized(true);
+          return;
+        }
+      }
+
+      if (savedApplication) {
+        setApplicationReference(savedApplication.application_reference);
+        setCurrentStep(savedApplication.current_step || 0);
+        setHighestStepReached(savedApplication.current_step || 0);
+        lastSavedStepRef.current = savedApplication.current_step || 0;
+        if (savedApplication.form_data) {
+          setFormData({ ...savedApplication.form_data, children: savedApplication.form_data.children ?? [] });
+          setMainDob(savedApplication.form_data.dob || '');
+        }
+        setIsInitialized(true);
+        return;
+      }
+
+      const { data: newDraft, error: insertError } = await supabase
+        .from('applications_in_progress')
+        .insert({
+          form_data: {},
+          current_step: 0,
+          app_type: 'single',
+          status: 'in_progress',
+          created_by: user.id,
+        })
+        .select('application_reference')
+        .single();
+
+      if (insertError) throw insertError;
+
+      setApplicationReference(newDraft.application_reference);
+      lastSavedStepRef.current = 0;
+      setIsInitialized(true);
+    } catch (error) {
+      console.error('Error initializing draft:', error);
+      setIsInitialized(true);
+    }
+  }, [draftRef, savedApplication, user]);
+
+  useEffect(() => {
+    initializeDraft();
+  }, [initializeDraft]);
+
+  const [isSaving, setIsSaving] = useState(false);
+
+  const saveDraft = useCallback(async (stepToSave?: number) => {
+    if (!applicationReference) return;
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('applications_in_progress')
+        .update({
+          form_data: formData,
+          current_step: stepToSave ?? currentStep,
+          app_type: formData.app_type,
+          main_first_name: formData.first_name,
+          main_last_name: formData.last_name,
+          main_email: formData.email,
+          main_mobile: formData.mobile,
+          joint_first_name: formData.joint_first_name,
+          joint_last_name: formData.joint_last_name,
+          updated_at: new Date().toISOString(),
+          last_saved_at: new Date().toISOString(),
+        })
+        .eq('application_reference', applicationReference);
+
+      if (error) throw error;
+      if (stepToSave !== undefined) {
+        lastSavedStepRef.current = stepToSave;
+      }
+    } catch (error) {
+      console.error('Error saving draft:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [applicationReference, formData, currentStep]);
+
+  const handleSaveProgress = useCallback(() => {
+    saveDraft();
+  }, [saveDraft]);
+
+  useEffect(() => {
+    if (!isInitialized || !applicationReference) return;
+    if (lastSavedStepRef.current !== null && currentStep !== lastSavedStepRef.current) {
+      saveDraft(currentStep);
+    }
+  }, [currentStep, isInitialized, applicationReference, saveDraft]);
+
+  useEffect(() => {
+    if (!isInitialized || !applicationReference) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      saveDraft();
+      e.preventDefault();
+      e.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isInitialized, applicationReference, saveDraft]);
 
   const calculateAge = (dob: string): number => {
     if (!dob) return 0;
@@ -316,56 +485,6 @@ export default function AddMember() {
     return { joining: tier ? tier.joining_fee : 0, membership: tier ? tier.membership_fee : 100 };
   };
 
-  const uploadDocument = async (file: File, category: string, applicantType: string) => {
-    if (!file) return null;
-
-    try {
-      setUploadingDoc(`${applicantType}-${category}`);
-
-      const timestamp = Date.now();
-      const filename = `${applicantType}_${category}_${timestamp}_${file.name}`;
-      const filePath = `documents/${filename}`;
-
-      const { error } = await supabase.storage
-        .from('member-documents')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (error) throw error;
-
-      const { data: urlData } = supabase.storage
-        .from('member-documents')
-        .getPublicUrl(filePath);
-
-      setUploadingDoc(null);
-      return urlData.publicUrl;
-    } catch (error) {
-      console.error('Upload error:', error);
-      alert('Failed to upload document. Please try again.');
-      setUploadingDoc(null);
-      return null;
-    }
-  };
-
-  const deleteDocument = async (url: string) => {
-    if (!url) return;
-
-    try {
-      const urlParts = url.split('/');
-      const filePath = `documents/${urlParts[urlParts.length - 1]}`;
-
-      const { error } = await supabase.storage
-        .from('member-documents')
-        .remove([filePath]);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Delete error:', error);
-    }
-  };
-
   useEffect(() => {
     if (formData.dob) {
       const mainFees = calculateFees(formData.dob);
@@ -386,9 +505,14 @@ export default function AddMember() {
     setFormData((prev) => ({ ...prev, total_amount: total }));
   }, [formData.main_joining_fee, formData.main_membership_fee, formData.joint_joining_fee, formData.joint_membership_fee, formData.app_type]);
 
+  // Scroll to top when step changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentStep]);
+
   const mainJoiningFee = calculateJoiningFee(mainDob, membershipType === 'legacy');
   const jointJoiningFee = formData.app_type === 'joint' && formData.joint_dob
-    ? calculateJoiningFee(formData.joint_dob, membershipType === 'legacy')
+    ? calculateJoiningFee(formData.joint_dob, false)
     : 0;
   const joiningFee = mainJoiningFee + jointJoiningFee;
 
@@ -404,10 +528,16 @@ export default function AddMember() {
 
   const submitMutation = useMutation({
     mutationFn: async () => {
+      // Generate membership number
+      const { data: membershipNumber, error: seqError } = await supabase
+        .rpc('get_next_membership_number', { prefix_value: 'FCM' });
+
+      if (seqError) throw seqError;
+
       // Calculate the correct fees for submission
       const submitMainJoiningFee = calculateJoiningFee(mainDob, membershipType === 'legacy');
       const submitJointJoiningFee = formData.app_type === 'joint' && formData.joint_dob
-        ? calculateJoiningFee(formData.joint_dob, membershipType === 'legacy')
+        ? calculateJoiningFee(formData.joint_dob, false)
         : 0;
       const submitMainProRataFee = calculateProRataFee(signupDate);
       const submitJointProRataFee = formData.app_type === 'joint' && formData.joint_dob
@@ -421,7 +551,8 @@ export default function AddMember() {
       const paymentStatus = paymentReceived ? 'completed' : 'pending';
 
       const memberInsert: any = {
-        app_type: formData.app_type, title: formData.title, first_name: formData.first_name, last_name: formData.last_name,
+        membership_number: membershipNumber,
+        app_type: formData.app_type, title: formData.title, first_name: formData.first_name, middle_name: formData.middle_name || null, last_name: formData.last_name,
         dob: formData.dob, address_line_1: formData.address_line_1, town: formData.town, city: formData.city,
         postcode: formData.postcode, mobile: formData.mobile, home_phone: formData.home_phone, work_phone: formData.work_phone,
         email: formData.email, status: memberStatus,
@@ -444,13 +575,7 @@ export default function AddMember() {
         consent_international_transfer: true,
         consent_international_transfer_date: applicationDate,
         privacy_policy_version: 'v1.0',
-        // Signatures from paper form
-        main_signature: mainSignature,
-        main_signature_date: applicationDate,
-        joint_signature: formData.app_type === 'joint' ? jointSignature : null,
-        joint_signature_date: formData.app_type === 'joint' ? applicationDate : null,
         // Audit trail
-        data_entered_by: dataEnteredBy,
         data_entry_date: new Date().toISOString(),
       };
 
@@ -462,14 +587,14 @@ export default function AddMember() {
       if (formData.app_type === 'joint') {
         await supabase.from('joint_members').insert({
           member_id: memberId, title: formData.joint_title, first_name: formData.joint_first_name,
-          last_name: formData.joint_last_name, dob: formData.joint_dob, relation: formData.joint_relation,
+          middle_name: formData.joint_middle_name || null, last_name: formData.joint_last_name, dob: formData.joint_dob, relation: formData.joint_relation,
           address_line_1: formData.joint_address_line_1,
           town: formData.joint_town, city: formData.joint_city, postcode: formData.joint_postcode,
           mobile: formData.joint_mobile, home_phone: formData.joint_home_phone, work_phone: formData.joint_work_phone, email: formData.joint_email,
         });
       }
 
-      if (formData.children.length > 0) {
+      if ((formData.children?.length ?? 0) > 0) {
         await supabase.from('children').insert(formData.children.map((child) => ({ member_id: memberId, ...child })));
       }
 
@@ -483,53 +608,64 @@ export default function AddMember() {
         member_id: memberId,
         gp_name_surgery: gpPracticeName,
         address_line_1: gpPracticeAddress,
+        town: gpTown,
+        city: gpCity,
         postcode: gpPostcode,
         phone: gpTelephone,
         email: gpEmail || null,
       });
 
-      await supabase.from('medical_info').insert({ member_id: memberId, member_type: 'main', disclaimer: formData.main_disclaimer, conditions: formData.main_conditions });
+      const mainDisclaimer = mainHasMedicalCondition === true
+        ? 'Yes - has medical conditions'
+        : mainHasMedicalCondition === false
+        ? 'No medical conditions'
+        : 'Not answered';
 
-      if (formData.app_type === 'joint') {
-        await supabase.from('medical_info').insert({ member_id: memberId, member_type: 'joint', disclaimer: formData.joint_disclaimer, conditions: formData.joint_conditions });
-      }
-
-      await supabase.from('declarations').insert({
+      await supabase.from('medical_info').insert({
         member_id: memberId,
-        main_medical_consent: mainMedicalConsent,
-        main_medical_signature: mainMedicalSignature,
-        main_medical_consent_date: new Date().toISOString(),
-        main_final_declaration: mainFinalDeclaration,
-        main_final_signature: mainFinalSignature,
-        main_final_declaration_date: new Date().toISOString(),
-        ...(formData.app_type === 'joint' && {
-          joint_medical_consent: jointMedicalConsent,
-          joint_medical_signature: jointMedicalSignature,
-          joint_medical_consent_date: new Date().toISOString(),
-          joint_final_declaration: jointFinalDeclaration,
-          joint_final_signature: jointFinalSignature,
-          joint_final_declaration_date: new Date().toISOString(),
-        }),
+        member_type: 'main',
+        disclaimer: mainDisclaimer,
+        conditions: mainHasMedicalCondition === true ? (formData.main_conditions || null) : null,
       });
 
-            // Paper Form validation (Step 9)
-      if (currentStep === 9) {
-        const errors: string[] = [];
-  
-        if (!applicationDate) errors.push('Application date is required');
-        if (!mainSignature.trim()) errors.push('Main member signature is required');
-        if (!dataEnteredBy.trim()) errors.push('Data entered by field is required');
-        if (!paperFormConfirmed) errors.push('Please confirm the paper form has been completed and filed');
-  
-        if (formData.app_type === 'joint' && !jointSignature.trim()) {
-          errors.push('Joint member signature is required');
-        }
-  
-        if (errors.length > 0) {
-          alert(errors.join('\n'));
-          return;
-        }
+      if (formData.app_type === 'joint') {
+        const jointDisclaimer = jointHasMedicalCondition === true
+          ? 'Yes - has medical conditions'
+          : jointHasMedicalCondition === false
+          ? 'No medical conditions'
+          : 'Not answered';
+
+        await supabase.from('medical_info').insert({
+          member_id: memberId,
+          member_type: 'joint',
+          disclaimer: jointDisclaimer,
+          conditions: jointHasMedicalCondition === true ? (formData.joint_conditions || null) : null,
+        });
       }
+
+      const now = new Date().toISOString();
+      
+      // Auto-populate signatures with member's full name
+      const mainMemberFullName = `${formData.first_name} ${formData.last_name}`;
+      const jointMemberFullName = formData.app_type === 'joint' ? `${formData.joint_first_name} ${formData.joint_last_name}` : '';
+      
+      await supabase.from('declarations').insert({
+        member_id: memberId,
+        main_medical_consent: formData.main_medical_consent,
+        main_medical_signature: formData.main_medical_consent ? mainMemberFullName : null,
+        main_medical_consent_date: formData.main_medical_consent ? now : null,
+        main_final_declaration: formData.main_final_declaration,
+        main_final_signature: formData.main_final_declaration ? mainMemberFullName : null,
+        main_final_declaration_date: formData.main_final_declaration ? now : null,
+        ...(formData.app_type === 'joint' && {
+          joint_medical_consent: formData.joint_medical_consent,
+          joint_medical_signature: formData.joint_medical_consent ? jointMemberFullName : null,
+          joint_medical_consent_date: formData.joint_medical_consent ? now : null,
+          joint_final_declaration: formData.joint_final_declaration,
+          joint_final_signature: formData.joint_final_declaration ? jointMemberFullName : null,
+          joint_final_declaration_date: formData.joint_final_declaration ? now : null,
+        }),
+      });
 
       await supabase.from('payments').insert({
         member_id: memberId, 
@@ -548,26 +684,66 @@ export default function AddMember() {
         notes: adjustmentReason ? `Adjustment: ${adjustmentReason}` : null,
       });
 
-      // Log the application submission with details
-      await logActivity(
-        memberId,
-        ActivityTypes.APPLICATION_SUBMITTED,
-        {
-          application_type: formData.app_type,
-          member_name: `${formData.first_name} ${formData.last_name}`,
-          joint_member_name: formData.app_type === 'joint' ? `${formData.joint_first_name} ${formData.joint_last_name}` : null,
-          total_amount: submitTotalDue,
-          payment_status: paymentStatus,
-          payment_received: paymentReceived,
-          data_entered_by: dataEnteredBy,
-          paper_form_version: paperFormVersion,
-          application_date: applicationDate,
+      // Upload documents to Supabase Storage
+      const uploadDoc = async (file: File, path: string): Promise<string | null> => {
+        const { error } = await supabase.storage.from('member-documents').upload(path, file, { upsert: true });
+        if (error) {
+          console.error('Document upload failed:', path, error);
+          return null;
         }
-      );
+        const { data: urlData } = supabase.storage.from('member-documents').getPublicUrl(path);
+        console.log('Document uploaded:', path, urlData.publicUrl);
+        return urlData.publicUrl;
+      };
 
-      return memberId;
+      const ts = Date.now();
+      const ext = (f: File) => f.name.split('.').pop();
+
+      const mainPhotoIdUrl = mainPhotoId
+        ? await uploadDoc(mainPhotoId, `${memberId}/main-photo-id-${ts}.${ext(mainPhotoId)}`)
+        : null;
+      const mainPoaUrl = mainProofOfAddress
+        ? await uploadDoc(mainProofOfAddress, `${memberId}/main-proof-of-address-${ts}.${ext(mainProofOfAddress)}`)
+        : null;
+      const jointPhotoIdUrl = jointPhotoId
+        ? await uploadDoc(jointPhotoId, `${memberId}/joint-photo-id-${ts}.${ext(jointPhotoId)}`)
+        : null;
+      const jointPoaUrl = jointProofOfAddress
+        ? await uploadDoc(jointProofOfAddress, `${memberId}/joint-proof-of-address-${ts}.${ext(jointProofOfAddress)}`)
+        : null;
+
+      const docUpdate: Record<string, string | null> = {};
+      if (mainPhotoIdUrl) docUpdate.main_photo_id_url = mainPhotoIdUrl;
+      if (mainPoaUrl) docUpdate.main_proof_address_url = mainPoaUrl;
+      if (jointPhotoIdUrl) docUpdate.joint_photo_id_url = jointPhotoIdUrl;
+      if (jointPoaUrl) docUpdate.joint_proof_address_url = jointPoaUrl;
+
+      if (Object.keys(docUpdate).length > 0) {
+        await supabase.from('members').update(docUpdate).eq('id', memberId);
+      }
+
+      for (let i = 0; i < childBirthCerts.length; i++) {
+        const cert = childBirthCerts[i];
+        if (cert) {
+          const certUrl = await uploadDoc(cert, `${memberId}/child-${i}-birth-cert-${ts}.${ext(cert)}`);
+          if (certUrl) {
+            await supabase.from('children')
+              .update({ birth_certificate_url: certUrl })
+              .eq('member_id', memberId)
+              .eq('first_name', formData.children[i].first_name)
+              .eq('last_name', formData.children[i].last_name);
+          }
+        }
+      }
+
+      await logActivity(memberId, ActivityTypes.APPLICATION_SUBMITTED);
+
+      return { memberId, membershipNumber };
     },
-    onSuccess: async (memberId) => {
+    onSuccess: async (result) => {
+      if (!result) return;
+      const { memberId, membershipNumber } = result;
+
       if (applicationReference) {
         try {
           const { error: deleteError } = await supabase
@@ -592,7 +768,9 @@ export default function AddMember() {
       navigate('/registration-success', {
         state: {
           memberId,
+          membershipNumber,
           memberName,
+          memberEmail: formData.email,
           applicationReference,
           paymentReceived,
         },
@@ -600,73 +778,8 @@ export default function AddMember() {
     },
   });
 
-  const saveProgressMutation = useMutation({
-    mutationFn: async () => {
-      setIsSaving(true);
 
-      if (applicationReference) {
-        const { error } = await supabase
-          .from('applications_in_progress')
-          .update({
-            form_data: formData,
-            current_step: currentStep,
-            app_type: formData.app_type,
-            main_first_name: formData.first_name,
-            main_last_name: formData.last_name,
-            main_email: formData.email,
-            main_mobile: formData.mobile,
-            joint_first_name: formData.joint_first_name,
-            joint_last_name: formData.joint_last_name,
-            last_saved_at: new Date().toISOString(),
-          })
-          .eq('application_reference', applicationReference);
-
-        if (error) throw error;
-        return applicationReference;
-      } else {
-        const { data, error } = await supabase
-          .from('applications_in_progress')
-          .insert({
-            form_data: formData,
-            current_step: currentStep,
-            app_type: formData.app_type,
-            main_first_name: formData.first_name,
-            main_last_name: formData.last_name,
-            main_email: formData.email,
-            main_mobile: formData.mobile,
-            joint_first_name: formData.joint_first_name,
-            joint_last_name: formData.joint_last_name,
-            status: 'in_progress',
-            last_saved_at: new Date().toISOString(),
-          })
-          .select('application_reference')
-          .single();
-
-        if (error) throw error;
-        return data.application_reference;
-      }
-    },
-    onSuccess: (reference) => {
-      setApplicationReference(reference);
-      setSaveMessage(`✓ Progress saved! Reference: ${reference}`);
-      setIsSaving(false);
-      
-      // Clear message after 3 seconds
-      setTimeout(() => setSaveMessage(''), 3000);
-    },
-    onError: (error) => {
-      console.error('Save error:', error);
-      setSaveMessage('✗ Failed to save progress');
-      setIsSaving(false);
-      setTimeout(() => setSaveMessage(''), 3000);
-    },
-  });
-
-  const handleSaveProgress = () => {
-    saveProgressMutation.mutate();
-  };
-
-  const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'Medical Info', 'Documents', 'Declarations', 'GDPR Compliance', 'Payment'];
+  const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'Medical Info', 'GP Details', 'Declaration', 'Documents', 'Payment'];
 
   const validateMainMemberStep = (): boolean => {
     const errors: Record<string, string> = {};
@@ -690,7 +803,6 @@ export default function AddMember() {
     const errors: Record<string, string> = {};
 
     if (!formData.joint_title) errors.joint_title = 'Title is required';
-    if (!formData.joint_relation) errors.joint_relation = 'Relationship is required';
     if (!formData.joint_first_name) errors.joint_first_name = 'First name is required';
     if (!formData.joint_last_name) errors.joint_last_name = 'Last name is required';
     if (!formData.joint_dob) errors.joint_dob = 'Date of birth is required';
@@ -719,7 +831,7 @@ export default function AddMember() {
   };
 
   const validateChildrenStep = (): boolean => {
-    if (formData.children.length === 0) return true;
+    if ((formData.children?.length ?? 0) === 0) return true;
 
     const childErrors: Record<number, Record<string, string>> = {};
     let hasErrors = false;
@@ -761,43 +873,45 @@ export default function AddMember() {
   const validateDeclarationsStep = (): boolean => {
     const errors: Record<string, string> = {};
 
-    // Validate GP Details
     if (!gpPracticeName) errors.gpPracticeName = 'GP practice name is required';
     if (!gpPracticeAddress) errors.gpPracticeAddress = 'GP practice address is required';
+    if (!gpTown) errors.gpTown = 'GP town is required';
+    if (!gpCity) errors.gpCity = 'GP city is required';
     if (!gpPostcode) errors.gpPostcode = 'GP postcode is required';
     if (!gpTelephone) errors.gpTelephone = 'GP telephone is required';
 
-    // Validate Main Member Medical Consent
-    if (!mainMedicalConsent) errors.mainMedicalConsent = 'Medical consent is required';
-    if (!mainMedicalSignature) errors.mainMedicalSignature = 'Medical consent signature is required';
+    if (!formData.main_medical_consent) errors.main_medical_consent = 'You must confirm the medical consent declaration';
 
-    // Validate Main Member Final Declaration
-    if (!mainFinalDeclaration) errors.mainFinalDeclaration = 'Final declaration is required';
-    if (!mainFinalSignature) errors.mainFinalSignature = 'Final declaration signature is required';
-
-    // Validate Joint Member Declarations (if applicable)
     if (formData.app_type === 'joint') {
-      if (!jointMedicalConsent) errors.jointMedicalConsent = 'Joint member medical consent is required';
-      if (!jointMedicalSignature) errors.jointMedicalSignature = 'Joint member medical consent signature is required';
-      if (!jointFinalDeclaration) errors.jointFinalDeclaration = 'Joint member final declaration is required';
-      if (!jointFinalSignature) errors.jointFinalSignature = 'Joint member final declaration signature is required';
+      if (!formData.joint_medical_consent) errors.joint_medical_consent = 'Joint member must confirm the medical consent declaration';
     }
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const validatePaperFormStep = (): boolean => {
+  const validateDocumentsStep = (): boolean => {
+    setDocumentValidationErrors({});
+    return true;
+  };
+
+  const hasAnyMissingDocs = (): boolean => {
+    if (!mainPhotoId || !mainProofOfAddress) return true;
+    if (formData.app_type === 'joint' && (!jointPhotoId || !jointProofOfAddress)) return true;
+    if ((formData.children?.length ?? 0) > 0) {
+      if (formData.children.some((_: any, i: number) => !childBirthCerts[i])) return true;
+    }
+    return false;
+  };
+
+  const validateDeclarationStep = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (!paperFormVersion) errors.paperFormVersion = 'Paper form version is required';
-    if (!applicationDate) errors.applicationDate = 'Application date is required';
-    if (!mainSignature) errors.mainSignature = 'Main member signature is required';
-    if (!dataEnteredBy) errors.dataEnteredBy = 'Data entered by is required';
-    if (!paperFormConfirmed) errors.paperFormConfirmed = 'Paper form confirmation is required';
-
-    if (formData.app_type === 'joint' && !jointSignature) {
-      errors.jointSignature = 'Joint member signature is required';
+    if (!formData.main_final_tc) errors.main_final_tc = 'You must accept the Terms & Conditions';
+    if (!formData.main_final_emergency) errors.main_final_emergency = 'You must agree to contribute to the emergency fund';
+    if (!formData.main_final_declaration) errors.main_final_declaration = 'You must confirm the accuracy of your application';
+    if (formData.app_type === 'joint') {
+      if (!formData.joint_final_declaration) errors.joint_final_declaration = 'Joint member must confirm the accuracy of the application';
     }
 
     setValidationErrors(errors);
@@ -826,11 +940,33 @@ export default function AddMember() {
     if (currentStep === 4) {
       return validateNextOfKinStep();
     }
-    if (currentStep === 7) {
+    if (currentStep === 5) {
+      const errors: Record<string, string> = {};
+      if (mainHasMedicalCondition === null) {
+        errors.main_medical = 'Please select Yes or No';
+      }
+      if (mainHasMedicalCondition === true && !formData.main_conditions.trim()) {
+        errors.main_conditions = 'Please provide details of your medical condition(s)';
+      }
+      if (formData.app_type === 'joint') {
+        if (jointHasMedicalCondition === null) {
+          errors.joint_medical = 'Please select Yes or No';
+        }
+        if (jointHasMedicalCondition === true && !formData.joint_conditions.trim()) {
+          errors.joint_conditions = 'Please provide details of the joint member\'s medical condition(s)';
+        }
+      }
+      setValidationErrors(errors);
+      return Object.keys(errors).length === 0;
+    }
+    if (currentStep === 6) {
       return validateDeclarationsStep();
     }
+    if (currentStep === 7) {
+      return validateDeclarationStep();
+    }
     if (currentStep === 8) {
-      return validatePaperFormStep();
+      return validateDocumentsStep();
     }
     if (currentStep === 9) {
       return validatePaymentStep();
@@ -838,14 +974,9 @@ export default function AddMember() {
     return true;
   };
 
-  const handleNext = () => {
-    if (!canProceedFromStep()) {
-      return;
-    }
-
+  const proceedToNextStep = () => {
     setValidationErrors({});
     setChildValidationErrors({});
-
     if (currentStep === 1 && formData.app_type === 'single') {
       const nextStep = 3;
       setCurrentStep(nextStep);
@@ -855,6 +986,19 @@ export default function AddMember() {
       setCurrentStep(nextStep);
       setHighestStepReached((prev: number) => Math.max(prev, nextStep));
     }
+  };
+
+  const handleNext = () => {
+    if (!canProceedFromStep()) {
+      return;
+    }
+
+    if (currentStep === 8 && hasAnyMissingDocs()) {
+      setShowDocWarningModal(true);
+      return;
+    }
+
+    proceedToNextStep();
   };
 
   const handleBack = () => {
@@ -910,182 +1054,213 @@ export default function AddMember() {
     ? steps.filter((_, index) => index !== 2)
     : steps;
 
-  const visibleStepIcons = formData.app_type === 'single'
-    ? stepIcons.filter((_, index) => index !== 2)
-    : stepIcons;
-
   const stepIndexMap = formData.app_type === 'single'
     ? [0, 1, 3, 4, 5, 6, 7, 8, 9]
     : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   const currentVisibleStepIndex = stepIndexMap.indexOf(currentStep);
 
+  // Map sidebar step IDs to internal step indices (dynamic based on app type)
+  const sidebarStepToIndex: Record<number, number> = formData.app_type === 'joint'
+    ? {
+        1: 0,  // Membership Type
+        2: 1,  // Main Member
+        3: 2,  // Joint Member
+        4: 3,  // Children
+        5: 4,  // Next of Kin
+        6: 5,  // Medical Info
+        7: 6,  // GP Details
+        8: 7,  // Declaration
+        9: 8,  // Documents
+        10: 9, // Payment
+      }
+    : {
+        1: 0,  // Membership Type
+        2: 1,  // Main Member
+        3: 3,  // Children (skip joint member step 2)
+        4: 4,  // Next of Kin
+        5: 5,  // Medical Info
+        6: 6,  // GP Details
+        7: 7,  // Declaration
+        8: 8,  // Documents
+        9: 9,  // Payment
+      };
+
+  // Get reachable steps for sidebar (convert internal indices to sidebar IDs)
+  // A step is reachable if it has been reached before (i.e., <= highestStepReached)
+  const getReachableSteps = (): number[] => {
+    const reachable: number[] = [];
+    Object.entries(sidebarStepToIndex).forEach(([sidebarId, internalIndex]) => {
+      if (internalIndex <= highestStepReached && internalIndex !== currentStep) {
+        reachable.push(parseInt(sidebarId));
+      }
+    });
+    return reachable;
+  };
+
+  // Get current sidebar step ID from internal step index
+  const getCurrentSidebarStep = (): number => {
+    const entry = Object.entries(sidebarStepToIndex).find(([_, idx]) => idx === currentStep);
+    return entry ? parseInt(entry[0]) : 1;
+  };
+
+  // Handle sidebar step change
+  const handleSidebarStepChange = (sidebarStepId: number) => {
+    const internalIndex = sidebarStepToIndex[sidebarStepId];
+    if (internalIndex !== undefined && internalIndex <= highestStepReached) {
+      setValidationErrors({});
+      setChildValidationErrors({});
+      setCurrentStep(internalIndex);
+    }
+  };
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">New Member Registration</h1>
-        <p className="mt-1 text-sm text-gray-600">Complete all steps to register a new funeral service member</p>
+    <div className="flex min-h-screen -m-6">
+      {/* Sidebar */}
+      <div className="fixed top-0 left-16 h-screen z-30">
+        <RegistrationSidebar
+          currentStep={getCurrentSidebarStep()}
+          completedSteps={getReachableSteps()}
+          onStepChange={handleSidebarStepChange}
+          onSaveProgress={handleSaveProgress}
+          appType={formData.app_type}
+          onBack={() => {
+            saveDraft();
+            navigate('/members');
+          }}
+          applicationReference={applicationReference}
+          isSaving={isSaving}
+        />
       </div>
 
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 overflow-x-auto">
-        <div className="flex items-center justify-center gap-1 min-w-max mx-auto px-4">
-          {visibleSteps.map((step, visualIndex) => {
-            const actualIndex = stepIndexMap[visualIndex];
-            const Icon = visibleStepIcons[visualIndex];
-            const isActive = actualIndex === currentStep;
-            const isCompleted = actualIndex < currentStep;
-            const isReachable = actualIndex <= highestStepReached;
-            const isClickable = isReachable && !isActive;
+      {/* Main Content */}
+      <div className="flex-1 ml-[352px] p-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">New Member Registration</h1>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Complete all steps to register a new funeral service member</p>
+          </div>
 
-            const handleStepClick = () => {
-              if (isClickable) {
-                setValidationErrors({});
-                setChildValidationErrors({});
-                setCurrentStep(actualIndex);
-              }
-            };
-
-            return (
-              <div key={step} className="flex items-center">
-                <div 
-                  className={`flex flex-col items-center min-w-[80px] ${
-                    isClickable ? 'cursor-pointer group' : ''
-                  }`}
-                  onClick={handleStepClick}
-                >
-                  <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all ${
-                      isActive ? 'border-emerald-600 bg-emerald-600 text-white' :
-                      isCompleted ? 'border-emerald-600 bg-emerald-600 text-white group-hover:bg-emerald-700 group-hover:border-emerald-700 group-hover:scale-110' : 
-                      isReachable ? 'border-emerald-600 bg-white text-emerald-600 group-hover:bg-emerald-50' :
-                      'border-gray-300 bg-white text-gray-400'
-                    }`}>
-                    {isCompleted ? <Check className="h-6 w-6" /> : <Icon className="h-6 w-6" />}
-                  </div>
-                  <span className={`mt-2 text-xs font-medium text-center transition-colors ${
-                    isActive ? 'text-emerald-600' : 
-                    isClickable ? 'text-gray-500 group-hover:text-emerald-600' : 
-                    'text-gray-400'
-                  }`}>
-                    {step}
-                  </span>
-                </div>
-                {visualIndex < visibleSteps.length - 1 && <div className={`h-0.5 w-4 flex-shrink-0 ${isCompleted ? 'bg-emerald-600' : 'bg-gray-300'}`} />}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-8">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-8 transition-colors">
         {currentStep === 0 && <StepMembershipType formData={formData} updateFormData={updateFormData} />}
         {currentStep === 1 && <StepMainMember formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
         {currentStep === 2 && <StepJointMember formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
         {currentStep === 3 && <StepChildren formData={formData} addChild={addChild} removeChild={removeChild} updateChild={updateChild} childValidationErrors={childValidationErrors} />}
         {currentStep === 4 && <StepNextOfKin formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
-        {currentStep === 5 && <StepMedicalInfo formData={formData} updateFormData={updateFormData} mainHasMedicalCondition={mainHasMedicalCondition} setMainHasMedicalCondition={setMainHasMedicalCondition} jointHasMedicalCondition={jointHasMedicalCondition} setJointHasMedicalCondition={setJointHasMedicalCondition} />}
-        {currentStep === 6 && <StepDocuments
-          formData={formData}
-          mainPhotoId={mainPhotoId} setMainPhotoId={setMainPhotoId}
-          mainPhotoIdUrl={mainPhotoIdUrl} setMainPhotoIdUrl={setMainPhotoIdUrl}
-          mainProofAddress={mainProofAddress} setMainProofAddress={setMainProofAddress}
-          mainProofAddressUrl={mainProofAddressUrl} setMainProofAddressUrl={setMainProofAddressUrl}
-          jointPhotoId={jointPhotoId} setJointPhotoId={setJointPhotoId}
-          jointPhotoIdUrl={jointPhotoIdUrl} setJointPhotoIdUrl={setJointPhotoIdUrl}
-          jointProofAddress={jointProofAddress} setJointProofAddress={setJointProofAddress}
-          jointProofAddressUrl={jointProofAddressUrl} setJointProofAddressUrl={setJointProofAddressUrl}
-          childrenDocuments={childrenDocuments} setChildrenDocuments={setChildrenDocuments}
-          childrenDocumentUrls={childrenDocumentUrls} setChildrenDocumentUrls={setChildrenDocumentUrls}
-          uploadingDoc={uploadingDoc}
-          uploadDocument={uploadDocument}
-          deleteDocument={deleteDocument}
-          calculateAge={calculateAge}
-        />}
-        {currentStep === 7 && <StepDeclarations
-          formData={formData}
+        {currentStep === 5 && <StepMedicalInfo formData={formData} updateFormData={updateFormData} mainHasMedicalCondition={mainHasMedicalCondition} setMainHasMedicalCondition={setMainHasMedicalCondition} jointHasMedicalCondition={jointHasMedicalCondition} setJointHasMedicalCondition={setJointHasMedicalCondition} validationErrors={validationErrors} />}
+        {currentStep === 6 && <StepDeclarations
           gpPracticeName={gpPracticeName} setGpPracticeName={setGpPracticeName}
           gpPracticeAddress={gpPracticeAddress} setGpPracticeAddress={setGpPracticeAddress}
+          gpTown={gpTown} setGpTown={setGpTown}
+          gpCity={gpCity} setGpCity={setGpCity}
           gpPostcode={gpPostcode} setGpPostcode={setGpPostcode}
           gpTelephone={gpTelephone} setGpTelephone={setGpTelephone}
           gpEmail={gpEmail} setGpEmail={setGpEmail}
-          mainMedicalConsent={mainMedicalConsent} setMainMedicalConsent={setMainMedicalConsent}
-          mainMedicalSignature={mainMedicalSignature} setMainMedicalSignature={setMainMedicalSignature}
-          jointMedicalConsent={jointMedicalConsent} setJointMedicalConsent={setJointMedicalConsent}
-          jointMedicalSignature={jointMedicalSignature} setJointMedicalSignature={setJointMedicalSignature}
-          mainFinalDeclaration={mainFinalDeclaration} setMainFinalDeclaration={setMainFinalDeclaration}
-          mainFinalSignature={mainFinalSignature} setMainFinalSignature={setMainFinalSignature}
-          jointFinalDeclaration={jointFinalDeclaration} setJointFinalDeclaration={setJointFinalDeclaration}
-          jointFinalSignature={jointFinalSignature} setJointFinalSignature={setJointFinalSignature}
+          formData={formData} updateFormData={updateFormData}
           validationErrors={validationErrors}
         />}
-        {currentStep === 8 && <StepPaperForm
+        {currentStep === 7 && <StepDeclaration formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
+        {currentStep === 8 && <StepDocuments
           formData={formData}
-          paperFormVersion={paperFormVersion} setPaperFormVersion={setPaperFormVersion}
-          applicationDate={applicationDate} setApplicationDate={setApplicationDate}
-          mainSignature={mainSignature} setMainSignature={setMainSignature}
-          jointSignature={jointSignature} setJointSignature={setJointSignature}
-          paperFormConfirmed={paperFormConfirmed} setPaperFormConfirmed={setPaperFormConfirmed}
-          dataEnteredBy={dataEnteredBy} setDataEnteredBy={setDataEnteredBy}
-          validationErrors={validationErrors}
+          mainPhotoId={mainPhotoId} setMainPhotoId={setMainPhotoId}
+          mainProofOfAddress={mainProofOfAddress} setMainProofOfAddress={setMainProofOfAddress}
+          jointPhotoId={jointPhotoId} setJointPhotoId={setJointPhotoId}
+          jointProofOfAddress={jointProofOfAddress} setJointProofOfAddress={setJointProofOfAddress}
+          childBirthCerts={childBirthCerts} setChildBirthCerts={setChildBirthCerts}
+          validationErrors={documentValidationErrors}
         />}
         {currentStep === 9 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} signupDate={signupDate} setSignupDate={setSignupDate} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} mainJoiningFee={mainJoiningFee} jointJoiningFee={jointJoiningFee} proRataAnnualFee={proRataAnnualFee} mainProRataFee={mainProRataFee} jointProRataFee={jointProRataFee} adjustmentValue={adjustmentValue} totalDue={totalDue} coverageEndDate={coverageEndDate} />}
       </div>
 
-      <div className="flex justify-between items-center bg-white rounded-xl shadow-md border border-gray-200 p-6">
-        <div className="flex items-center gap-4">
-          <button onClick={handleBack} disabled={currentStep === 0}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-            <ArrowLeft className="h-4 w-4 mr-2" /> Back
-          </button>
-          
-          <button
-            onClick={handleSaveProgress}
-            disabled={isSaving || !formData.first_name || !formData.last_name}
-            className="inline-flex items-center px-4 py-2 border-2 border-emerald-600 text-emerald-600 rounded-lg text-sm font-medium hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                </svg>
-                Save Progress
-              </>
-            )}
-          </button>
-        </div>
+          <div className="flex justify-between items-center bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+            <div className="flex items-center gap-4">
+              <button onClick={handleBack} disabled={currentStep === 0}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <ArrowLeft className="h-4 w-4 mr-2" /> Back
+              </button>
+            </div>
 
-        <div className="flex flex-col items-center">
-          <span className="text-sm text-gray-600">Step {currentVisibleStepIndex + 1} of {visibleSteps.length}</span>
-          {saveMessage && (
-            <span className={`text-xs mt-1 ${saveMessage.includes('✓') ? 'text-green-600' : 'text-red-600'}`}>
-              {saveMessage}
-            </span>
-          )}
-          {applicationReference && (
-            <span className="text-xs text-gray-500 mt-1">Ref: {applicationReference}</span>
-          )}
-        </div>
+            <div className="flex flex-col items-center">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Step {currentVisibleStepIndex + 1} of {visibleSteps.length}</span>
+              {applicationReference && (
+                <span className="text-xs text-emerald-600 mt-1 font-mono">{applicationReference}</span>
+              )}
+            </div>
 
-        {currentStep < steps.length - 1 ? (
-          <button onClick={handleNext}
-            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md">
-            Next <ArrowRight className="h-4 w-4 ml-2" />
-          </button>
-        ) : (
-          <button onClick={() => submitMutation.mutate()} disabled={submitMutation.isPending}
-            className="inline-flex items-center px-6 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
-            {submitMutation.isPending ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting...</>
+            {currentStep < steps.length - 1 ? (
+              <button onClick={handleNext}
+                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md">
+                Next <ArrowRight className="h-4 w-4 ml-2" />
+              </button>
             ) : (
-              <><Check className="h-4 w-4 mr-2" /> Submit Registration</>
+              <button
+                onClick={() => {
+                  if (paymentReceived) {
+                    setShowActivationConfirm(true);
+                  } else {
+                    submitMutation.mutate();
+                  }
+                }}
+                disabled={submitMutation.isPending}
+                className="inline-flex items-center px-6 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                {submitMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting...</>
+                ) : (
+                  <><Check className="h-4 w-4 mr-2" /> Submit Registration</>
+                )}
+              </button>
             )}
-          </button>
-        )}
+          </div>
+        </div>
       </div>
+
+      <ActivationConfirmModal
+        isOpen={showActivationConfirm}
+        onClose={() => setShowActivationConfirm(false)}
+        onConfirm={() => {
+          setShowActivationConfirm(false);
+          submitMutation.mutate();
+        }}
+        memberName={`${formData.first_name || ''} ${formData.last_name || ''}`.trim() || 'this member'}
+        hasPendingPayments={false}
+        pendingTotal={0}
+        isLoading={submitMutation.isPending}
+      />
+
+      {/* Document Warning Modal */}
+      {showDocWarningModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full mx-4 p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-start gap-4 mb-5">
+              <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="h-5 w-5 text-yellow-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-900 mb-1">Documents Not Uploaded</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  One or more required documents have not been uploaded. Documents must be added after the member is created — you can upload them from the member's profile page.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDocWarningModal(false)}
+                className="px-4 py-2 border border-gray-300 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowDocWarningModal(false); proceedToNextStep(); }}
+                className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1142,83 +1317,96 @@ function StepMainMember({ formData, updateFormData, validationErrors }: any) {
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Main Member Details</h2>
         <p className="text-sm text-gray-600">Enter the primary member's personal information</p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Title <span className="text-red-500">*</span></label>
-          <select value={formData.title} onChange={(e) => updateFormData('title', e.target.value)} required
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.title ? 'border-red-500' : 'border-gray-300'}`}>
-            <option value="">Select title</option>
-            <option value="Mr">Mr</option>
-            <option value="Mrs">Mrs</option>
-            <option value="Miss">Miss</option>
-            <option value="Ms">Ms</option>
-            <option value="Dr">Dr</option>
-            <option value="Prof">Prof</option>
-          </select>
-          {validationErrors.title && <p className="text-red-500 text-xs mt-1">{validationErrors.title}</p>}
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-[100px_1fr_1fr_1fr] gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Title <span className="text-red-500">*</span></label>
+            <select value={formData.title} onChange={(e) => updateFormData('title', e.target.value)} required
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.title ? 'border-red-500' : 'border-gray-300'}`}>
+              <option value="">Select</option>
+              <option value="Mr">Mr</option>
+              <option value="Mrs">Mrs</option>
+              <option value="Miss">Miss</option>
+              <option value="Ms">Ms</option>
+              <option value="Dr">Dr</option>
+              <option value="Prof">Prof</option>
+            </select>
+            {validationErrors.title && <p className="text-red-500 text-xs mt-1">{validationErrors.title}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.first_name} onChange={(e) => updateFormData('first_name', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="First name" />
+            {validationErrors.first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.first_name}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Middle Name</label>
+            <input type="text" value={formData.middle_name} onChange={(e) => updateFormData('middle_name', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Optional" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.last_name} onChange={(e) => updateFormData('last_name', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Last name" />
+            {validationErrors.last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.last_name}</p>}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-[180px] gap-4">
+          <div>
+            <DateInput
+              label={`Date of Birth${formData.dob ? ` (${calculateAge(formData.dob)} years old)` : ''}`}
+              required
+              value={formData.dob}
+              onChange={(value) => updateFormData('dob', value)}
+            />
+            {validationErrors.dob && <p className="text-red-500 text-xs mt-1">{validationErrors.dob}</p>}
+          </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.first_name} onChange={(e) => updateFormData('first_name', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
-          {validationErrors.first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.first_name}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.last_name} onChange={(e) => updateFormData('last_name', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
-          {validationErrors.last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.last_name}</p>}
-        </div>
-        <div>
-          <DateInput
-            label={`Date of Birth${formData.dob ? ` (${calculateAge(formData.dob)} years old)` : ''}`}
-            required
-            value={formData.dob}
-            onChange={(value) => updateFormData('dob', value)}
-          />
-          {validationErrors.dob && <p className="text-red-500 text-xs mt-1">{validationErrors.dob}</p>}
-        </div>
-        <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1 <span className="text-red-500">*</span></label>
           <input type="text" required value={formData.address_line_1} onChange={(e) => updateFormData('address_line_1', e.target.value)}
             className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.address_line_1 ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter street address" />
           {validationErrors.address_line_1 && <p className="text-red-500 text-xs mt-1">{validationErrors.address_line_1}</p>}
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Town <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.town} onChange={(e) => updateFormData('town', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.town ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter town" />
-          {validationErrors.town && <p className="text-red-500 text-xs mt-1">{validationErrors.town}</p>}
+        <div className="grid grid-cols-1 md:grid-cols-[200px_1fr_150px] gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Town <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.town} onChange={(e) => updateFormData('town', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.town ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter town" />
+            {validationErrors.town && <p className="text-red-500 text-xs mt-1">{validationErrors.town}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">City <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.city} onChange={(e) => updateFormData('city', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.city ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter city" />
+            {validationErrors.city && <p className="text-red-500 text-xs mt-1">{validationErrors.city}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Postcode <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.postcode} onChange={(e) => updateFormData('postcode', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.postcode ? 'border-red-500' : 'border-gray-300'}`} placeholder="Postcode" />
+            {validationErrors.postcode && <p className="text-red-500 text-xs mt-1">{validationErrors.postcode}</p>}
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">City <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.city} onChange={(e) => updateFormData('city', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.city ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter city" />
-          {validationErrors.city && <p className="text-red-500 text-xs mt-1">{validationErrors.city}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Postcode <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.postcode} onChange={(e) => updateFormData('postcode', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.postcode ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter postcode" />
-          {validationErrors.postcode && <p className="text-red-500 text-xs mt-1">{validationErrors.postcode}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone <span className="text-red-500">*</span></label>
-          <input type="tel" required pattern="[0-9]{11}" value={formData.mobile} onChange={(e) => updateFormData('mobile', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.mobile ? 'border-red-500' : 'border-gray-300'}`}
-            placeholder="Mobile number (11 digits)"
-            title="Mobile number must be exactly 11 digits" />
-          {validationErrors.mobile && <p className="text-red-500 text-xs mt-1">{validationErrors.mobile}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Home Phone</label>
-          <input type="tel" value={formData.home_phone} onChange={(e) => updateFormData('home_phone', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter home phone" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Work Phone</label>
-          <input type="tel" value={formData.work_phone} onChange={(e) => updateFormData('work_phone', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter work phone" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone <span className="text-red-500">*</span></label>
+            <input type="tel" required pattern="[0-9]{11}" value={formData.mobile} onChange={(e) => updateFormData('mobile', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.mobile ? 'border-red-500' : 'border-gray-300'}`}
+              placeholder="11 digits"
+              title="Mobile number must be exactly 11 digits" />
+            {validationErrors.mobile && <p className="text-red-500 text-xs mt-1">{validationErrors.mobile}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Home Phone</label>
+            <input type="tel" value={formData.home_phone} onChange={(e) => updateFormData('home_phone', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Optional" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Work Phone</label>
+            <input type="tel" value={formData.work_phone} onChange={(e) => updateFormData('work_phone', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Optional" />
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Email <span className="text-red-500">*</span></label>
@@ -1246,111 +1434,115 @@ function StepJointMember({ formData, updateFormData, validationErrors }: any) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Joint Member Details</h2>
-        <p className="text-sm text-gray-600">Enter the spouse/partner's information</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Joint Member (Spouse) Details</h2>
+        <p className="text-sm text-gray-600">Enter the spouse's information</p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Title <span className="text-red-500">*</span></label>
-          <select value={formData.joint_title} onChange={(e) => updateFormData('joint_title', e.target.value)} required
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_title ? 'border-red-500' : 'border-gray-300'}`}>
-            <option value="">Select title</option>
-            <option value="Mr">Mr</option>
-            <option value="Mrs">Mrs</option>
-            <option value="Miss">Miss</option>
-            <option value="Ms">Ms</option>
-            <option value="Dr">Dr</option>
-            <option value="Prof">Prof</option>
-          </select>
-          {validationErrors.joint_title && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_title}</p>}
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-[100px_1fr_1fr_1fr] gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Title <span className="text-red-500">*</span></label>
+            <select value={formData.joint_title} onChange={(e) => updateFormData('joint_title', e.target.value)} required
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_title ? 'border-red-500' : 'border-gray-300'}`}>
+              <option value="">Select</option>
+              <option value="Mr">Mr</option>
+              <option value="Mrs">Mrs</option>
+              <option value="Miss">Miss</option>
+              <option value="Ms">Ms</option>
+              <option value="Dr">Dr</option>
+              <option value="Prof">Prof</option>
+            </select>
+            {validationErrors.joint_title && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_title}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.joint_first_name} onChange={(e) => updateFormData('joint_first_name', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="First name" />
+            {validationErrors.joint_first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_first_name}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Middle Name</label>
+            <input type="text" value={formData.joint_middle_name} onChange={(e) => updateFormData('joint_middle_name', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Optional" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.joint_last_name} onChange={(e) => updateFormData('joint_last_name', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Last name" />
+            {validationErrors.joint_last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_last_name}</p>}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-[180px_200px] gap-4">
+          <div>
+            <DateInput
+              label={`Date of Birth${formData.joint_dob ? ` (${calculateAge(formData.joint_dob)} years old)` : ''}`}
+              required
+              value={formData.joint_dob}
+              onChange={(value) => updateFormData('joint_dob', value)}
+            />
+            {validationErrors.joint_dob && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_dob}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Relationship</label>
+            <div className="w-full px-4 py-2 border border-gray-200 bg-gray-50 rounded-lg text-gray-700 font-medium">
+              Spouse
+            </div>
+          </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Relationship to Main Member <span className="text-red-500">*</span></label>
-          <select value={formData.joint_relation} onChange={(e) => updateFormData('joint_relation', e.target.value)} required
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_relation ? 'border-red-500' : 'border-gray-300'}`}>
-            <option value="Spouse">Spouse</option>
-            <option value="Partner">Partner</option>
-            <option value="Sibling">Sibling</option>
-            <option value="Parent">Parent</option>
-            <option value="Child">Child</option>
-            <option value="Other">Other</option>
-          </select>
-          {validationErrors.joint_relation && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_relation}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.joint_first_name} onChange={(e) => updateFormData('joint_first_name', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
-          {validationErrors.joint_first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_first_name}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.joint_last_name} onChange={(e) => updateFormData('joint_last_name', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
-          {validationErrors.joint_last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_last_name}</p>}
-        </div>
-        <div>
-          <DateInput
-            label={`Date of Birth${formData.joint_dob ? ` (${calculateAge(formData.joint_dob)} years old)` : ''}`}
-            required
-            value={formData.joint_dob}
-            onChange={(value) => updateFormData('joint_dob', value)}
-          />
-          {validationErrors.joint_dob && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_dob}</p>}
-        </div>
-
-        <div className="md:col-span-2">
           <button
             type="button"
             onClick={copyMainAddress}
-            className="mb-4 inline-flex items-center px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors font-medium"
+            className="inline-flex items-center px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors font-medium"
           >
             <Copy className="h-4 w-4 mr-2" />
-            Does this member live at the same address as {mainMemberName}?
+            Same address as {mainMemberName}?
           </button>
         </div>
-
-        <div className="md:col-span-2">
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1 <span className="text-red-500">*</span></label>
           <input type="text" required value={formData.joint_address_line_1} onChange={(e) => updateFormData('joint_address_line_1', e.target.value)}
             className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_address_line_1 ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter street address" />
           {validationErrors.joint_address_line_1 && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_address_line_1}</p>}
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Town <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.joint_town} onChange={(e) => updateFormData('joint_town', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_town ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter town" />
-          {validationErrors.joint_town && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_town}</p>}
+        <div className="grid grid-cols-1 md:grid-cols-[200px_1fr_150px] gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Town <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.joint_town} onChange={(e) => updateFormData('joint_town', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_town ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter town" />
+            {validationErrors.joint_town && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_town}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">City <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.joint_city} onChange={(e) => updateFormData('joint_city', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_city ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter city" />
+            {validationErrors.joint_city && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_city}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Postcode <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.joint_postcode} onChange={(e) => updateFormData('joint_postcode', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_postcode ? 'border-red-500' : 'border-gray-300'}`} placeholder="Postcode" />
+            {validationErrors.joint_postcode && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_postcode}</p>}
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">City <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.joint_city} onChange={(e) => updateFormData('joint_city', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_city ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter city" />
-          {validationErrors.joint_city && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_city}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Postcode <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.joint_postcode} onChange={(e) => updateFormData('joint_postcode', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_postcode ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter postcode" />
-          {validationErrors.joint_postcode && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_postcode}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone <span className="text-red-500">*</span></label>
-          <input type="tel" required pattern="[0-9]{11}" value={formData.joint_mobile} onChange={(e) => updateFormData('joint_mobile', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_mobile ? 'border-red-500' : 'border-gray-300'}`}
-            placeholder="Mobile number (11 digits)"
-            title="Mobile number must be exactly 11 digits" />
-          {validationErrors.joint_mobile && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_mobile}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Home Phone</label>
-          <input type="tel" value={formData.joint_home_phone} onChange={(e) => updateFormData('joint_home_phone', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter home phone" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Work Phone</label>
-          <input type="tel" value={formData.joint_work_phone} onChange={(e) => updateFormData('joint_work_phone', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter work phone" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone <span className="text-red-500">*</span></label>
+            <input type="tel" required pattern="[0-9]{11}" value={formData.joint_mobile} onChange={(e) => updateFormData('joint_mobile', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.joint_mobile ? 'border-red-500' : 'border-gray-300'}`}
+              placeholder="11 digits"
+              title="Mobile number must be exactly 11 digits" />
+            {validationErrors.joint_mobile && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_mobile}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Home Phone</label>
+            <input type="tel" value={formData.joint_home_phone} onChange={(e) => updateFormData('joint_home_phone', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Optional" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Work Phone</label>
+            <input type="tel" value={formData.joint_work_phone} onChange={(e) => updateFormData('joint_work_phone', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Optional" />
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Email <span className="text-red-500">*</span></label>
@@ -1377,7 +1569,7 @@ function StepChildren({ formData, addChild, removeChild, updateChild, childValid
         </button>
       </div>
 
-      {formData.children.length === 0 ? (
+      {(formData.children?.length ?? 0) === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
           <Baby className="h-12 w-12 mx-auto text-gray-400 mb-4" />
           <p className="text-gray-600">No children added yet</p>
@@ -1394,47 +1586,51 @@ function StepChildren({ formData, addChild, removeChild, updateChild, childValid
                   <Trash2 className="h-5 w-5" />
                 </button>
                 <h3 className="font-medium text-gray-900 mb-3">Child {index + 1}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
-                    <input type="text" required value={child.first_name} onChange={(e) => updateChild(index, 'first_name', e.target.value)}
-                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
-                    {errors.first_name && <p className="text-red-500 text-xs mt-1">{errors.first_name}</p>}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
+                      <input type="text" required value={child.first_name} onChange={(e) => updateChild(index, 'first_name', e.target.value)}
+                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
+                      {errors.first_name && <p className="text-red-500 text-xs mt-1">{errors.first_name}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
+                      <input type="text" required value={child.last_name} onChange={(e) => updateChild(index, 'last_name', e.target.value)}
+                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
+                      {errors.last_name && <p className="text-red-500 text-xs mt-1">{errors.last_name}</p>}
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
-                    <input type="text" required value={child.last_name} onChange={(e) => updateChild(index, 'last_name', e.target.value)}
-                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
-                    {errors.last_name && <p className="text-red-500 text-xs mt-1">{errors.last_name}</p>}
-                  </div>
-                  <div>
-                    <DateInput
-                      label="Date of Birth"
-                      required
-                      value={child.dob}
-                      onChange={(value) => updateChild(index, 'dob', value)}
-                      minDate={(() => {
-                        const date = new Date();
-                        date.setFullYear(date.getFullYear() - 18);
-                        date.setDate(date.getDate() + 1);
-                        return date.toISOString().split('T')[0];
-                      })()}
-                      maxDate={new Date().toISOString().split('T')[0]}
-                      errorMessage="Child must be under 18 years old and DOB cannot be in the future"
-                    />
-                    {errors.dob && <p className="text-red-500 text-xs mt-1">{errors.dob}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Relation <span className="text-red-500">*</span></label>
-                    <select required value={child.relation} onChange={(e) => updateChild(index, 'relation', e.target.value)}
-                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.relation ? 'border-red-500' : 'border-gray-300'}`}>
-                      <option value="">Select relation</option>
-                      <option value="son">Son</option>
-                      <option value="daughter">Daughter</option>
-                      <option value="stepson">Stepson</option>
-                      <option value="stepdaughter">Stepdaughter</option>
-                    </select>
-                    {errors.relation && <p className="text-red-500 text-xs mt-1">{errors.relation}</p>}
+                  <div className="grid grid-cols-1 md:grid-cols-[180px_200px] gap-4">
+                    <div>
+                      <DateInput
+                        label="Date of Birth"
+                        required
+                        value={child.dob}
+                        onChange={(value) => updateChild(index, 'dob', value)}
+                        minDate={(() => {
+                          const date = new Date();
+                          date.setFullYear(date.getFullYear() - 18);
+                          date.setDate(date.getDate() + 1);
+                          return date.toISOString().split('T')[0];
+                        })()}
+                        maxDate={new Date().toISOString().split('T')[0]}
+                        errorMessage="Child must be under 18 years old and DOB cannot be in the future"
+                      />
+                      {errors.dob && <p className="text-red-500 text-xs mt-1">{errors.dob}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Relation <span className="text-red-500">*</span></label>
+                      <select required value={child.relation} onChange={(e) => updateChild(index, 'relation', e.target.value)}
+                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${errors.relation ? 'border-red-500' : 'border-gray-300'}`}>
+                        <option value="">Select</option>
+                        <option value="son">Son</option>
+                        <option value="daughter">Daughter</option>
+                        <option value="stepson">Stepson</option>
+                        <option value="stepdaughter">Stepdaughter</option>
+                      </select>
+                      {errors.relation && <p className="text-red-500 text-xs mt-1">{errors.relation}</p>}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1453,88 +1649,95 @@ function StepNextOfKin({ formData, updateFormData, validationErrors }: any) {
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Next of Kin</h2>
         <p className="text-sm text-gray-600">Emergency contact information</p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
-          <select value={formData.nok_title} onChange={(e) => updateFormData('nok_title', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
-            <option value="">Select title</option>
-            <option value="Mr">Mr</option>
-            <option value="Mrs">Mrs</option>
-            <option value="Miss">Miss</option>
-            <option value="Ms">Ms</option>
-            <option value="Dr">Dr</option>
-          </select>
+      <div className="space-y-4">
+        {/* Row 1: Title + First Name + Last Name + Relationship */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+          <div className="col-span-1 md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+            <select value={formData.nok_title} onChange={(e) => updateFormData('nok_title', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors">
+              <option value="">Select</option>
+              <option value="Mr">Mr</option>
+              <option value="Mrs">Mrs</option>
+              <option value="Miss">Miss</option>
+              <option value="Ms">Ms</option>
+              <option value="Dr">Dr</option>
+            </select>
+          </div>
+          <div className="col-span-1 md:col-span-3">
+            <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.nok_first_name} onChange={(e) => updateFormData('nok_first_name', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
+            {validationErrors.nok_first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_first_name}</p>}
+          </div>
+          <div className="col-span-1 md:col-span-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.nok_last_name} onChange={(e) => updateFormData('nok_last_name', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
+            {validationErrors.nok_last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_last_name}</p>}
+          </div>
+          <div className="col-span-1 md:col-span-3">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Relationship <span className="text-red-500">*</span></label>
+            <select required value={formData.nok_relationship} onChange={(e) => updateFormData('nok_relationship', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_relationship ? 'border-red-500' : 'border-gray-300'}`}>
+              <option value="">Select</option>
+              <option value="Spouse">Spouse</option>
+              <option value="Child">Child</option>
+              <option value="Parent">Parent</option>
+              <option value="Sibling">Sibling</option>
+              <option value="Other">Other</option>
+            </select>
+            {validationErrors.nok_relationship && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_relationship}</p>}
+          </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.nok_first_name} onChange={(e) => updateFormData('nok_first_name', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_first_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter first name" />
-          {validationErrors.nok_first_name && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_first_name}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.nok_last_name} onChange={(e) => updateFormData('nok_last_name', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_last_name ? 'border-red-500' : 'border-gray-300'}`} placeholder="Enter last name" />
-          {validationErrors.nok_last_name && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_last_name}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Relationship <span className="text-red-500">*</span></label>
-          <select required value={formData.nok_relationship} onChange={(e) => updateFormData('nok_relationship', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-mosque-green-600 focus:border-transparent ${validationErrors.nok_relationship ? 'border-red-500' : 'border-gray-300'}`}>
-            <option value="">Select relationship...</option>
-            <option value="Spouse">Spouse</option>
-            <option value="Child">Child</option>
-            <option value="Parent">Parent</option>
-            <option value="Sibling">Sibling</option>
-            <option value="Other">Other</option>
-          </select>
-          {validationErrors.nok_relationship && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_relationship}</p>}
-        </div>
-        <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1 <span className="text-red-500">*</span></label>
           <input type="text" required value={formData.nok_address_line_1} onChange={(e) => updateFormData('nok_address_line_1', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter street address" />
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Enter street address" />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Town <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.nok_town} onChange={(e) => updateFormData('nok_town', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter town" />
+        <div className="grid grid-cols-1 md:grid-cols-[200px_1fr_150px] gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Town <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.nok_town} onChange={(e) => updateFormData('nok_town', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Enter town" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">City <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.nok_city} onChange={(e) => updateFormData('nok_city', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Enter city" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Postcode <span className="text-red-500">*</span></label>
+            <input type="text" required value={formData.nok_postcode} onChange={(e) => updateFormData('nok_postcode', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Postcode" />
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">City <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.nok_city} onChange={(e) => updateFormData('nok_city', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter city" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Postcode <span className="text-red-500">*</span></label>
-          <input type="text" required value={formData.nok_postcode} onChange={(e) => updateFormData('nok_postcode', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter postcode" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone <span className="text-red-500">*</span></label>
-          <input type="tel" required pattern="[0-9]{11}" value={formData.nok_mobile} onChange={(e) => updateFormData('nok_mobile', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_mobile ? 'border-red-500' : 'border-gray-300'}`}
-            placeholder="Mobile number (11 digits)"
-            title="Mobile number must be exactly 11 digits" />
-          {validationErrors.nok_mobile && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_mobile}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Home Phone</label>
-          <input type="tel" value={formData.nok_phone} onChange={(e) => updateFormData('nok_phone', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-emerald-500 focus:border-emerald-500" placeholder="Enter home phone" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone <span className="text-red-500">*</span></label>
+            <input type="tel" required pattern="[0-9]{11}" value={formData.nok_mobile} onChange={(e) => updateFormData('nok_mobile', e.target.value)}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${validationErrors.nok_mobile ? 'border-red-500' : 'border-gray-300'}`}
+              placeholder="11 digits"
+              title="Mobile number must be exactly 11 digits" />
+            {validationErrors.nok_mobile && <p className="text-red-500 text-xs mt-1">{validationErrors.nok_mobile}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Home Phone</label>
+            <input type="tel" value={formData.nok_phone} onChange={(e) => updateFormData('nok_phone', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Optional" />
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Email <span className="text-red-500">*</span></label>
           <input type="email" required value={formData.nok_email} onChange={(e) => updateFormData('nok_email', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Enter email address" />
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors" placeholder="Enter email address" />
         </div>
       </div>
     </div>
   );
 }
 
-function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, setMainHasMedicalCondition, jointHasMedicalCondition, setJointHasMedicalCondition }: any) {
+function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, setMainHasMedicalCondition, jointHasMedicalCondition, setJointHasMedicalCondition, validationErrors }: any) {
   return (
     <div className="space-y-6">
       <div>
@@ -1544,7 +1747,7 @@ function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, se
 
       <div className="space-y-6">
         {/* Main Member Medical Information */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className={`bg-white dark:bg-gray-800 rounded-lg border p-6 transition-colors ${validationErrors?.main_medical ? 'border-red-400' : 'border-gray-200 dark:border-gray-700'}`}>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             {formData.first_name && formData.last_name
               ? `${formData.first_name} ${formData.last_name}`
@@ -1554,7 +1757,7 @@ function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, se
           {/* Medical Condition Question */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-3">
-              Do you have any medical condition or undergoing any medical treatment for any short/long term illness? *
+              Do you have any medical condition or undergoing any medical treatment for any short/long term illness? <span className="text-red-500">*</span>
             </label>
             <div className="flex space-x-6">
               <label className="flex items-center cursor-pointer">
@@ -1583,22 +1786,23 @@ function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, se
                 <span className="ml-2 text-sm text-gray-700">No</span>
               </label>
             </div>
+            {validationErrors?.main_medical && <p className="text-red-500 text-xs mt-2">{validationErrors.main_medical}</p>}
           </div>
 
           {/* Conditional Medical Conditions Text Box */}
-          {mainHasMedicalCondition && (
+          {mainHasMedicalCondition === true && (
             <div className="mt-4 animate-in slide-in-from-top duration-200">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Please provide details of your medical condition(s) *
+                Please provide details of your medical condition(s) <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={formData.main_conditions}
                 onChange={(e) => updateFormData('main_conditions', e.target.value)}
-                required={mainHasMedicalCondition}
                 rows={4}
                 placeholder="Please describe your medical condition(s), treatment, and any medications..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${validationErrors?.main_conditions ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}
               />
+              {validationErrors?.main_conditions && <p className="text-red-500 text-xs mt-1">{validationErrors.main_conditions}</p>}
               <p className="text-xs text-gray-500 mt-2">
                 Include any medications, ongoing treatments, or conditions that may be relevant.
               </p>
@@ -1608,7 +1812,7 @@ function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, se
 
         {/* Joint Member Medical Information */}
         {formData.app_type === 'joint' && (
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className={`bg-white dark:bg-gray-800 rounded-lg border p-6 transition-colors ${validationErrors?.joint_medical ? 'border-red-400' : 'border-gray-200 dark:border-gray-700'}`}>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               {formData.joint_first_name && formData.joint_last_name
                 ? `${formData.joint_first_name} ${formData.joint_last_name}`
@@ -1618,7 +1822,7 @@ function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, se
             {/* Medical Condition Question */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-3">
-                Does the joint member have any medical condition or undergoing any medical treatment for any short/long term illness? *
+                Does the joint member have any medical condition or undergoing any medical treatment for any short/long term illness? <span className="text-red-500">*</span>
               </label>
               <div className="flex space-x-6">
                 <label className="flex items-center cursor-pointer">
@@ -1647,22 +1851,23 @@ function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, se
                   <span className="ml-2 text-sm text-gray-700">No</span>
                 </label>
               </div>
+              {validationErrors?.joint_medical && <p className="text-red-500 text-xs mt-2">{validationErrors.joint_medical}</p>}
             </div>
 
             {/* Conditional Medical Conditions Text Box */}
-            {jointHasMedicalCondition && (
+            {jointHasMedicalCondition === true && (
               <div className="mt-4 animate-in slide-in-from-top duration-200">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Please provide details of joint member's medical condition(s) *
+                  Please provide details of joint member's medical condition(s) <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={formData.joint_conditions}
                   onChange={(e) => updateFormData('joint_conditions', e.target.value)}
-                  required={jointHasMedicalCondition}
                   rows={4}
                   placeholder="Please describe medical condition(s), treatment, and any medications..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${validationErrors?.joint_conditions ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}
                 />
+                {validationErrors?.joint_conditions && <p className="text-red-500 text-xs mt-1">{validationErrors.joint_conditions}</p>}
                 <p className="text-xs text-gray-500 mt-2">
                   Include any medications, ongoing treatments, or conditions that may be relevant.
                 </p>
@@ -1675,528 +1880,51 @@ function StepMedicalInfo({ formData, updateFormData, mainHasMedicalCondition, se
   );
 }
 
-function StepDocuments({
-  formData,
-  mainPhotoId, setMainPhotoId,
-  mainPhotoIdUrl, setMainPhotoIdUrl,
-  mainProofAddress, setMainProofAddress,
-  mainProofAddressUrl, setMainProofAddressUrl,
-  jointPhotoId, setJointPhotoId,
-  jointPhotoIdUrl, setJointPhotoIdUrl,
-  jointProofAddress, setJointProofAddress,
-  jointProofAddressUrl, setJointProofAddressUrl,
-  childrenDocuments, setChildrenDocuments,
-  childrenDocumentUrls, setChildrenDocumentUrls,
-  uploadingDoc,
-  uploadDocument,
-  deleteDocument,
-  calculateAge
-}: any) {
-  const hasJointMember = formData.app_type === 'joint';
-  const children = formData.children || [];
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Documents</h2>
-        <p className="text-sm text-gray-600">
-          Please upload the required documents. Accepted formats: JPG, PNG, PDF (Max 5MB per file)
-        </p>
-      </div>
-
-      <div className="mb-8">
-        <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-          <User className="h-4 w-4 mr-2 text-emerald-600" />
-          Main Member Documents
-        </h4>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Photo ID (Passport, Driving Licence) *
-            </label>
-
-            {mainPhotoIdUrl ? (
-              <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <FileText className="h-8 w-8 text-emerald-600 mr-3" />
-                    <div>
-                      <p className="text-sm font-medium text-emerald-900">
-                        {mainPhotoId?.name || 'Uploaded'}
-                      </p>
-                      <p className="text-xs text-emerald-600">
-                        {mainPhotoId ? `${(mainPhotoId.size / 1024).toFixed(1)} KB` : ''}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await deleteDocument(mainPhotoIdUrl);
-                      setMainPhotoIdUrl('');
-                      setMainPhotoId(null);
-                    }}
-                    className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      if (file.size > 5 * 1024 * 1024) {
-                        alert('File too large. Maximum 5MB.');
-                        return;
-                      }
-                      setMainPhotoId(file);
-                      const url = await uploadDocument(file, 'photo_id', 'main');
-                      if (url) setMainPhotoIdUrl(url);
-                    }
-                  }}
-                  className="hidden"
-                  id="main-photo-id"
-                  disabled={uploadingDoc === 'main-photo_id'}
-                />
-                <label
-                  htmlFor="main-photo-id"
-                  className="flex flex-col items-center cursor-pointer"
-                >
-                  {uploadingDoc === 'main-photo_id' ? (
-                    <>
-                      <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
-                      <span className="text-sm text-gray-600">Uploading...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                      <span className="text-sm text-gray-600">Click to upload</span>
-                      <span className="text-xs text-gray-500">or drag and drop</span>
-                    </>
-                  )}
-                </label>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Proof of Address (Utility Bill, Council Tax) *
-            </label>
-
-            {mainProofAddressUrl ? (
-              <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <FileText className="h-8 w-8 text-emerald-600 mr-3" />
-                    <div>
-                      <p className="text-sm font-medium text-emerald-900">
-                        {mainProofAddress?.name || 'Uploaded'}
-                      </p>
-                      <p className="text-xs text-emerald-600">
-                        {mainProofAddress ? `${(mainProofAddress.size / 1024).toFixed(1)} KB` : ''}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await deleteDocument(mainProofAddressUrl);
-                      setMainProofAddressUrl('');
-                      setMainProofAddress(null);
-                    }}
-                    className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      if (file.size > 5 * 1024 * 1024) {
-                        alert('File too large. Maximum 5MB.');
-                        return;
-                      }
-                      setMainProofAddress(file);
-                      const url = await uploadDocument(file, 'proof_address', 'main');
-                      if (url) setMainProofAddressUrl(url);
-                    }
-                  }}
-                  className="hidden"
-                  id="main-proof-address"
-                  disabled={uploadingDoc === 'main-proof_address'}
-                />
-                <label
-                  htmlFor="main-proof-address"
-                  className="flex flex-col items-center cursor-pointer"
-                >
-                  {uploadingDoc === 'main-proof_address' ? (
-                    <>
-                      <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
-                      <span className="text-sm text-gray-600">Uploading...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                      <span className="text-sm text-gray-600">Click to upload</span>
-                      <span className="text-xs text-gray-500">or drag and drop</span>
-                    </>
-                  )}
-                </label>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {hasJointMember && (
-        <div className="mb-8 pb-8 border-b border-gray-200">
-          <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-            <Users className="h-4 w-4 mr-2 text-emerald-600" />
-            Joint Member Documents
-          </h4>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Photo ID (Passport, Driving Licence) *
-              </label>
-
-              {jointPhotoIdUrl ? (
-                <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <FileText className="h-8 w-8 text-emerald-600 mr-3" />
-                      <div>
-                        <p className="text-sm font-medium text-emerald-900">
-                          {jointPhotoId?.name || 'Uploaded'}
-                        </p>
-                        <p className="text-xs text-emerald-600">
-                          {jointPhotoId ? `${(jointPhotoId.size / 1024).toFixed(1)} KB` : ''}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await deleteDocument(jointPhotoIdUrl);
-                        setJointPhotoIdUrl('');
-                        setJointPhotoId(null);
-                      }}
-                      className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        if (file.size > 5 * 1024 * 1024) {
-                          alert('File too large. Maximum 5MB.');
-                          return;
-                        }
-                        setJointPhotoId(file);
-                        const url = await uploadDocument(file, 'photo_id', 'joint');
-                        if (url) setJointPhotoIdUrl(url);
-                      }
-                    }}
-                    className="hidden"
-                    id="joint-photo-id"
-                    disabled={uploadingDoc === 'joint-photo_id'}
-                  />
-                  <label
-                    htmlFor="joint-photo-id"
-                    className="flex flex-col items-center cursor-pointer"
-                  >
-                    {uploadingDoc === 'joint-photo_id' ? (
-                      <>
-                        <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
-                        <span className="text-sm text-gray-600">Uploading...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                        <span className="text-sm text-gray-600">Click to upload</span>
-                        <span className="text-xs text-gray-500">or drag and drop</span>
-                      </>
-                    )}
-                  </label>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Proof of Address (Utility Bill, Council Tax) *
-              </label>
-
-              {jointProofAddressUrl ? (
-                <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <FileText className="h-8 w-8 text-emerald-600 mr-3" />
-                      <div>
-                        <p className="text-sm font-medium text-emerald-900">
-                          {jointProofAddress?.name || 'Uploaded'}
-                        </p>
-                        <p className="text-xs text-emerald-600">
-                          {jointProofAddress ? `${(jointProofAddress.size / 1024).toFixed(1)} KB` : ''}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await deleteDocument(jointProofAddressUrl);
-                        setJointProofAddressUrl('');
-                        setJointProofAddress(null);
-                      }}
-                      className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        if (file.size > 5 * 1024 * 1024) {
-                          alert('File too large. Maximum 5MB.');
-                          return;
-                        }
-                        setJointProofAddress(file);
-                        const url = await uploadDocument(file, 'proof_address', 'joint');
-                        if (url) setJointProofAddressUrl(url);
-                      }
-                    }}
-                    className="hidden"
-                    id="joint-proof-address"
-                    disabled={uploadingDoc === 'joint-proof_address'}
-                  />
-                  <label
-                    htmlFor="joint-proof-address"
-                    className="flex flex-col items-center cursor-pointer"
-                  >
-                    {uploadingDoc === 'joint-proof_address' ? (
-                      <>
-                        <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
-                        <span className="text-sm text-gray-600">Uploading...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                        <span className="text-sm text-gray-600">Click to upload</span>
-                        <span className="text-xs text-gray-500">or drag and drop</span>
-                      </>
-                    )}
-                  </label>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {children.length > 0 && (
-        <div className="mb-6">
-          <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-            <Baby className="h-4 w-4 mr-2 text-emerald-600" />
-            Children's Documents
-          </h4>
-
-          <div className="space-y-4">
-            {children.map((child: any, index: number) => (
-              <div key={index} className="border border-gray-200 rounded-lg p-4">
-                <p className="text-sm font-medium text-gray-900 mb-3">
-                  {child.first_name} {child.last_name} (Age {calculateAge(child.dob)})
-                </p>
-
-                {childrenDocumentUrls[`child-${index}`] ? (
-                  <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <FileText className="h-8 w-8 text-emerald-600 mr-3" />
-                        <div>
-                          <p className="text-sm font-medium text-emerald-900">
-                            {childrenDocuments[`child-${index}`]?.name || 'Uploaded'}
-                          </p>
-                          <p className="text-xs text-emerald-600">
-                            Birth Certificate / Passport
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          await deleteDocument(childrenDocumentUrls[`child-${index}`]);
-                          setChildrenDocumentUrls((prev: any) => {
-                            const updated = { ...prev };
-                            delete updated[`child-${index}`];
-                            return updated;
-                          });
-                          setChildrenDocuments((prev: any) => {
-                            const updated = { ...prev };
-                            delete updated[`child-${index}`];
-                            return updated;
-                          });
-                        }}
-                        className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-500 transition-colors">
-                    <input
-                      type="file"
-                      accept="image/*,.pdf"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          if (file.size > 5 * 1024 * 1024) {
-                            alert('File too large. Maximum 5MB.');
-                            return;
-                          }
-                          setChildrenDocuments((prev: any) => ({ ...prev, [`child-${index}`]: file }));
-                          const url = await uploadDocument(file, 'birth_cert', `child_${index}`);
-                          if (url) {
-                            setChildrenDocumentUrls((prev: any) => ({ ...prev, [`child-${index}`]: url }));
-                          }
-                        }
-                      }}
-                      className="hidden"
-                      id={`child-doc-${index}`}
-                      disabled={uploadingDoc === `child_${index}-birth_cert`}
-                    />
-                    <label
-                      htmlFor={`child-doc-${index}`}
-                      className="flex flex-col items-center cursor-pointer"
-                    >
-                      {uploadingDoc === `child_${index}-birth_cert` ? (
-                        <>
-                          <Loader2 className="h-8 w-8 text-emerald-600 animate-spin mb-2" />
-                          <span className="text-sm text-gray-600">Uploading...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                          <span className="text-sm text-gray-600">Upload Birth Certificate</span>
-                          <span className="text-xs text-gray-500">or Passport</span>
-                        </>
-                      )}
-                    </label>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h5 className="text-sm font-semibold text-blue-900 mb-2">Upload Requirements:</h5>
-        <ul className="text-xs text-blue-800 space-y-1">
-          <li>• Accepted formats: JPG, PNG, PDF</li>
-          <li>• Maximum file size: 5MB per file</li>
-          <li>• Documents must be clear and readable</li>
-          <li>• Photo ID: Passport or Driving Licence</li>
-          <li>• Proof of Address: Utility bill, Council tax, Bank statement (within last 3 months)</li>
-          <li>• Children: Birth certificate or Passport required</li>
-        </ul>
-      </div>
-    </div>
-  );
-}
-
 function StepDeclarations({
-  formData,
   gpPracticeName, setGpPracticeName,
   gpPracticeAddress, setGpPracticeAddress,
+  gpTown, setGpTown,
+  gpCity, setGpCity,
   gpPostcode, setGpPostcode,
   gpTelephone, setGpTelephone,
   gpEmail, setGpEmail,
-  mainMedicalConsent, setMainMedicalConsent,
-  mainMedicalSignature, setMainMedicalSignature,
-  jointMedicalConsent, setJointMedicalConsent,
-  jointMedicalSignature, setJointMedicalSignature,
-  mainFinalDeclaration, setMainFinalDeclaration,
-  mainFinalSignature, setMainFinalSignature,
-  jointFinalDeclaration, setJointFinalDeclaration,
-  jointFinalSignature, setJointFinalSignature,
+  formData, updateFormData,
   validationErrors
 }: any) {
-  const hasJointMember = formData.app_type === 'joint';
-
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Declarations & Signatures</h2>
-        <p className="text-sm text-gray-600">Please complete all required declarations</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">GP Details & Medical Consent</h2>
+        <p className="text-sm text-gray-600">Enter GP practice details and confirm medical consent</p>
       </div>
 
-      {/* ============================================ */}
-      {/* SECTION 6: MEDICAL CONSENT */}
-      {/* ============================================ */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6">
-          Section 6: Medical Consent
-        </h3>
-
-        {/* Medical Consent Statement */}
-        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-          <p className="text-sm text-blue-900 leading-relaxed">
-            I do not have any medical condition or illness other than those disclosed in the medical
-            history section of this form that may invalidate my application (see section 14). In the
-            event of my death, I authorise CRMFS to request information from my medical records
-            relevant to my application for funeral cover. I give consent for this information to be
-            sourced from my GP or other medical specialists that I may have received treatment from.
-          </p>
+      {/* GP Details */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+        <div className="flex items-center gap-2 mb-6">
+          <h3 className="text-lg font-semibold text-gray-900">
+            GP Practice Details
+          </h3>
         </div>
 
-        {/* GP Details */}
-        <div className="mb-6">
-          <h4 className="text-sm font-semibold text-gray-900 mb-4">GP Practice Details</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                GP Practice Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={gpPracticeName}
-                onChange={(e) => setGpPracticeName(e.target.value)}
-                required
-                placeholder="Enter GP practice name"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPracticeName ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              {validationErrors.gpPracticeName && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPracticeName}</p>}
-            </div>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              GP Practice Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={gpPracticeName}
+              onChange={(e) => setGpPracticeName(e.target.value)}
+              required
+              placeholder="Enter GP practice name"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPracticeName ? 'border-red-500' : 'border-gray-300'}`}
+            />
+            {validationErrors.gpPracticeName && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPracticeName}</p>}
+          </div>
 
-            <div className="md:col-span-2">
+          {/* Address Line 1 + Postcode on same row */}
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_200px] gap-4">
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 GP Practice Address <span className="text-red-500">*</span>
               </label>
@@ -2205,7 +1933,7 @@ function StepDeclarations({
                 value={gpPracticeAddress}
                 onChange={(e) => setGpPracticeAddress(e.target.value)}
                 required
-                placeholder="Enter GP practice address"
+                placeholder="Enter street address"
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpPracticeAddress ? 'border-red-500' : 'border-gray-300'}`}
               />
               {validationErrors.gpPracticeAddress && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPracticeAddress}</p>}
@@ -2225,7 +1953,43 @@ function StepDeclarations({
               />
               {validationErrors.gpPostcode && <p className="text-red-500 text-xs mt-1">{validationErrors.gpPostcode}</p>}
             </div>
+          </div>
 
+          {/* Town + City on same row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Town <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={gpTown}
+                onChange={(e) => setGpTown(e.target.value)}
+                required
+                placeholder="Enter town"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpTown ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {validationErrors.gpTown && <p className="text-red-500 text-xs mt-1">{validationErrors.gpTown}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                City <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={gpCity}
+                onChange={(e) => setGpCity(e.target.value)}
+                required
+                placeholder="Enter city"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${validationErrors.gpCity ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {validationErrors.gpCity && <p className="text-red-500 text-xs mt-1">{validationErrors.gpCity}</p>}
+            </div>
+          </div>
+
+          {/* Telephone + Email on same row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Telephone <span className="text-red-500">*</span>
@@ -2241,7 +2005,7 @@ function StepDeclarations({
               {validationErrors.gpTelephone && <p className="text-red-500 text-xs mt-1">{validationErrors.gpTelephone}</p>}
             </div>
 
-            <div className="md:col-span-2">
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Email
               </label>
@@ -2255,238 +2019,57 @@ function StepDeclarations({
             </div>
           </div>
         </div>
-
-        {/* Main Member Consent & Signature */}
-        <div className="mb-6 pb-6 border-b border-gray-200">
-          <h4 className="text-sm font-semibold text-gray-900 mb-4">Applicant 1 Consent</h4>
-
-          <div className="space-y-4">
-            {/* Checkbox */}
-            <label className="flex items-start cursor-pointer">
-              <input
-                type="checkbox"
-                checked={mainMedicalConsent}
-                onChange={(e) => setMainMedicalConsent(e.target.checked)}
-                required
-                className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-              />
-              <span className="ml-3 text-sm text-gray-700">
-                I confirm that I have read and agree to the medical consent statement above <span className="text-red-500">*</span>
-              </span>
-            </label>
-            {validationErrors.mainMedicalConsent && <p className="text-red-500 text-xs mt-1">{validationErrors.mainMedicalConsent}</p>}
-
-            {/* Signature Field */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Applicant 1 Signature (Full Name) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={mainMedicalSignature}
-                onChange={(e) => setMainMedicalSignature(e.target.value)}
-                required
-                placeholder="Type your full name as signature"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-serif italic text-lg ${validationErrors.mainMedicalSignature ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                By typing your name, you are providing your electronic signature
-              </p>
-              {validationErrors.mainMedicalSignature && <p className="text-red-500 text-xs mt-1">{validationErrors.mainMedicalSignature}</p>}
-            </div>
-
-            {/* Date */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date
-              </label>
-              <input
-                type="date"
-                defaultValue={new Date().toISOString().split('T')[0]}
-                readOnly
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Joint Member Consent & Signature (if applicable) */}
-        {hasJointMember && (
-          <div className="mb-6">
-            <h4 className="text-sm font-semibold text-gray-900 mb-4">Applicant 2 Consent</h4>
-
-            <div className="space-y-4">
-              {/* Checkbox */}
-              <label className="flex items-start cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={jointMedicalConsent}
-                  onChange={(e) => setJointMedicalConsent(e.target.checked)}
-                  required={hasJointMember}
-                  className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-                />
-                <span className="ml-3 text-sm text-gray-700">
-                  I confirm that I have read and agree to the medical consent statement above <span className="text-red-500">*</span>
-                </span>
-              </label>
-              {validationErrors.jointMedicalConsent && <p className="text-red-500 text-xs mt-1">{validationErrors.jointMedicalConsent}</p>}
-
-              {/* Signature Field */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Applicant 2 Signature (Full Name) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={jointMedicalSignature}
-                  onChange={(e) => setJointMedicalSignature(e.target.value)}
-                  required={hasJointMember}
-                  placeholder="Type full name as signature"
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-serif italic text-lg ${validationErrors.jointMedicalSignature ? 'border-red-500' : 'border-gray-300'}`}
-                />
-                {validationErrors.jointMedicalSignature && <p className="text-red-500 text-xs mt-1">{validationErrors.jointMedicalSignature}</p>}
-              </div>
-
-              {/* Date */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date
-                </label>
-                <input
-                  type="date"
-                  defaultValue={new Date().toISOString().split('T')[0]}
-                  readOnly
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* ============================================ */}
-      {/* SECTION 7: DECLARATION */}
-      {/* ============================================ */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6">
-          Section 7: Declaration
-        </h3>
+      {/* Medical Consent - Main Member */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Medical Consent</h3>
+        <p className="text-sm text-gray-600 mb-5">
+          Section 6 — {(formData.first_name || formData.last_name) ? `${formData.first_name} ${formData.last_name}`.trim() : 'Main Member'}
+        </p>
 
-        {/* Declaration Statement */}
-        <div className="bg-purple-50 border-l-4 border-purple-500 p-4 mb-6">
-          <p className="text-sm text-purple-900 leading-relaxed">
-            I solemnly declare that I have read, understood, and agree to abide by the terms and
-            conditions as set out here in this document by Central Region Muslim Funerals Services
-            (CRMFS). Should CRMFS create emergency only funds to meet the unexpected cost, I
-            agree to contribute my equal share. I hereby declare that the personal details provided
-            in this form are true and correct. A copy of which I have received.
-          </p>
-        </div>
-
-        {/* Main Member Declaration & Signature */}
-        <div className="mb-6 pb-6 border-b border-gray-200">
-          <h4 className="text-sm font-semibold text-gray-900 mb-4">Applicant 1 Declaration</h4>
-
-          <div className="space-y-4">
-            {/* Checkbox */}
-            <label className="flex items-start cursor-pointer">
+        <div className="space-y-5">
+          <div className={`rounded-lg border p-4 ${validationErrors.main_medical_consent ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+            <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
-                checked={mainFinalDeclaration}
-                onChange={(e) => setMainFinalDeclaration(e.target.checked)}
-                required
-                className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                checked={formData.main_medical_consent}
+                onChange={(e) => updateFormData('main_medical_consent', e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 flex-shrink-0"
               />
-              <span className="ml-3 text-sm text-gray-700">
-                I confirm that I have read and agree to the declaration above <span className="text-red-500">*</span>
+              <span className="text-sm font-medium text-gray-800 leading-relaxed">
+                I confirm that I have no known medical conditions or illnesses, other than those I have already
+                disclosed in Section 5 (Medical Info) of this application, that could invalidate my application. <span className="text-red-500">*</span>
               </span>
             </label>
-            {validationErrors.mainFinalDeclaration && <p className="text-red-500 text-xs mt-1">{validationErrors.mainFinalDeclaration}</p>}
-
-            {/* Signature Field */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Applicant 1 Signature (Full Name) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={mainFinalSignature}
-                onChange={(e) => setMainFinalSignature(e.target.value)}
-                required
-                placeholder="Type your full name as signature"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-serif italic text-lg ${validationErrors.mainFinalSignature ? 'border-red-500' : 'border-gray-300'}`}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                By typing your name, you are providing your electronic signature
-              </p>
-              {validationErrors.mainFinalSignature && <p className="text-red-500 text-xs mt-1">{validationErrors.mainFinalSignature}</p>}
-            </div>
-
-            {/* Date */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date
-              </label>
-              <input
-                type="date"
-                defaultValue={new Date().toISOString().split('T')[0]}
-                readOnly
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-              />
-            </div>
           </div>
+          {validationErrors.main_medical_consent && (
+            <p className="text-red-500 text-xs -mt-2">{validationErrors.main_medical_consent}</p>
+          )}
         </div>
 
-        {/* Joint Member Declaration & Signature (if applicable) */}
-        {hasJointMember && (
-          <div className="mb-6">
-            <h4 className="text-sm font-semibold text-gray-900 mb-4">Applicant 2 Declaration</h4>
+        {/* Joint member consent — only shown for joint applications */}
+        {formData.app_type === 'joint' && (
+          <div className="mt-6 pt-6 border-t border-gray-200 space-y-5">
+            <p className="text-sm text-gray-600 font-medium">Section 6 — {(formData.joint_first_name || formData.joint_last_name) ? `${formData.joint_first_name} ${formData.joint_last_name}`.trim() : 'Joint Member'}</p>
 
-            <div className="space-y-4">
-              {/* Checkbox */}
-              <label className="flex items-start cursor-pointer">
+            <div className={`rounded-lg border p-4 ${validationErrors.joint_medical_consent ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+              <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={jointFinalDeclaration}
-                  onChange={(e) => setJointFinalDeclaration(e.target.checked)}
-                  required={hasJointMember}
-                  className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                  checked={formData.joint_medical_consent}
+                  onChange={(e) => updateFormData('joint_medical_consent', e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 flex-shrink-0"
                 />
-                <span className="ml-3 text-sm text-gray-700">
-                  I confirm that I have read and agree to the declaration above <span className="text-red-500">*</span>
+                <span className="text-sm font-medium text-gray-800 leading-relaxed">
+                  I (the joint member) confirm that I have no known medical conditions or illnesses, other than those
+                  already disclosed in Section 5 (Medical Info) of this application, that could invalidate my application. <span className="text-red-500">*</span>
                 </span>
               </label>
-              {validationErrors.jointFinalDeclaration && <p className="text-red-500 text-xs mt-1">{validationErrors.jointFinalDeclaration}</p>}
-
-              {/* Signature Field */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Applicant 2 Signature (Full Name) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={jointFinalSignature}
-                  onChange={(e) => setJointFinalSignature(e.target.value)}
-                  required={hasJointMember}
-                  placeholder="Type full name as signature"
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-serif italic text-lg ${validationErrors.jointFinalSignature ? 'border-red-500' : 'border-gray-300'}`}
-                />
-                {validationErrors.jointFinalSignature && <p className="text-red-500 text-xs mt-1">{validationErrors.jointFinalSignature}</p>}
-              </div>
-
-              {/* Date */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date
-                </label>
-                <input
-                  type="date"
-                  defaultValue={new Date().toISOString().split('T')[0]}
-                  readOnly
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                />
-              </div>
             </div>
+            {validationErrors.joint_medical_consent && (
+              <p className="text-red-500 text-xs -mt-2">{validationErrors.joint_medical_consent}</p>
+            )}
           </div>
         )}
       </div>
@@ -2494,224 +2077,317 @@ function StepDeclarations({
   );
 }
 
-function StepPaperForm({
+function StepDeclaration({ formData, updateFormData, validationErrors }: any) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Declaration</h2>
+        <p className="text-sm text-gray-600">Review and confirm your declarations before proceeding</p>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
+        <div className="bg-white px-6 py-4 border-b border-gray-200">
+          <h3 className="text-base font-semibold text-gray-900">Final Declaration &amp; Terms</h3>
+          <p className="text-xs text-gray-500 mt-0.5">Section 7 — All checkboxes required</p>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <div className={`rounded-lg border p-4 ${validationErrors.main_final_tc ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!formData.main_final_tc}
+                onChange={(e) => updateFormData('main_final_tc', e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-700 flex-shrink-0"
+              />
+              <span className="text-sm font-medium text-gray-800 leading-relaxed">
+                I accept the Terms &amp; Conditions of Central Region Muslim Funeral Service <span className="text-red-500">*</span>
+              </span>
+            </label>
+          </div>
+          {validationErrors.main_final_tc && <p className="text-red-500 text-xs -mt-2">{validationErrors.main_final_tc}</p>}
+
+          <div className={`rounded-lg border p-4 ${validationErrors.main_final_emergency ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!formData.main_final_emergency}
+                onChange={(e) => updateFormData('main_final_emergency', e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-700 flex-shrink-0"
+              />
+              <span className="text-sm font-medium text-gray-800 leading-relaxed">
+                I agree to contribute to the emergency fund if required <span className="text-red-500">*</span>
+              </span>
+            </label>
+          </div>
+          {validationErrors.main_final_emergency && <p className="text-red-500 text-xs -mt-2">{validationErrors.main_final_emergency}</p>}
+
+          <div className={`rounded-lg border p-4 ${validationErrors.main_final_declaration ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!formData.main_final_declaration}
+                onChange={(e) => updateFormData('main_final_declaration', e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-700 flex-shrink-0"
+              />
+              <span className="text-sm font-medium text-gray-800 leading-relaxed">
+                I confirm that all information provided in this application is accurate and complete <span className="text-red-500">*</span>
+              </span>
+            </label>
+          </div>
+          {validationErrors.main_final_declaration && <p className="text-red-500 text-xs -mt-2">{validationErrors.main_final_declaration}</p>}
+
+          {formData.app_type === 'joint' && (
+            <div className="pt-5 mt-2 border-t border-gray-200 space-y-5">
+              <p className="text-sm text-gray-600 font-medium">Section 7 — Joint Member</p>
+
+              <div className={`rounded-lg border p-4 ${validationErrors.joint_final_declaration ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!formData.joint_final_declaration}
+                    onChange={(e) => updateFormData('joint_final_declaration', e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-700 flex-shrink-0"
+                  />
+                  <span className="text-sm font-medium text-gray-800 leading-relaxed">
+                    I (the joint member) confirm that all information provided in this application is accurate and complete <span className="text-red-500">*</span>
+                  </span>
+                </label>
+              </div>
+              {validationErrors.joint_final_declaration && <p className="text-red-500 text-xs -mt-2">{validationErrors.joint_final_declaration}</p>}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+function FileUploadZone({
+  label,
+  file,
+  onFileChange,
+  errorKey,
+  validationErrors,
+}: {
+  label: string;
+  file: File | null;
+  onFileChange: (file: File | null) => void;
+  errorKey: string;
+  validationErrors: Record<string, string>;
+}) {
+  const [isDragging, setIsDragging] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const validate = (f: File): string | null => {
+    if (!ALLOWED_FILE_TYPES.includes(f.type)) return 'Only JPG, PNG, or PDF files are allowed';
+    if (f.size > MAX_FILE_SIZE) return 'File must be under 5MB';
+    return null;
+  };
+
+  const handleFile = (f: File) => {
+    const err = validate(f);
+    if (err) { setLocalError(err); return; }
+    setLocalError(null);
+    onFileChange(f);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const f = e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const error = localError || validationErrors[errorKey];
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">
+        {label} <span className="text-red-500">*</span>
+      </label>
+      {file ? (
+        <div className="flex items-center gap-3 p-3 border-2 border-[#06420c] bg-emerald-50 rounded-lg">
+          {file.type === 'application/pdf' ? (
+            <FileText className="h-8 w-8 text-[#06420c] flex-shrink-0" />
+          ) : (
+            <Image className="h-8 w-8 text-[#06420c] flex-shrink-0" />
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+            <p className="text-xs text-gray-500">{formatSize(file.size)}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => { onFileChange(null); setLocalError(null); }}
+            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : (
+        <div
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => inputRef.current?.click()}
+          className={`flex flex-col items-center justify-center min-h-[120px] border-2 border-dashed rounded-lg cursor-pointer transition-all
+            ${isDragging ? 'border-[#06420c] bg-emerald-50' : error ? 'border-red-400 bg-red-50' : 'border-[#06420c]/40 hover:border-[#06420c] hover:bg-emerald-50/50'}
+          `}
+        >
+          <Upload className={`h-8 w-8 mb-2 ${isDragging ? 'text-[#06420c]' : 'text-gray-400'}`} />
+          <p className="text-sm font-medium text-gray-600">
+            {isDragging ? 'Drop file here' : 'Drag & drop or click to browse'}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">JPG, PNG or PDF · Max 5MB</p>
+        </div>
+      )}
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".jpg,.jpeg,.png,.pdf"
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
+      />
+    </div>
+  );
+}
+
+function StepDocuments({
   formData,
-  paperFormVersion, setPaperFormVersion,
-  applicationDate, setApplicationDate,
-  mainSignature, setMainSignature,
-  jointSignature, setJointSignature,
-  paperFormConfirmed, setPaperFormConfirmed,
-  dataEnteredBy, setDataEnteredBy,
-  validationErrors
+  mainPhotoId, setMainPhotoId,
+  mainProofOfAddress, setMainProofOfAddress,
+  jointPhotoId, setJointPhotoId,
+  jointProofOfAddress, setJointProofOfAddress,
+  childBirthCerts, setChildBirthCerts,
+  validationErrors,
 }: any) {
-  const hasJointMember = formData.app_type === 'joint';
+  const updateChildCert = (index: number, file: File | null) => {
+    setChildBirthCerts((prev: (File | null)[]) => {
+      const next = [...prev];
+      next[index] = file;
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Paper Application Form Record</h2>
-        <p className="text-sm text-gray-600">Record that the member has completed and signed the official paper form</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Documents</h2>
+        <p className="text-sm text-gray-600">Upload documents now if available — they can also be added later from the member's profile</p>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Paper Application Form Record
-        </h3>
-
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <div className="flex items-start">
-            <FileText className="h-5 w-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
-            <div>
-              <h4 className="text-sm font-semibold text-blue-900 mb-2">
-                GDPR Compliance via Paper Form
-              </h4>
-              <p className="text-sm text-blue-800 mb-2">
-                The member has completed and signed the official paper application form which includes:
-              </p>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Section 6: Medical Consent (explicit consent for special category data)</li>
-                <li>• Section 7: Declaration (T&Cs acceptance, emergency fund contribution)</li>
-                <li>• All required GDPR consents (personal data, medical data, GP access, data sharing, retention)</li>
-              </ul>
-              <p className="text-xs text-blue-700 mt-3">
-                <strong>Record Keeping:</strong> The signed paper form must be filed and retained for 7 years
-                after membership ends (GDPR Article 30 - Record of Processing Activities).
-              </p>
-            </div>
+      {/* Main Member Documents */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+        <div className="flex items-center gap-2 mb-5">
+          <div className="w-7 h-7 rounded-full bg-[#06420c] flex items-center justify-center">
+            <User className="h-4 w-4 text-white" />
           </div>
+          <h3 className="text-base font-semibold text-gray-900">
+            Main Member — {formData.first_name} {formData.last_name}
+          </h3>
+          <span className="ml-auto text-xs font-medium text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">Optional</span>
         </div>
-
-        <div className="space-y-4">
-          {/* Paper Form Version */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Paper Application Form Version *
-            </label>
-            <select
-              value={paperFormVersion}
-              onChange={(e) => setPaperFormVersion(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600"
-            >
-              <option value="v01.25">v01.25 (January 2025)</option>
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              The version of the paper form the member completed
-            </p>
-            {validationErrors.paperFormVersion && (
-              <p className="mt-1 text-sm text-red-600">{validationErrors.paperFormVersion}</p>
-            )}
-          </div>
-
-          {/* Application Date */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Application Date (from paper form) *
-            </label>
-            <input
-              type="date"
-              value={applicationDate}
-              onChange={(e) => setApplicationDate(e.target.value)}
-              required
-              max={new Date().toISOString().split('T')[0]}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Date when member signed the paper application form
-            </p>
-            {validationErrors.applicationDate && (
-              <p className="mt-1 text-sm text-red-600">{validationErrors.applicationDate}</p>
-            )}
-          </div>
-
-          {/* Main Member Signature */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Main Member Signature (Section 7 Declaration) *
-            </label>
-            <input
-              type="text"
-              value={mainSignature}
-              onChange={(e) => setMainSignature(e.target.value)}
-              required
-              placeholder="Full name as signed on paper form"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 font-serif italic"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Enter the member's signature exactly as written on the paper form
-            </p>
-            {validationErrors.mainSignature && (
-              <p className="mt-1 text-sm text-red-600">{validationErrors.mainSignature}</p>
-            )}
-          </div>
-
-          {/* Joint Member Signature (if applicable) */}
-          {hasJointMember && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Joint Member Signature (Section 7 Declaration) *
-              </label>
-              <input
-                type="text"
-                value={jointSignature}
-                onChange={(e) => setJointSignature(e.target.value)}
-                required={hasJointMember}
-                placeholder="Full name as signed on paper form"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 font-serif italic"
-              />
-              {validationErrors.jointSignature && (
-                <p className="mt-1 text-sm text-red-600">{validationErrors.jointSignature}</p>
-              )}
-            </div>
-          )}
-
-          {/* Data Entry Person */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Data Entered By (Committee Member) *
-            </label>
-            <input
-              type="text"
-              value={dataEnteredBy}
-              onChange={(e) => setDataEnteredBy(e.target.value)}
-              required
-              placeholder="Your full name"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Your name for audit trail purposes
-            </p>
-            {validationErrors.dataEnteredBy && (
-              <p className="mt-1 text-sm text-red-600">{validationErrors.dataEnteredBy}</p>
-            )}
-          </div>
-
-          {/* Confirmation */}
-          <div className="border-t border-gray-200 pt-4 mt-6">
-            <label className="flex items-start cursor-pointer group hover:bg-gray-50 p-3 rounded-lg -m-3">
-              <input
-                type="checkbox"
-                checked={paperFormConfirmed}
-                onChange={(e) => setPaperFormConfirmed(e.target.checked)}
-                required
-                className="mt-1 w-5 h-5 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 flex-shrink-0"
-              />
-              <div className="ml-3">
-                <span className="text-sm font-medium text-gray-900 block mb-2">
-                  Paper Form Confirmation (Required) *
-                </span>
-                <span className="text-sm text-gray-700">
-                  I confirm that:
-                </span>
-                <ul className="text-sm text-gray-700 mt-2 space-y-1">
-                  <li>• The member has completed and signed the official paper application form (v01.25)</li>
-                  <li>• All sections are complete including Section 6 (Medical Consent) and Section 7 (Declaration)</li>
-                  <li>• All required GDPR consents have been obtained via the paper form</li>
-                  <li>• The signed paper form is filed for record-keeping and audit purposes</li>
-                  <li>• I have accurately transcribed the member's information into this system</li>
-                </ul>
-              </div>
-            </label>
-            {validationErrors.paperFormConfirmed && (
-              <p className="mt-2 text-sm text-red-600">{validationErrors.paperFormConfirmed}</p>
-            )}
-          </div>
-        </div>
-
-        {/* Data Protection Notice for Committee */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-6">
-          <div className="flex items-start">
-            <Shield className="h-5 w-5 text-yellow-600 mr-3 mt-0.5 flex-shrink-0" />
-            <div>
-              <h4 className="text-sm font-semibold text-yellow-900 mb-2">
-                Committee Member Data Protection Obligations
-              </h4>
-              <ul className="text-xs text-yellow-800 space-y-1">
-                <li>• Handle member data confidentially - do not share outside committee</li>
-                <li>• Medical data (Section 5, 6) is special category data - extra care required</li>
-                <li>• Access only the data you need to perform your duties</li>
-                <li>• Log out when finished - do not leave system unattended</li>
-                <li>• Report any suspected data breaches immediately to committee chair</li>
-                <li>• Retain paper forms securely for 7 years minimum</li>
-              </ul>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <FileUploadZone
+            label="Photo ID"
+            file={mainPhotoId}
+            onFileChange={setMainPhotoId}
+            errorKey="mainPhotoId"
+            validationErrors={validationErrors}
+          />
+          <FileUploadZone
+            label="Proof of Address"
+            file={mainProofOfAddress}
+            onFileChange={setMainProofOfAddress}
+            errorKey="mainProofOfAddress"
+            validationErrors={validationErrors}
+          />
         </div>
       </div>
+
+      {/* Joint Member Documents */}
+      {formData.app_type === 'joint' && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-7 h-7 rounded-full bg-[#06420c] flex items-center justify-center">
+              <Users className="h-4 w-4 text-white" />
+            </div>
+            <h3 className="text-base font-semibold text-gray-900">
+              Joint Member — {formData.joint_first_name} {formData.joint_last_name}
+            </h3>
+            <span className="ml-auto text-xs font-medium text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">Optional</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <FileUploadZone
+              label="Photo ID"
+              file={jointPhotoId}
+              onFileChange={setJointPhotoId}
+              errorKey="jointPhotoId"
+              validationErrors={validationErrors}
+            />
+            <FileUploadZone
+              label="Proof of Address"
+              file={jointProofOfAddress}
+              onFileChange={setJointProofOfAddress}
+              errorKey="jointProofOfAddress"
+              validationErrors={validationErrors}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Children Birth Certificates */}
+      {(formData.children?.length ?? 0) > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-7 h-7 rounded-full bg-[#D4AF37] flex items-center justify-center">
+              <Baby className="h-4 w-4 text-white" />
+            </div>
+            <h3 className="text-base font-semibold text-gray-900">Children's Birth Certificates</h3>
+            <span className="ml-auto text-xs font-medium text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">Optional</span>
+          </div>
+          <div className="space-y-5">
+            {formData.children.map((child: any, index: number) => (
+              <FileUploadZone
+                key={index}
+                label={`Birth Certificate — ${child.first_name || `Child ${index + 1}`} ${child.last_name || ''}`}
+                file={childBirthCerts[index] ?? null}
+                onFileChange={(f) => updateChildCert(index, f)}
+                errorKey={`childBirthCert_${index}`}
+                validationErrors={validationErrors}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function StepPayment({ formData, updateFormData, validationErrors, membershipType, setMembershipType, signupDate, setSignupDate, adjustmentAmount, setAdjustmentAmount, adjustmentReason, setAdjustmentReason, paymentReceived, setPaymentReceived, mainDob, calculateAge, joiningFee, mainJoiningFee, jointJoiningFee, proRataAnnualFee, mainProRataFee, jointProRataFee, adjustmentValue, totalDue, coverageEndDate }: any) {
+  const SHOW_ADJUSTMENT_FIELD = false;
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Details</h2>
-        <p className="text-sm text-gray-600">Configure membership type and payment details</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment</h2>
+        <p className="text-sm text-gray-600">Complete payment details to finalise registration</p>
       </div>
 
-      {/* Payment Details Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      {/* Payment Details */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
         <h3 className="text-lg font-semibold text-gray-900 mb-6">
           Payment Details
         </h3>
@@ -2753,34 +2429,26 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
           </p>
         </div>
 
-        {/* Age-Based Fee Information */}
-        {mainDob && membershipType === 'new' && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="text-sm font-semibold text-blue-900 mb-2">
-              Age-Based Joining Fee
-            </h4>
-            <p className="text-sm text-blue-800 mb-3">
-              Applicant age: <span className="font-semibold">{calculateAge(mainDob)} years</span>
-            </p>
-            <div className="text-xs text-blue-700 space-y-1">
-              <p>• Ages 18-25: £75</p>
-              <p>• Ages 26-35: £100</p>
-              <p>• Ages 36-45: £200</p>
-              <p>• Ages 46-55: £300</p>
-              <p>• Ages 56-65+: £500</p>
-            </div>
-          </div>
-        )}
-
         {/* Fee Breakdown */}
         <div className="bg-gray-50 rounded-lg p-4 mb-6">
           <h4 className="text-sm font-semibold text-gray-900 mb-3">Fee Breakdown</h4>
 
           <div className="space-y-3 text-sm">
-            {/* Main Member - Joining Fee */}
             <div>
               <div className="flex justify-between mb-1">
-                <span className="text-gray-600">Joining Fee (one-time):</span>
+                <span className="text-gray-600 flex items-center gap-1">
+                  Joining Fee (one-time):
+                  <InfoTooltip title="Age-Based Joining Fee">
+                    <ul className="space-y-1">
+                      <li>• Ages 18-25: £75</li>
+                      <li>• Ages 26-35: £100</li>
+                      <li>• Ages 36-45: £200</li>
+                      <li>• Ages 46-55: £300</li>
+                      <li>• Ages 56-65+: £500</li>
+                    </ul>
+                    <p className="mt-2 pt-2 border-t border-gray-200">Children under 18 are free.</p>
+                  </InfoTooltip>
+                </span>
                 <span className="font-medium">
                   {membershipType === 'legacy' ? (
                     <span className="text-yellow-600">£0.00 (Waived - Legacy)</span>
@@ -2806,7 +2474,6 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
               ))}
             </div>
 
-            {/* Pro-rata Annual Fee */}
             <div>
               <div className="flex justify-between mb-1">
                 <div className="flex-1">
@@ -2832,14 +2499,11 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
               ))}
             </div>
 
-            {/* Adjustment */}
-            {adjustmentValue > 0 && (
+            {SHOW_ADJUSTMENT_FIELD && adjustmentValue > 0 && (
               <div className="flex justify-between text-yellow-600">
                 <div className="flex-1">
                   <span>Adjustment:</span>
-                  {adjustmentReason && (
-                    <p className="text-xs">{adjustmentReason}</p>
-                  )}
+                  {adjustmentReason && <p className="text-xs">{adjustmentReason}</p>}
                 </div>
                 <span className="font-medium">£{adjustmentValue.toFixed(2)}</span>
               </div>
@@ -2852,7 +2516,6 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
               </div>
             </div>
 
-            {/* Coverage Period */}
             <div className="border-t border-gray-200 pt-2 mt-2">
               <p className="text-xs text-gray-600">
                 Coverage: {new Date(signupDate).toLocaleDateString('en-GB')} - {coverageEndDate}
@@ -2861,106 +2524,88 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
           </div>
         </div>
 
-        {/* Pro-rata Information Box */}
-        {signupDate && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="text-sm font-semibold text-blue-900 mb-2">
-              Pro-rata Payment Information
-            </h4>
-            <div className="text-xs text-blue-700 space-y-1">
-              <p>• All memberships renew on <strong>January 1st</strong> each year</p>
-              <p>• Annual fee is pro-rated from signup date to December 31st</p>
-              <p>• Use adjustments to prepay for following year (saves time in January!)</p>
-              <p>• Example: Add £100 adjustment = coverage through Dec 31, 2026</p>
+        {SHOW_ADJUSTMENT_FIELD && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <h4 className="text-sm font-semibold text-gray-900">Adjustments (Optional)</h4>
+              <InfoTooltip title="Pro-rata Payment Information">
+                <ul className="space-y-1">
+                  <li>• All memberships renew on <strong>January 1st</strong> each year</li>
+                  <li>• Annual fee is pro-rated from signup date to December 31st</li>
+                  <li>• Use adjustments to prepay for following year (saves time in January!)</li>
+                  <li>• Example: Add £100 adjustment = coverage through Dec 31, 2027</li>
+                </ul>
+              </InfoTooltip>
+            </div>
+            <p className="text-xs text-gray-500 mb-3">Add additional amount to prepay for following year or make advance payment</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Amount (£)</label>
+                <input type="number" step="0.01" min="0" value={adjustmentAmount} onChange={(e) => setAdjustmentAmount(e.target.value)} placeholder="0.00"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent" />
+                <p className="text-xs text-gray-500 mt-1">Tip: Add £100 to prepay for 2027</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Reason</label>
+                <input type="text" value={adjustmentReason} onChange={(e) => setAdjustmentReason(e.target.value)} placeholder="e.g., Prepay 2027"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent" />
+              </div>
             </div>
           </div>
         )}
 
-        {/* Adjustments Section */}
+        {/* Payment Method */}
         <div className="mb-6">
-          <h4 className="text-sm font-semibold text-gray-900 mb-3">
-            Adjustments (Optional)
-          </h4>
-          <p className="text-xs text-gray-500 mb-3">
-            Add additional amount to prepay for following year or make advance payment
-          </p>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Amount (£)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={adjustmentAmount}
-                onChange={(e) => setAdjustmentAmount(e.target.value)}
-                placeholder="0.00"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Tip: Add £100 to prepay for 2026
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Reason
-              </label>
-              <input
-                type="text"
-                value={adjustmentReason}
-                onChange={(e) => setAdjustmentReason(e.target.value)}
-                placeholder="e.g., Prepay 2026"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
-              />
-            </div>
+          <label className="block text-sm font-medium text-gray-700 mb-3">Payment Method <span className="text-red-500">*</span></label>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button type="button" onClick={() => updateFormData('payment_method', 'cash')}
+              className={`p-4 rounded-lg border-2 transition-all ${formData.payment_method === 'cash' ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300'}`}>
+              <div className="text-center">
+                <div className="font-semibold text-gray-900">Cash</div>
+                {formData.payment_method === 'cash' && <Check className="h-5 w-5 mx-auto mt-2 text-emerald-600" />}
+              </div>
+            </button>
+            <button type="button" onClick={() => updateFormData('payment_method', 'cheque')}
+              className={`p-4 rounded-lg border-2 transition-all ${formData.payment_method === 'cheque' ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300'}`}>
+              <div className="text-center">
+                <div className="font-semibold text-gray-900">Cheque</div>
+                {formData.payment_method === 'cheque' && <Check className="h-5 w-5 mx-auto mt-2 text-emerald-600" />}
+              </div>
+            </button>
+            <button type="button" onClick={() => updateFormData('payment_method', 'bank_transfer')}
+              className={`p-4 rounded-lg border-2 transition-all ${formData.payment_method === 'bank_transfer' ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300'}`}>
+              <div className="text-center">
+                <div className="font-semibold text-gray-900">Bank Transfer</div>
+                {formData.payment_method === 'bank_transfer' && <Check className="h-5 w-5 mx-auto mt-2 text-emerald-600" />}
+              </div>
+            </button>
           </div>
+          {validationErrors.payment_method && <p className="text-red-500 text-xs mt-2">{validationErrors.payment_method}</p>}
         </div>
 
-        {/* Payment Received Toggle */}
+        {/* Payment Received Toggle — at the bottom */}
         <div className="border-t border-gray-200 pt-6">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h4 className="text-sm font-semibold text-gray-900">
-                Payment Status
-              </h4>
-              <p className="text-xs text-gray-500 mt-1">
-                Mark as received to activate membership immediately
-              </p>
+              <h4 className="text-sm font-semibold text-gray-900">Payment Status</h4>
+              <p className="text-xs text-gray-500 mt-1">Mark as received to activate membership immediately</p>
             </div>
             <button
               type="button"
               onClick={() => setPaymentReceived(!paymentReceived)}
-              className={`
-                relative inline-flex h-10 w-20 items-center rounded-full transition-colors
-                ${paymentReceived ? 'bg-emerald-600' : 'bg-gray-300'}
-              `}
+              className={`relative inline-flex h-10 w-20 items-center rounded-full transition-colors ${paymentReceived ? 'bg-emerald-600' : 'bg-gray-300'}`}
             >
-              <span
-                className={`
-                  inline-block h-8 w-8 transform rounded-full bg-white transition-transform
-                  ${paymentReceived ? 'translate-x-11' : 'translate-x-1'}
-                `}
-              />
+              <span className={`inline-block h-8 w-8 transform rounded-full bg-white transition-transform ${paymentReceived ? 'translate-x-11' : 'translate-x-1'}`} />
             </button>
           </div>
 
-          <div className={`
-            rounded-lg p-4 text-sm
-            ${paymentReceived
-              ? 'bg-emerald-50 border border-emerald-200'
-              : 'bg-yellow-50 border border-yellow-200'
-            }
-          `}>
+          <div className={`rounded-lg p-4 text-sm ${paymentReceived ? 'bg-emerald-50 border border-emerald-200' : 'bg-yellow-50 border border-yellow-200'}`}>
             {paymentReceived ? (
               <div className="flex items-center text-emerald-800">
                 <CheckCircle className="h-5 w-5 mr-2" />
                 <div>
                   <p className="font-medium">Payment Received</p>
-                  <p className="text-xs text-emerald-600">
-                    Member will be set to ACTIVE status
-                  </p>
+                  <p className="text-xs text-emerald-600">Member will be set to ACTIVE status</p>
                 </div>
               </div>
             ) : (
@@ -2968,43 +2613,12 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
                 <Clock className="h-5 w-5 mr-2" />
                 <div>
                   <p className="font-medium">Payment Pending</p>
-                  <p className="text-xs text-yellow-600">
-                    Member will be set to PENDING status until payment received
-                  </p>
+                  <p className="text-xs text-yellow-600">Member will be set to PENDING status until payment received</p>
                 </div>
               </div>
             )}
           </div>
         </div>
-      </div>
-
-      {/* Payment Method Selection */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <label className="block text-sm font-medium text-gray-700 mb-3">Payment Method <span className="text-red-500">*</span></label>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button type="button" onClick={() => updateFormData('payment_method', 'cash')}
-            className={`p-4 rounded-lg border-2 transition-all ${formData.payment_method === 'cash' ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300'}`}>
-            <div className="text-center">
-              <div className="font-semibold text-gray-900">Cash</div>
-              {formData.payment_method === 'cash' && <Check className="h-5 w-5 mx-auto mt-2 text-emerald-600" />}
-            </div>
-          </button>
-          <button type="button" onClick={() => updateFormData('payment_method', 'cheque')}
-            className={`p-4 rounded-lg border-2 transition-all ${formData.payment_method === 'cheque' ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300'}`}>
-            <div className="text-center">
-              <div className="font-semibold text-gray-900">Cheque</div>
-              {formData.payment_method === 'cheque' && <Check className="h-5 w-5 mx-auto mt-2 text-emerald-600" />}
-            </div>
-          </button>
-          <button type="button" onClick={() => updateFormData('payment_method', 'bank_transfer')}
-            className={`p-4 rounded-lg border-2 transition-all ${formData.payment_method === 'bank_transfer' ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300'}`}>
-            <div className="text-center">
-              <div className="font-semibold text-gray-900">Bank Transfer</div>
-              {formData.payment_method === 'bank_transfer' && <Check className="h-5 w-5 mx-auto mt-2 text-emerald-600" />}
-            </div>
-          </button>
-        </div>
-        {validationErrors.payment_method && <p className="text-red-500 text-xs mt-2">{validationErrors.payment_method}</p>}
       </div>
     </div>
   );

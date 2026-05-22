@@ -1,8 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase configuration
-const supabaseUrl = 'https://fkpwibismkewrezgchbq.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrcHdpYmlzbWtld3JlemdjaGJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MzAzNDUsImV4cCI6MjA4MjIwNjM0NX0.a384BlRYrH6cUznjjKwS689pdnqs-3MAh3VL8zPgU8A';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 // Validate configuration
 if (!supabaseUrl || !supabaseAnonKey) {
@@ -22,6 +21,7 @@ console.log('✅ Supabase connected to:', supabaseUrl.substring(0, 40) + '...');
 // Type definitions for database tables
 export interface Member {
   id: string;
+  membership_number?: string;
   app_type: 'single' | 'joint';
   title?: string;
   first_name: string;

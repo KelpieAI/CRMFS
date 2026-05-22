@@ -11,6 +11,8 @@ interface UserProfile {
   phone?: string;
   profile_picture_url?: string;
   last_login_at?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface AuthContextType {
