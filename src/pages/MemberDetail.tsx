@@ -23,6 +23,8 @@ export default function MemberDetail() {
   const [activeTab, setActiveTab] = useState('personal');
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState<any>(null);
+  const [isEditingJoint, setIsEditingJoint] = useState(false);
+  const [editedJointData, setEditedJointData] = useState<any>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showPauseConfirm, setShowPauseConfirm] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
@@ -179,6 +181,20 @@ export default function MemberDetail() {
     },
   });
 
+  const updateJointMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const jointId = memberData?.jointMember?.id;
+      if (!jointId) throw new Error('No joint member found');
+      const { error } = await supabase.from('joint_members').update(data).eq('id', jointId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', id] });
+      setIsEditingJoint(false);
+      setEditedJointData(null);
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async () => {
       await logActivity(id!, ActivityTypes.MEMBER_DELETED);
@@ -236,6 +252,24 @@ export default function MemberDetail() {
     setEditedData(null);
     originalMemberDataRef.current = null;
     clearUnsavedChanges();
+  };
+
+  const handleEditJoint = () => {
+    setEditedJointData({ ...memberData?.jointMember });
+    setIsEditingJoint(true);
+  };
+
+  const handleSaveJoint = () => {
+    updateJointMutation.mutate(editedJointData);
+  };
+
+  const handleCancelJoint = () => {
+    setIsEditingJoint(false);
+    setEditedJointData(null);
+  };
+
+  const updateJointField = (field: string, value: any) => {
+    setEditedJointData((prev: any) => ({ ...prev, [field]: value }));
   };
 
   const getMemberFullName = useCallback(() => {
@@ -952,16 +986,30 @@ export default function MemberDetail() {
         {activeTab === 'personal' && (
           <PersonalInfoTab
             member={isEditing ? editedData : member}
-            jointMember={memberData?.jointMember}
+            jointMember={isEditingJoint ? editedJointData : memberData?.jointMember}
             isEditing={isEditing}
+            isEditingJoint={isEditingJoint}
             updateField={updateField}
+            updateJointField={updateJointField}
+            onEditJoint={handleEditJoint}
+            onSaveJoint={handleSaveJoint}
+            onCancelJoint={handleCancelJoint}
+            isSavingJoint={updateJointMutation.isPending}
             setActiveTab={setActiveTab}
             setShowEmailPanel={setShowEmailPanel}
           />
         )}
 
         {activeTab === 'joint' && (
-          <JointMemberTab jointMember={memberData?.jointMember} />
+          <JointMemberTab
+            jointMember={isEditingJoint ? editedJointData : memberData?.jointMember}
+            isEditing={isEditingJoint}
+            onEdit={handleEditJoint}
+            onSave={handleSaveJoint}
+            onCancel={handleCancelJoint}
+            updateField={updateJointField}
+            isSaving={updateJointMutation.isPending}
+          />
         )}
 
         {activeTab === 'children' && (
@@ -1556,337 +1604,306 @@ export default function MemberDetail() {
 }
 
 // Personal Info Tab Component
-function PersonalInfoTab({ member, jointMember, isEditing, updateField, setActiveTab, setShowEmailPanel }: any) {
+function PersonalInfoTab({ member, jointMember, isEditing, isEditingJoint, updateField, updateJointField, onEditJoint, onSaveJoint, onCancelJoint, isSavingJoint, setActiveTab, setShowEmailPanel }: any) {
   const isJoint = member?.app_type === 'joint';
 
-  const MemberPersonalCard = ({ m, isMain }: { m: any; isMain: boolean }) => (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300 border-l-4 border-l-[#D4AF37]">
-      <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-emerald-50">
-        <div className="p-2 bg-emerald-50 rounded-lg">
-          <User className="h-5 w-5 text-[#2d5016]" />
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Personal Details</h3>
-          {isJoint && (
-            <p className="text-xs text-gray-500 font-medium mt-0.5">{isMain ? 'Main Member' : 'Joint Member'}</p>
-          )}
-        </div>
-      </div>
+  const inputCls = (joint?: boolean) =>
+    `w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 ${
+      joint
+        ? 'border-teal-300 focus:ring-teal-500 focus:border-teal-500'
+        : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
+    }`;
 
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Title</label>
-            {isMain && isEditing ? (
-              <select
-                value={member?.title || ''}
-                onChange={(e) => updateField?.('title', e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              >
-                <option value="">Select...</option>
-                <option value="Mr">Mr</option>
-                <option value="Mrs">Mrs</option>
-                <option value="Miss">Miss</option>
-                <option value="Ms">Ms</option>
-                <option value="Dr">Dr</option>
-              </select>
-            ) : (
-              <p className="text-base font-medium text-gray-900">{m?.title || 'N/A'}</p>
-            )}
+  const MemberPersonalCard = ({ m, isMain }: { m: any; isMain: boolean }) => {
+    const editing = isMain ? isEditing : isEditingJoint;
+    const uf = isMain ? updateField : updateJointField;
+    return (
+      <div className={`bg-white rounded-xl border p-6 hover:shadow-lg transition-all duration-300 border-l-4 ${
+        isMain ? 'border-gray-200 border-l-[#D4AF37]' : 'border-teal-200 border-l-teal-500'
+      }`}>
+        <div className={`flex items-center gap-3 pb-4 mb-5 border-b-2 ${isMain ? 'border-emerald-50' : 'border-teal-50'}`}>
+          <div className={`p-2 rounded-lg ${isMain ? 'bg-emerald-50' : 'bg-teal-50'}`}>
+            <User className={`h-5 w-5 ${isMain ? 'text-[#2d5016]' : 'text-teal-700'}`} />
           </div>
-
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-              {isMain ? 'Member Type' : 'Role'}
-            </label>
-            <p className="text-base font-semibold text-[#2d5016] capitalize">
-              {isMain ? member?.app_type : 'Joint'}
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">First Name</label>
-            {isMain && isEditing ? (
-              <input
-                type="text"
-                value={member?.first_name || ''}
-                onChange={(e) => updateField?.('first_name', e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            ) : (
-              <p className="text-base font-medium text-gray-900">{m?.first_name}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Last Name</label>
-            {isMain && isEditing ? (
-              <input
-                type="text"
-                value={member?.last_name || ''}
-                onChange={(e) => updateField?.('last_name', e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            ) : (
-              <p className="text-base font-medium text-gray-900">{m?.last_name}</p>
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Date of Birth</label>
-            {isMain && isEditing ? (
-              <input
-                type="date"
-                value={member?.dob || ''}
-                onChange={(e) => updateField?.('dob', e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            ) : (
-              <p className="text-base font-medium text-gray-900">
-                {m?.dob ? (
-                  <>
-                    {new Date(m.dob).toLocaleDateString()}{' '}
-                    <span className="text-gray-500 text-sm">({calculateAge(m.dob)} years)</span>
-                  </>
-                ) : 'N/A'}
+            <h3 className="text-lg font-semibold text-gray-900">Personal Details</h3>
+            {isJoint && (
+              <p className={`text-xs font-semibold mt-0.5 ${isMain ? 'text-emerald-700' : 'text-teal-700'}`}>
+                {isMain ? 'Main Member' : 'Joint Member'}
               </p>
             )}
           </div>
+        </div>
 
-          {isMain && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Status</label>
-              {isEditing ? (
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Title</label>
+              {editing ? (
                 <select
-                  value={member?.status || ''}
-                  onChange={(e) => updateField?.('status', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  value={m?.title || ''}
+                  onChange={(e) => uf?.('title', e.target.value)}
+                  className={inputCls(!isMain)}
                 >
-                  <option value="pending">Pending</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="paused">Paused</option>
+                  <option value="">Select...</option>
+                  <option value="Mr">Mr</option>
+                  <option value="Mrs">Mrs</option>
+                  <option value="Miss">Miss</option>
+                  <option value="Ms">Ms</option>
+                  <option value="Dr">Dr</option>
                 </select>
               ) : (
-                <span className={`inline-flex items-center gap-1.5 text-sm font-semibold ${
-                  member?.status === 'active' ? 'text-emerald-600' : member?.status === 'paused' ? 'text-red-600' : 'text-yellow-600'
-                }`}>
-                  <span className="w-2 h-2 rounded-full bg-current"></span>
-                  {member?.status?.charAt(0).toUpperCase() + member?.status?.slice(1)}
-                </span>
+                <p className="text-base font-medium text-gray-900">{m?.title || 'N/A'}</p>
               )}
             </div>
-          )}
-        </div>
-      </div>
 
-      {isMain && !isEditing && (
-        <div className="mt-6 pt-5 border-t border-gray-100">
-          <button
-            onClick={() => {}}
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2d5016] text-white rounded-lg hover:bg-[#1f3810] transition-all duration-200 font-semibold text-sm hover:shadow-md hover:-translate-y-0.5"
-          >
-            <Edit className="h-4 w-4" />
-            Edit Details
-          </button>
-        </div>
-      )}
-    </div>
-  );
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                {isMain ? 'Member Type' : 'Role'}
+              </label>
+              <p className={`text-base font-semibold capitalize ${isMain ? 'text-[#2d5016]' : 'text-teal-700'}`}>
+                {isMain ? member?.app_type : 'Joint'}
+              </p>
+            </div>
+          </div>
 
-  const MemberContactCard = ({ m, isMain }: { m: any; isMain: boolean }) => (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
-      <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-emerald-50">
-        <div className="p-2 bg-emerald-50 rounded-lg">
-          <Phone className="h-5 w-5 text-[#2d5016]" />
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Contact Information</h3>
-          {isJoint && (
-            <p className="text-xs text-gray-500 font-medium mt-0.5">{isMain ? 'Main Member' : 'Joint Member'}</p>
-          )}
-        </div>
-      </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">First Name</label>
+              {editing ? (
+                <input type="text" value={m?.first_name || ''} onChange={(e) => uf?.('first_name', e.target.value)} className={inputCls(!isMain)} />
+              ) : (
+                <p className="text-base font-medium text-gray-900">{m?.first_name}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Last Name</label>
+              {editing ? (
+                <input type="text" value={m?.last_name || ''} onChange={(e) => uf?.('last_name', e.target.value)} className={inputCls(!isMain)} />
+              ) : (
+                <p className="text-base font-medium text-gray-900">{m?.last_name}</p>
+              )}
+            </div>
+          </div>
 
-      <div className="space-y-4">
-        <div className="flex items-start gap-3 p-3 bg-emerald-50/30 rounded-lg border border-emerald-100">
-          <Phone className="h-5 w-5 text-[#2d5016] mt-0.5" />
-          <div className="flex-1">
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Mobile</label>
-            {isMain && isEditing ? (
-              <input
-                type="tel"
-                value={member?.mobile || ''}
-                onChange={(e) => updateField?.('mobile', e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            ) : (
-              <p className="text-base font-medium text-gray-900">{m?.mobile || 'N/A'}</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Date of Birth</label>
+              {editing ? (
+                <input type="date" value={m?.dob || ''} onChange={(e) => uf?.('dob', e.target.value)} className={inputCls(!isMain)} />
+              ) : (
+                <p className="text-base font-medium text-gray-900">
+                  {m?.dob ? (
+                    <>{new Date(m.dob).toLocaleDateString()}{' '}<span className="text-gray-500 text-sm">({calculateAge(m.dob)} years)</span></>
+                  ) : 'N/A'}
+                </p>
+              )}
+            </div>
+
+            {isMain && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Status</label>
+                {isEditing ? (
+                  <select value={member?.status || ''} onChange={(e) => updateField?.('status', e.target.value)} className={inputCls()}>
+                    <option value="pending">Pending</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="paused">Paused</option>
+                  </select>
+                ) : (
+                  <span className={`inline-flex items-center gap-1.5 text-sm font-semibold ${
+                    member?.status === 'active' ? 'text-emerald-600' : member?.status === 'paused' ? 'text-red-600' : 'text-yellow-600'
+                  }`}>
+                    <span className="w-2 h-2 rounded-full bg-current"></span>
+                    {member?.status?.charAt(0).toUpperCase() + member?.status?.slice(1)}
+                  </span>
+                )}
+              </div>
             )}
           </div>
         </div>
 
-        <div className="flex items-start gap-3 p-3 bg-emerald-50/30 rounded-lg border border-emerald-100">
-          <Upload className="h-5 w-5 text-[#2d5016] mt-0.5" />
-          <div className="flex-1">
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Email</label>
-            {isMain && isEditing ? (
-              <input
-                type="email"
-                value={member?.email || ''}
-                onChange={(e) => updateField?.('email', e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            ) : (
-              <p className="text-base font-medium text-gray-900">{m?.email || 'N/A'}</p>
-            )}
+        {isMain && !isEditing && (
+          <div className="mt-6 pt-5 border-t border-gray-100">
+            <button onClick={() => {}} className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2d5016] text-white rounded-lg hover:bg-[#1f3810] transition-all duration-200 font-semibold text-sm hover:shadow-md hover:-translate-y-0.5">
+              <Edit className="h-4 w-4" />
+              Edit Details
+            </button>
           </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Home Phone</label>
-            {isMain && isEditing ? (
-              <input
-                type="tel"
-                value={member?.home_phone || ''}
-                onChange={(e) => updateField?.('home_phone', e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            ) : (
-              <p className="text-base font-medium text-gray-400">{m?.home_phone || 'N/A'}</p>
-            )}
+        )}
+        {!isMain && !isEditingJoint && (
+          <div className="mt-6 pt-5 border-t border-teal-100">
+            <button onClick={onEditJoint} className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-700 text-white rounded-lg hover:bg-teal-800 transition-all duration-200 font-semibold text-sm hover:shadow-md hover:-translate-y-0.5">
+              <Edit className="h-4 w-4" />
+              Edit Joint Member
+            </button>
           </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Work Phone</label>
-            {isMain && isEditing ? (
-              <input
-                type="tel"
-                value={member?.work_phone || ''}
-                onChange={(e) => updateField?.('work_phone', e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            ) : (
-              <p className="text-base font-medium text-gray-400">{m?.work_phone || 'N/A'}</p>
-            )}
+        )}
+        {!isMain && isEditingJoint && (
+          <div className="mt-6 pt-5 border-t border-teal-100 flex gap-3">
+            <button onClick={onCancelJoint} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm">
+              <X className="h-4 w-4" />
+              Cancel
+            </button>
+            <button onClick={onSaveJoint} disabled={isSavingJoint} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-700 text-white rounded-lg hover:bg-teal-800 transition-all duration-200 font-semibold text-sm">
+              {isSavingJoint ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>Saving...</> : <><Save className="h-4 w-4" />Save</>}
+            </button>
           </div>
-        </div>
+        )}
       </div>
+    );
+  };
 
-      {isMain && !isEditing && (
-        <div className="mt-6 pt-5 border-t border-gray-100 flex gap-3">
-          <button
-            onClick={() => setShowEmailPanel(true)}
-            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
-          >
-            <Upload className="h-4 w-4" />
-            Send Email
-          </button>
-          <button
-            onClick={() => window.location.href = `tel:${member?.mobile}`}
-            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
-          >
-            <Phone className="h-4 w-4" />
-            Call Member
-          </button>
+  const MemberContactCard = ({ m, isMain }: { m: any; isMain: boolean }) => {
+    const editing = isMain ? isEditing : isEditingJoint;
+    const uf = isMain ? updateField : updateJointField;
+    return (
+      <div className={`bg-white rounded-xl border p-6 hover:shadow-lg transition-all duration-300 ${isMain ? 'border-gray-200' : 'border-teal-200'}`}>
+        <div className={`flex items-center gap-3 pb-4 mb-5 border-b-2 ${isMain ? 'border-emerald-50' : 'border-teal-50'}`}>
+          <div className={`p-2 rounded-lg ${isMain ? 'bg-emerald-50' : 'bg-teal-50'}`}>
+            <Phone className={`h-5 w-5 ${isMain ? 'text-[#2d5016]' : 'text-teal-700'}`} />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Contact Information</h3>
+            {isJoint && (
+              <p className={`text-xs font-semibold mt-0.5 ${isMain ? 'text-emerald-700' : 'text-teal-700'}`}>
+                {isMain ? 'Main Member' : 'Joint Member'}
+              </p>
+            )}
+          </div>
         </div>
-      )}
-    </div>
-  );
 
-  const MemberAddressCard = ({ m, isMain }: { m: any; isMain: boolean }) => (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
-      <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-emerald-50">
-        <div className="p-2 bg-emerald-50 rounded-lg">
-          <MapPin className="h-5 w-5 text-[#2d5016]" />
+        <div className="space-y-4">
+          <div className={`flex items-start gap-3 p-3 rounded-lg border ${isMain ? 'bg-emerald-50/30 border-emerald-100' : 'bg-teal-50/30 border-teal-100'}`}>
+            <Phone className={`h-5 w-5 mt-0.5 ${isMain ? 'text-[#2d5016]' : 'text-teal-700'}`} />
+            <div className="flex-1">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Mobile</label>
+              {editing ? (
+                <input type="tel" value={m?.mobile || ''} onChange={(e) => uf?.('mobile', e.target.value)} className={inputCls(!isMain)} />
+              ) : (
+                <p className="text-base font-medium text-gray-900">{m?.mobile || 'N/A'}</p>
+              )}
+            </div>
+          </div>
+
+          <div className={`flex items-start gap-3 p-3 rounded-lg border ${isMain ? 'bg-emerald-50/30 border-emerald-100' : 'bg-teal-50/30 border-teal-100'}`}>
+            <Upload className={`h-5 w-5 mt-0.5 ${isMain ? 'text-[#2d5016]' : 'text-teal-700'}`} />
+            <div className="flex-1">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Email</label>
+              {editing ? (
+                <input type="email" value={m?.email || ''} onChange={(e) => uf?.('email', e.target.value)} className={inputCls(!isMain)} />
+              ) : (
+                <p className="text-base font-medium text-gray-900">{m?.email || 'N/A'}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Home Phone</label>
+              {editing ? (
+                <input type="tel" value={m?.home_phone || ''} onChange={(e) => uf?.('home_phone', e.target.value)} className={inputCls(!isMain)} />
+              ) : (
+                <p className="text-base font-medium text-gray-400">{m?.home_phone || 'N/A'}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Work Phone</label>
+              {editing ? (
+                <input type="tel" value={m?.work_phone || ''} onChange={(e) => uf?.('work_phone', e.target.value)} className={inputCls(!isMain)} />
+              ) : (
+                <p className="text-base font-medium text-gray-400">{m?.work_phone || 'N/A'}</p>
+              )}
+            </div>
+          </div>
         </div>
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Address</h3>
-          {isJoint && (
-            <p className="text-xs text-gray-500 font-medium mt-0.5">{isMain ? 'Main Member' : 'Joint Member'}</p>
-          )}
-        </div>
+
+        {isMain && !isEditing && (
+          <div className="mt-6 pt-5 border-t border-gray-100 flex gap-3">
+            <button onClick={() => setShowEmailPanel(true)} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm">
+              <Upload className="h-4 w-4" />
+              Send Email
+            </button>
+            <button onClick={() => window.location.href = `tel:${member?.mobile}`} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm">
+              <Phone className="h-4 w-4" />
+              Call Member
+            </button>
+          </div>
+        )}
       </div>
+    );
+  };
 
-      {!isEditing && (
-        <div className="flex items-start gap-4 p-4 bg-emerald-50/30 rounded-lg border-l-4 border-l-[#D4AF37] mb-5">
-          <MapPin className="h-8 w-8 text-[#2d5016] flex-shrink-0" />
+  const MemberAddressCard = ({ m, isMain }: { m: any; isMain: boolean }) => {
+    const editing = isMain ? isEditing : isEditingJoint;
+    const uf = isMain ? updateField : updateJointField;
+    return (
+      <div className={`bg-white rounded-xl border p-6 hover:shadow-lg transition-all duration-300 ${isMain ? 'border-gray-200' : 'border-teal-200'}`}>
+        <div className={`flex items-center gap-3 pb-4 mb-5 border-b-2 ${isMain ? 'border-emerald-50' : 'border-teal-50'}`}>
+          <div className={`p-2 rounded-lg ${isMain ? 'bg-emerald-50' : 'bg-teal-50'}`}>
+            <MapPin className={`h-5 w-5 ${isMain ? 'text-[#2d5016]' : 'text-teal-700'}`} />
+          </div>
           <div>
-            <p className="text-base font-medium text-gray-900 leading-relaxed">{m?.address_line_1 || 'N/A'}</p>
-            <p className="text-base font-medium text-gray-900 leading-relaxed">
-              {m?.town}{m?.town && m?.city && ', '}{m?.city}
-            </p>
-            <p className="text-base font-semibold text-[#2d5016] leading-relaxed">{m?.postcode}</p>
+            <h3 className="text-lg font-semibold text-gray-900">Address</h3>
+            {isJoint && (
+              <p className={`text-xs font-semibold mt-0.5 ${isMain ? 'text-emerald-700' : 'text-teal-700'}`}>
+                {isMain ? 'Main Member' : 'Joint Member'}
+              </p>
+            )}
           </div>
         </div>
-      )}
 
-      {isMain && isEditing && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Address Line 1</label>
-            <input
-              type="text"
-              value={member?.address_line_1 || ''}
-              onChange={(e) => updateField?.('address_line_1', e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            />
+        {!editing && (
+          <div className={`flex items-start gap-4 p-4 rounded-lg border-l-4 mb-5 ${
+            isMain ? 'bg-emerald-50/30 border-l-[#D4AF37]' : 'bg-teal-50/30 border-l-teal-500'
+          }`}>
+            <MapPin className={`h-8 w-8 flex-shrink-0 ${isMain ? 'text-[#2d5016]' : 'text-teal-700'}`} />
+            <div>
+              <p className="text-base font-medium text-gray-900 leading-relaxed">{m?.address_line_1 || 'N/A'}</p>
+              <p className="text-base font-medium text-gray-900 leading-relaxed">
+                {m?.town}{m?.town && m?.city && ', '}{m?.city}
+              </p>
+              <p className={`text-base font-semibold leading-relaxed ${isMain ? 'text-[#2d5016]' : 'text-teal-700'}`}>{m?.postcode}</p>
+            </div>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Town</label>
-            <input
-              type="text"
-              value={member?.town || ''}
-              onChange={(e) => updateField?.('town', e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">City</label>
-            <input
-              type="text"
-              value={member?.city || ''}
-              onChange={(e) => updateField?.('city', e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Postcode</label>
-            <input
-              type="text"
-              value={member?.postcode || ''}
-              onChange={(e) => updateField?.('postcode', e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            />
-          </div>
-        </div>
-      )}
+        )}
 
-      {isMain && !isEditing && (
-        <div className="pt-5 border-t border-gray-100 flex gap-3">
-          <button
-            onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${m?.address_line_1}, ${m?.city}, ${m?.postcode}`)}`)}
-            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
-          >
-            <MapPin className="h-4 w-4" />
-            View on Map
-          </button>
-          <button
-            onClick={() => {}}
-            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
-          >
-            <Edit className="h-4 w-4" />
-            Edit Address
-          </button>
-        </div>
-      )}
-    </div>
-  );
+        {editing && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Address Line 1</label>
+              <input type="text" value={m?.address_line_1 || ''} onChange={(e) => uf?.('address_line_1', e.target.value)} className={inputCls(!isMain)} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Town</label>
+              <input type="text" value={m?.town || ''} onChange={(e) => uf?.('town', e.target.value)} className={inputCls(!isMain)} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">City</label>
+              <input type="text" value={m?.city || ''} onChange={(e) => uf?.('city', e.target.value)} className={inputCls(!isMain)} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Postcode</label>
+              <input type="text" value={m?.postcode || ''} onChange={(e) => uf?.('postcode', e.target.value)} className={inputCls(!isMain)} />
+            </div>
+          </div>
+        )}
+
+        {isMain && !isEditing && (
+          <div className="pt-5 border-t border-gray-100 flex gap-3">
+            <button onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${m?.address_line_1}, ${m?.city}, ${m?.postcode}`)}`)} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm">
+              <MapPin className="h-4 w-4" />
+              View on Map
+            </button>
+            <button onClick={() => {}} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm">
+              <Edit className="h-4 w-4" />
+              Edit Address
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -2060,12 +2077,12 @@ function ConfirmModal({ title, message, confirmText, confirmColor, onConfirm, on
 }
 
 // Joint Member Tab Component
-function JointMemberTab({ jointMember }: any) {
+function JointMemberTab({ jointMember, isEditing, onEdit, onSave, onCancel, updateField, isSaving }: any) {
   if (!jointMember) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="bg-white rounded-xl border border-teal-200 p-6">
         <div className="text-center py-8">
-          <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+          <Users className="h-12 w-12 mx-auto mb-4 text-teal-300" />
           <p className="text-gray-500 font-medium">No joint member registered</p>
           <p className="text-sm text-gray-400 mt-1">
             This is a single membership or joint member details haven't been added yet.
@@ -2075,85 +2092,256 @@ function JointMemberTab({ jointMember }: any) {
     );
   }
 
-  // Calculate age from DOB
   const calculateAge = (dob: string) => {
     if (!dob) return null;
     const birthDate = new Date(dob);
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
     return age;
   };
 
-  const age = calculateAge(jointMember.dob);
+  const inputCls = 'w-full px-3 py-2 text-sm border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500';
 
   return (
-    <div className="space-y-4">
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div className="space-y-6">
+      {/* Joint member identity banner */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-teal-50 border border-teal-200 rounded-xl">
+        <div className="p-2 bg-teal-100 rounded-lg">
+          <Users className="h-5 w-5 text-teal-700" />
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-teal-900">
+            {[jointMember.title, jointMember.first_name, jointMember.last_name].filter(Boolean).join(' ')}
+          </p>
+          <p className="text-xs text-teal-600 capitalize">{jointMember.relation ? `Relationship: ${jointMember.relation}` : 'Joint Member'}</p>
+        </div>
+        {!isEditing && (
+          <button
+            onClick={onEdit}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-teal-700 text-white rounded-lg hover:bg-teal-800 transition-all duration-200 font-semibold text-sm"
+          >
+            <Edit className="h-4 w-4" />
+            Edit
+          </button>
+        )}
+        {isEditing && (
+          <div className="flex gap-2">
+            <button onClick={onCancel} className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 text-sm font-medium">
+              <X className="h-4 w-4" />
+              Cancel
+            </button>
+            <button onClick={onSave} disabled={isSaving} className="inline-flex items-center gap-2 px-4 py-2 bg-teal-700 text-white rounded-lg hover:bg-teal-800 transition-all duration-200 font-semibold text-sm">
+              {isSaving ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>Saving...</> : <><Save className="h-4 w-4" />Save</>}
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Personal Details Card */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-            <User className="h-4 w-4 mr-2 text-gray-400" />
-            Partner Details
-          </h3>
-          <dl className="space-y-2">
-            <div className="py-1">
-              <span className="text-xs text-gray-500 font-medium">Title: </span>
-              <span className="text-sm text-gray-900">{jointMember.title || 'N/A'}</span>
+        <div className="bg-white rounded-xl border border-teal-200 border-l-4 border-l-teal-500 p-6 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-teal-50">
+            <div className="p-2 bg-teal-50 rounded-lg">
+              <User className="h-5 w-5 text-teal-700" />
             </div>
-            <div className="py-1">
-              <span className="text-xs text-gray-500 font-medium">First Name: </span>
-              <span className="text-sm text-gray-900">{jointMember.first_name || 'N/A'}</span>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Personal Details</h3>
+              <p className="text-xs font-semibold text-teal-700 mt-0.5">Joint Member</p>
             </div>
-            <div className="py-1">
-              <span className="text-xs text-gray-500 font-medium">Last Name: </span>
-              <span className="text-sm text-gray-900">{jointMember.last_name || 'N/A'}</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Title</label>
+                {isEditing ? (
+                  <select value={jointMember?.title || ''} onChange={(e) => updateField?.('title', e.target.value)} className={inputCls}>
+                    <option value="">Select...</option>
+                    <option value="Mr">Mr</option>
+                    <option value="Mrs">Mrs</option>
+                    <option value="Miss">Miss</option>
+                    <option value="Ms">Ms</option>
+                    <option value="Dr">Dr</option>
+                  </select>
+                ) : (
+                  <p className="text-base font-medium text-gray-900">{jointMember?.title || 'N/A'}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Relationship</label>
+                {isEditing ? (
+                  <select value={jointMember?.relation || ''} onChange={(e) => updateField?.('relation', e.target.value)} className={inputCls}>
+                    <option value="">Select...</option>
+                    <option value="spouse">Spouse</option>
+                    <option value="partner">Partner</option>
+                    <option value="other">Other</option>
+                  </select>
+                ) : (
+                  <p className="text-base font-semibold text-teal-700 capitalize">{jointMember?.relation || 'N/A'}</p>
+                )}
+              </div>
             </div>
-            <div className="py-1">
-              <span className="text-xs text-gray-500 font-medium">Date of Birth: </span>
-              <span className="text-sm text-gray-900">
-                {jointMember.dob ? new Date(jointMember.dob).toLocaleDateString() : 'N/A'}
-              </span>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">First Name</label>
+                {isEditing ? (
+                  <input type="text" value={jointMember?.first_name || ''} onChange={(e) => updateField?.('first_name', e.target.value)} className={inputCls} />
+                ) : (
+                  <p className="text-base font-medium text-gray-900">{jointMember?.first_name}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Last Name</label>
+                {isEditing ? (
+                  <input type="text" value={jointMember?.last_name || ''} onChange={(e) => updateField?.('last_name', e.target.value)} className={inputCls} />
+                ) : (
+                  <p className="text-base font-medium text-gray-900">{jointMember?.last_name}</p>
+                )}
+              </div>
             </div>
-            <div className="py-1">
-              <span className="text-xs text-gray-500 font-medium">Age: </span>
-              <span className="text-sm text-gray-900">{age ? `${age} years` : 'N/A'}</span>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Date of Birth</label>
+              {isEditing ? (
+                <input type="date" value={jointMember?.dob || ''} onChange={(e) => updateField?.('dob', e.target.value)} className={inputCls} />
+              ) : (
+                <p className="text-base font-medium text-gray-900">
+                  {jointMember?.dob ? (
+                    <>{new Date(jointMember.dob).toLocaleDateString()}{' '}<span className="text-gray-500 text-sm">({calculateAge(jointMember.dob)} years)</span></>
+                  ) : 'N/A'}
+                </p>
+              )}
             </div>
-            <div className="py-1">
-              <span className="text-xs text-gray-500 font-medium">Relationship: </span>
-              <span className="text-sm text-gray-900 capitalize">{jointMember.relation || 'N/A'}</span>
-            </div>
-          </dl>
+          </div>
         </div>
 
         {/* Contact Information Card */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-            <Phone className="h-4 w-4 mr-2 text-gray-400" />
-            Contact Information
-          </h3>
-          <dl className="space-y-2">
-            <div className="py-1">
-              <span className="text-xs text-gray-500 font-medium">Mobile: </span>
-              <span className="text-sm text-gray-900">{jointMember.mobile || 'N/A'}</span>
+        <div className="bg-white rounded-xl border border-teal-200 p-6 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-teal-50">
+            <div className="p-2 bg-teal-50 rounded-lg">
+              <Phone className="h-5 w-5 text-teal-700" />
             </div>
-            <div className="py-1">
-              <span className="text-xs text-gray-500 font-medium">Home Phone: </span>
-              <span className="text-sm text-gray-900">{jointMember.home_phone || 'N/A'}</span>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Contact Information</h3>
+              <p className="text-xs font-semibold text-teal-700 mt-0.5">Joint Member</p>
             </div>
-            <div className="py-1">
-              <span className="text-xs text-gray-500 font-medium">Work Phone: </span>
-              <span className="text-sm text-gray-900">{jointMember.work_phone || 'N/A'}</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 p-3 bg-teal-50/30 rounded-lg border border-teal-100">
+              <Phone className="h-5 w-5 text-teal-700 mt-0.5" />
+              <div className="flex-1">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Mobile</label>
+                {isEditing ? (
+                  <input type="tel" value={jointMember?.mobile || ''} onChange={(e) => updateField?.('mobile', e.target.value)} className={inputCls} />
+                ) : (
+                  <p className="text-base font-medium text-gray-900">{jointMember?.mobile || 'N/A'}</p>
+                )}
+              </div>
             </div>
-            <div className="py-1">
-              <span className="text-xs text-gray-500 font-medium">Email: </span>
-              <span className="text-sm text-gray-900">{jointMember.email || 'N/A'}</span>
+
+            <div className="flex items-start gap-3 p-3 bg-teal-50/30 rounded-lg border border-teal-100">
+              <Upload className="h-5 w-5 text-teal-700 mt-0.5" />
+              <div className="flex-1">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Email</label>
+                {isEditing ? (
+                  <input type="email" value={jointMember?.email || ''} onChange={(e) => updateField?.('email', e.target.value)} className={inputCls} />
+                ) : (
+                  <p className="text-base font-medium text-gray-900">{jointMember?.email || 'N/A'}</p>
+                )}
+              </div>
             </div>
-          </dl>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Home Phone</label>
+                {isEditing ? (
+                  <input type="tel" value={jointMember?.home_phone || ''} onChange={(e) => updateField?.('home_phone', e.target.value)} className={inputCls} />
+                ) : (
+                  <p className="text-base font-medium text-gray-400">{jointMember?.home_phone || 'N/A'}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Work Phone</label>
+                {isEditing ? (
+                  <input type="tel" value={jointMember?.work_phone || ''} onChange={(e) => updateField?.('work_phone', e.target.value)} className={inputCls} />
+                ) : (
+                  <p className="text-base font-medium text-gray-400">{jointMember?.work_phone || 'N/A'}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {!isEditing && (
+            <div className="mt-6 pt-5 border-t border-teal-100 flex gap-3">
+              <button onClick={() => window.location.href = `tel:${jointMember?.mobile}`} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm">
+                <Phone className="h-4 w-4" />
+                Call
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Address Card */}
+        <div className="lg:col-span-2 bg-white rounded-xl border border-teal-200 p-6 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-teal-50">
+            <div className="p-2 bg-teal-50 rounded-lg">
+              <MapPin className="h-5 w-5 text-teal-700" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Address</h3>
+              <p className="text-xs font-semibold text-teal-700 mt-0.5">Joint Member</p>
+            </div>
+          </div>
+
+          {!isEditing && (
+            <div className="flex items-start gap-4 p-4 bg-teal-50/30 rounded-lg border-l-4 border-l-teal-500 mb-5">
+              <MapPin className="h-8 w-8 text-teal-700 flex-shrink-0" />
+              <div>
+                <p className="text-base font-medium text-gray-900 leading-relaxed">{jointMember?.address_line_1 || 'N/A'}</p>
+                <p className="text-base font-medium text-gray-900 leading-relaxed">
+                  {jointMember?.town}{jointMember?.town && jointMember?.city && ', '}{jointMember?.city}
+                </p>
+                <p className="text-base font-semibold text-teal-700 leading-relaxed">{jointMember?.postcode}</p>
+              </div>
+            </div>
+          )}
+
+          {isEditing && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Address Line 1</label>
+                <input type="text" value={jointMember?.address_line_1 || ''} onChange={(e) => updateField?.('address_line_1', e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Town</label>
+                <input type="text" value={jointMember?.town || ''} onChange={(e) => updateField?.('town', e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">City</label>
+                <input type="text" value={jointMember?.city || ''} onChange={(e) => updateField?.('city', e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Postcode</label>
+                <input type="text" value={jointMember?.postcode || ''} onChange={(e) => updateField?.('postcode', e.target.value)} className={inputCls} />
+              </div>
+            </div>
+          )}
+
+          {!isEditing && (
+            <div className="pt-5 border-t border-teal-100">
+              <button
+                onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${jointMember?.address_line_1}, ${jointMember?.city}, ${jointMember?.postcode}`)}`)}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
+              >
+                <MapPin className="h-4 w-4" />
+                View on Map
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
