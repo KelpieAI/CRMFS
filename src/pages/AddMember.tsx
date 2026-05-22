@@ -2025,7 +2025,7 @@ function StepDeclarations({
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Medical Consent</h3>
         <p className="text-sm text-gray-600 mb-5">
-          Section 6 — Main Member
+          Section 6 — {(formData.first_name || formData.last_name) ? `${formData.first_name} ${formData.last_name}`.trim() : 'Main Member'}
         </p>
 
         <div className="space-y-5">
@@ -2051,7 +2051,7 @@ function StepDeclarations({
         {/* Joint member consent — only shown for joint applications */}
         {formData.app_type === 'joint' && (
           <div className="mt-6 pt-6 border-t border-gray-200 space-y-5">
-            <p className="text-sm text-gray-600 font-medium">Section 6 — Joint Member</p>
+            <p className="text-sm text-gray-600 font-medium">Section 6 — {(formData.joint_first_name || formData.joint_last_name) ? `${formData.joint_first_name} ${formData.joint_last_name}`.trim() : 'Joint Member'}</p>
 
             <div className={`rounded-lg border p-4 ${validationErrors.joint_medical_consent ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
               <label className="flex items-start gap-3 cursor-pointer">
