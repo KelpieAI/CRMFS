@@ -779,7 +779,7 @@ export default function AddMember() {
   });
 
 
-  const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'Medical Info', 'GP Details', 'Documents', 'Payment'];
+  const steps = ['Membership Type', 'Main Member', 'Joint Member', 'Children', 'Next of Kin', 'Medical Info', 'GP Details', 'Declaration', 'Documents', 'Payment'];
 
   const validateMainMemberStep = (): boolean => {
     const errors: Record<string, string> = {};
@@ -904,7 +904,7 @@ export default function AddMember() {
     return false;
   };
 
-  const validatePaymentStep = (): boolean => {
+  const validateDeclarationStep = (): boolean => {
     const errors: Record<string, string> = {};
 
     if (!formData.main_final_tc) errors.main_final_tc = 'You must accept the Terms & Conditions';
@@ -913,6 +913,13 @@ export default function AddMember() {
     if (formData.app_type === 'joint') {
       if (!formData.joint_final_declaration) errors.joint_final_declaration = 'Joint member must confirm the accuracy of the application';
     }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validatePaymentStep = (): boolean => {
+    const errors: Record<string, string> = {};
 
     if (!formData.payment_method) errors.payment_method = 'Payment method is required';
 
@@ -956,9 +963,12 @@ export default function AddMember() {
       return validateDeclarationsStep();
     }
     if (currentStep === 7) {
-      return validateDocumentsStep();
+      return validateDeclarationStep();
     }
     if (currentStep === 8) {
+      return validateDocumentsStep();
+    }
+    if (currentStep === 9) {
       return validatePaymentStep();
     }
     return true;
@@ -983,7 +993,7 @@ export default function AddMember() {
       return;
     }
 
-    if (currentStep === 7 && hasAnyMissingDocs()) {
+    if (currentStep === 8 && hasAnyMissingDocs()) {
       setShowDocWarningModal(true);
       return;
     }
@@ -1045,8 +1055,8 @@ export default function AddMember() {
     : steps;
 
   const stepIndexMap = formData.app_type === 'single'
-    ? [0, 1, 3, 4, 5, 6, 7, 8]
-    : [0, 1, 2, 3, 4, 5, 6, 7, 8];
+    ? [0, 1, 3, 4, 5, 6, 7, 8, 9]
+    : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   const currentVisibleStepIndex = stepIndexMap.indexOf(currentStep);
 
@@ -1060,8 +1070,9 @@ export default function AddMember() {
         5: 4,  // Next of Kin
         6: 5,  // Medical Info
         7: 6,  // GP Details
-        8: 7,  // Documents
-        9: 8,  // Payment
+        8: 7,  // Declaration
+        9: 8,  // Documents
+        10: 9, // Payment
       }
     : {
         1: 0,  // Membership Type
@@ -1070,8 +1081,9 @@ export default function AddMember() {
         4: 4,  // Next of Kin
         5: 5,  // Medical Info
         6: 6,  // GP Details
-        7: 7,  // Documents
-        8: 8,  // Payment
+        7: 7,  // Declaration
+        8: 8,  // Documents
+        9: 9,  // Payment
       };
 
   // Get reachable steps for sidebar (convert internal indices to sidebar IDs)
@@ -1147,7 +1159,8 @@ export default function AddMember() {
           formData={formData} updateFormData={updateFormData}
           validationErrors={validationErrors}
         />}
-        {currentStep === 7 && <StepDocuments
+        {currentStep === 7 && <StepDeclaration formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} />}
+        {currentStep === 8 && <StepDocuments
           formData={formData}
           mainPhotoId={mainPhotoId} setMainPhotoId={setMainPhotoId}
           mainProofOfAddress={mainProofOfAddress} setMainProofOfAddress={setMainProofOfAddress}
@@ -1156,7 +1169,7 @@ export default function AddMember() {
           childBirthCerts={childBirthCerts} setChildBirthCerts={setChildBirthCerts}
           validationErrors={documentValidationErrors}
         />}
-        {currentStep === 8 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} signupDate={signupDate} setSignupDate={setSignupDate} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} mainJoiningFee={mainJoiningFee} jointJoiningFee={jointJoiningFee} proRataAnnualFee={proRataAnnualFee} mainProRataFee={mainProRataFee} jointProRataFee={jointProRataFee} adjustmentValue={adjustmentValue} totalDue={totalDue} coverageEndDate={coverageEndDate} />}
+        {currentStep === 9 && <StepPayment formData={formData} updateFormData={updateFormData} validationErrors={validationErrors} membershipType={membershipType} setMembershipType={setMembershipType} signupDate={signupDate} setSignupDate={setSignupDate} adjustmentAmount={adjustmentAmount} setAdjustmentAmount={setAdjustmentAmount} adjustmentReason={adjustmentReason} setAdjustmentReason={setAdjustmentReason} paymentReceived={paymentReceived} setPaymentReceived={setPaymentReceived} mainDob={mainDob} calculateAge={calculateAge} joiningFee={joiningFee} mainJoiningFee={mainJoiningFee} jointJoiningFee={jointJoiningFee} proRataAnnualFee={proRataAnnualFee} mainProRataFee={mainProRataFee} jointProRataFee={jointProRataFee} adjustmentValue={adjustmentValue} totalDue={totalDue} coverageEndDate={coverageEndDate} />}
       </div>
 
           <div className="flex justify-between items-center bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-colors">
@@ -2064,6 +2077,92 @@ function StepDeclarations({
   );
 }
 
+function StepDeclaration({ formData, updateFormData, validationErrors }: any) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Declaration</h2>
+        <p className="text-sm text-gray-600">Review and confirm your declarations before proceeding</p>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
+        <div className="bg-white px-6 py-4 border-b border-gray-200">
+          <h3 className="text-base font-semibold text-gray-900">Final Declaration &amp; Terms</h3>
+          <p className="text-xs text-gray-500 mt-0.5">Section 7 — All checkboxes required</p>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <div className={`rounded-lg border p-4 ${validationErrors.main_final_tc ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!formData.main_final_tc}
+                onChange={(e) => updateFormData('main_final_tc', e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-700 flex-shrink-0"
+              />
+              <span className="text-sm font-medium text-gray-800 leading-relaxed">
+                I accept the Terms &amp; Conditions of Central Region Muslim Funeral Service <span className="text-red-500">*</span>
+              </span>
+            </label>
+          </div>
+          {validationErrors.main_final_tc && <p className="text-red-500 text-xs -mt-2">{validationErrors.main_final_tc}</p>}
+
+          <div className={`rounded-lg border p-4 ${validationErrors.main_final_emergency ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!formData.main_final_emergency}
+                onChange={(e) => updateFormData('main_final_emergency', e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-700 flex-shrink-0"
+              />
+              <span className="text-sm font-medium text-gray-800 leading-relaxed">
+                I agree to contribute to the emergency fund if required <span className="text-red-500">*</span>
+              </span>
+            </label>
+          </div>
+          {validationErrors.main_final_emergency && <p className="text-red-500 text-xs -mt-2">{validationErrors.main_final_emergency}</p>}
+
+          <div className={`rounded-lg border p-4 ${validationErrors.main_final_declaration ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!formData.main_final_declaration}
+                onChange={(e) => updateFormData('main_final_declaration', e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-700 flex-shrink-0"
+              />
+              <span className="text-sm font-medium text-gray-800 leading-relaxed">
+                I confirm that all information provided in this application is accurate and complete <span className="text-red-500">*</span>
+              </span>
+            </label>
+          </div>
+          {validationErrors.main_final_declaration && <p className="text-red-500 text-xs -mt-2">{validationErrors.main_final_declaration}</p>}
+
+          {formData.app_type === 'joint' && (
+            <div className="pt-5 mt-2 border-t border-gray-200 space-y-5">
+              <p className="text-sm text-gray-600 font-medium">Section 7 — Joint Member</p>
+
+              <div className={`rounded-lg border p-4 ${validationErrors.joint_final_declaration ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!formData.joint_final_declaration}
+                    onChange={(e) => updateFormData('joint_final_declaration', e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-700 flex-shrink-0"
+                  />
+                  <span className="text-sm font-medium text-gray-800 leading-relaxed">
+                    I (the joint member) confirm that all information provided in this application is accurate and complete <span className="text-red-500">*</span>
+                  </span>
+                </label>
+              </div>
+              {validationErrors.joint_final_declaration && <p className="text-red-500 text-xs -mt-2">{validationErrors.joint_final_declaration}</p>}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -2283,87 +2382,11 @@ function StepPayment({ formData, updateFormData, validationErrors, membershipTyp
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Declaration & Payment</h2>
-        <p className="text-sm text-gray-600">Review and confirm declarations before completing payment</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment</h2>
+        <p className="text-sm text-gray-600">Complete payment details to finalise registration</p>
       </div>
 
-      {/* Section 1: Final Declaration */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
-        <div className="bg-white px-6 py-4 border-b border-gray-200">
-          <h3 className="text-base font-semibold text-gray-900">Final Declaration &amp; Terms</h3>
-          <p className="text-xs text-gray-500 mt-0.5">Section 7 — All checkboxes required</p>
-        </div>
-
-        <div className="p-6 space-y-5">
-          <div className={`rounded-lg border p-4 ${validationErrors.main_final_tc ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={!!formData.main_final_tc}
-                onChange={(e) => updateFormData('main_final_tc', e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-700 flex-shrink-0"
-              />
-              <span className="text-sm font-medium text-gray-800 leading-relaxed">
-                I accept the Terms &amp; Conditions of Central Region Muslim Funeral Service <span className="text-red-500">*</span>
-              </span>
-            </label>
-          </div>
-          {validationErrors.main_final_tc && <p className="text-red-500 text-xs -mt-2">{validationErrors.main_final_tc}</p>}
-
-          <div className={`rounded-lg border p-4 ${validationErrors.main_final_emergency ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={!!formData.main_final_emergency}
-                onChange={(e) => updateFormData('main_final_emergency', e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-700 flex-shrink-0"
-              />
-              <span className="text-sm font-medium text-gray-800 leading-relaxed">
-                I agree to contribute to the emergency fund if required <span className="text-red-500">*</span>
-              </span>
-            </label>
-          </div>
-          {validationErrors.main_final_emergency && <p className="text-red-500 text-xs -mt-2">{validationErrors.main_final_emergency}</p>}
-
-          <div className={`rounded-lg border p-4 ${validationErrors.main_final_declaration ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={!!formData.main_final_declaration}
-                onChange={(e) => updateFormData('main_final_declaration', e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-700 flex-shrink-0"
-              />
-              <span className="text-sm font-medium text-gray-800 leading-relaxed">
-                I confirm that all information provided in this application is accurate and complete <span className="text-red-500">*</span>
-              </span>
-            </label>
-          </div>
-          {validationErrors.main_final_declaration && <p className="text-red-500 text-xs -mt-2">{validationErrors.main_final_declaration}</p>}
-
-          {formData.app_type === 'joint' && (
-            <div className="pt-5 mt-2 border-t border-gray-200 space-y-5">
-              <p className="text-sm text-gray-600 font-medium">Section 7 — Joint Member</p>
-
-              <div className={`rounded-lg border p-4 ${validationErrors.joint_final_declaration ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={!!formData.joint_final_declaration}
-                    onChange={(e) => updateFormData('joint_final_declaration', e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-800 focus:ring-gray-700 flex-shrink-0"
-                  />
-                  <span className="text-sm font-medium text-gray-800 leading-relaxed">
-                    I (the joint member) confirm that all information provided in this application is accurate and complete <span className="text-red-500">*</span>
-                  </span>
-                </label>
-              </div>
-              {validationErrors.joint_final_declaration && <p className="text-red-500 text-xs -mt-2">{validationErrors.joint_final_declaration}</p>}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Section 2: Payment Details */}
+      {/* Payment Details */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
         <h3 className="text-lg font-semibold text-gray-900 mb-6">
           Payment Details
