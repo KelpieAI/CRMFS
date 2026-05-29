@@ -1,0 +1,6608 @@
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../lib/supabase';
+import { logActivity, ActivityTypes, getCurrentUserInfo } from '../lib/activityLogger';
+import CompactLayout from '../components/CompactLayout';
+import MemberSubNav from '../components/MemberSubNav';
+import { ProfileHeaderSkeleton, FormSkeleton } from '../components/SkeletonComponents';
+import { useMemberStatusUpdate } from '../hooks/useOptimisticUpdates';
+import SendEmailPanel from '../components/SendEmailPanel';
+import ChangeReasonModal from '../components/ChangeReasonModal';
+import { useNavigationGuard } from '../contexts/NavigationGuardContext';
+import { compareObjects } from '../hooks/useFormChangeTracker';
+import { useToast } from '../contexts/ToastContext';
+import { checkOutstandingPayments } from '../lib/activationHelpers';
+import {
+  getMemberActivationEligibility,
+  hasRequiredDocuments,
+  memberDocumentInputFromMember,
+} from '../lib/memberActivationRequirements';
+import {
+  formatMoney,
+  formatPaymentDateTime,
+  formatPaymentMethod,
+  formatPaymentReason,
+  getMemberPaymentDisplayStatus,
+  getMemberPaymentSummary,
+  getPaymentTableRowAmounts,
+  isObligationPayment,
+  sumPaymentAmounts,
+} from '../lib/paymentDisplay';
+import { enforceOverduePaymentRules } from '../lib/memberPaymentEnforcement';
+import { ActivationConfirmModal } from '../components/ActivationConfirmModal';
+import { ArrowLeft, User, Users, Baby, Heart, Calendar, Phone, MapPin, CreditCard as Edit, Save, X, Trash2, Pause, CreditCard, AlertTriangle, PoundSterling, Stethoscope, CheckSquare, CheckCircle, FileText, Upload, AlertCircle, Eye, Download, Info, PlayCircle, Shield, MoreVertical, ChevronDown, ChevronUp, Clock, Plus } from 'lucide-react';
+
+export default function MemberDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState('personal');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedData, setEditedData] = useState<any>(null);
+  const [isEditingJoint, setIsEditingJoint] = useState(false);
+  const [editedJointData, setEditedJointData] = useState<any>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showPauseConfirm, setShowPauseConfirm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [showUnpauseModal, setShowUnpauseModal] = useState(false);
+  const [paymentReceived, setPaymentReceived] = useState(false);
+  const [showActivationConfirm, setShowActivationConfirm] = useState(false);
+  const [activationPendingTotal, setActivationPendingTotal] = useState(0);
+  const [activationBlockers, setActivationBlockers] = useState<string[]>([]);
+  const [isCheckingActivation, setIsCheckingActivation] = useState(false);
+  const { showToast } = useToast();
+  const [unpausePendingTotal, setUnpausePendingTotal] = useState(0);
+
+  // GDPR Admin Tools
+  const [showDeletionRequestModal, setShowDeletionRequestModal] = useState(false);
+  const [deletionReason, setDeletionReason] = useState('');
+  const [deletionRequestedBy, setDeletionRequestedBy] = useState('');
+  const [deletionConfirmation, setDeletionConfirmation] = useState('');
+  const [showAccessLog, setShowAccessLog] = useState(false);
+  const [accessLogs, setAccessLogs] = useState<any[]>([]);
+  const [unpauseCalculation, setUnpauseCalculation] = useState({
+    joiningFee: 0,
+    membershipFee: 100,
+    total: 0
+  });
+  
+  // Actions menu dropdown
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+
+  // Email panel
+  const [showEmailPanel, setShowEmailPanel] = useState(false);
+
+  // Change tracking for navigation guard
+  const {
+    hasUnsavedChanges,
+    changedFields,
+    pendingNavigation,
+    setUnsavedChanges,
+    clearUnsavedChanges,
+    confirmNavigation,
+    cancelNavigation,
+  } = useNavigationGuard();
+
+  const originalMemberDataRef = useRef<any>(null);
+  const [showChangeReasonModal, setShowChangeReasonModal] = useState(false);
+  const [isSavingWithReason, setIsSavingWithReason] = useState(false);
+
+  // Tabs that support inline editing via the Edit Member button
+  // Other tabs (children, nok, medical, gp, declarations) use their own modals
+  // Non-editable tabs: documents (upload only), payments (audit trail), activity (read-only)
+  const EDITABLE_TABS = ['personal'];
+  const isEditableTab = EDITABLE_TABS.includes(activeTab);
+
+  // Fetch member with all related data
+  const { data: memberData, isLoading } = useQuery({
+    queryKey: ['member-detail', id],
+    queryFn: async () => {
+      const [
+        { data: member },
+        { data: jointMember },
+        { data: children },
+        { data: nextOfKin },
+        { data: gpDetails },
+        { data: medicalInfo },
+        { data: documents },
+        { data: declarations },
+        { data: payments },
+      ] = await Promise.all([
+        supabase.from('members').select('*').eq('id', id).single(),
+        supabase.from('joint_members').select('*').eq('member_id', id).maybeSingle(),
+        supabase.from('children').select('*').eq('member_id', id),
+        supabase.from('next_of_kin').select('*').eq('member_id', id),
+        supabase.from('gp_details').select('*').eq('member_id', id).maybeSingle(),
+        supabase.from('medical_info').select('*').eq('member_id', id),
+        supabase.from('documents').select('*').eq('member_id', id),
+        supabase.from('declarations').select('*').eq('member_id', id).maybeSingle(),
+        supabase.from('payments').select('*').eq('member_id', id).order('created_at', { ascending: false }),
+      ]);
+
+      return {
+        member,
+        jointMember,
+        children: children || [],
+        nextOfKin: nextOfKin || [],
+        gpDetails,
+        medicalInfo: medicalInfo || [],
+        documents: documents || [],
+        declarations,
+        payments: payments || [],
+      };
+    },
+  });
+
+  // Fetch last update info for audit display
+  const { data: lastUpdateInfo } = useQuery({
+    queryKey: ['member-last-update', id],
+    queryFn: async () => {
+      // Get the most recent update activity
+      const { data: lastActivity } = await supabase
+        .from('activity_log')
+        .select('*')
+        .eq('member_id', id)
+        .in('action_type', ['updated', 'member_edited', 'Member updated'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!lastActivity?.performed_by) return null;
+
+      // Get user info for the performer
+      const { data: user } = await supabase
+        .from('users')
+        .select('full_name, email')
+        .eq('id', lastActivity.performed_by)
+        .single();
+
+      return {
+        updated_at: lastActivity.created_at,
+        updated_by: user?.full_name || user?.email?.split('@')[0] || 'Unknown User',
+      };
+    },
+    enabled: !!id,
+  });
+
+  const assertCanSetActive = (
+    nextStatus: string | undefined,
+    previousStatus?: string
+  ) => {
+    if (nextStatus !== 'active' || previousStatus === 'active' || !memberData?.member) {
+      return;
+    }
+    const eligibility = getMemberActivationEligibility(
+      memberData.member,
+      memberData.children || [],
+      memberData.payments || []
+    );
+    if (!eligibility.canActivate) {
+      throw new Error(
+        eligibility.blockers[0] ||
+          'Cannot set status to Active until payment and documents are complete.'
+      );
+    }
+  };
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: any & { _changeReason?: string }) => {
+      const { _changeReason, ...updateData } = data;
+      assertCanSetActive(
+        updateData.status,
+        originalMemberDataRef.current?.status
+      );
+      const changes = originalMemberDataRef.current
+        ? compareObjects(originalMemberDataRef.current, updateData)
+        : [];
+
+      const { error } = await supabase
+        .from('members')
+        .update(updateData)
+        .eq('id', id);
+      if (error) throw error;
+
+      if (changes.length > 0) {
+        await logActivity(
+          id!,
+          ActivityTypes.MEMBER_UPDATED,
+          {
+            oldValues: Object.fromEntries(changes.map(c => [c.field, c.oldValue])),
+            newValues: Object.fromEntries(changes.map(c => [c.field, c.newValue])),
+            changeReason: _changeReason,
+          }
+        );
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', id] });
+      setIsEditing(false);
+      setEditedData(null);
+      originalMemberDataRef.current = null;
+      clearUnsavedChanges();
+    },
+    onError: (error: Error) => {
+      showToast(error.message || 'Failed to save member', 'error');
+    },
+  });
+
+  const updateJointMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const jointId = memberData?.jointMember?.id;
+      if (!jointId) throw new Error('No joint member found');
+      const { error } = await supabase.from('joint_members').update(data).eq('id', jointId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', id] });
+      setIsEditingJoint(false);
+      setEditedJointData(null);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await logActivity(id!, ActivityTypes.MEMBER_DELETED);
+
+      // Delete all related records first
+      await Promise.all([
+        supabase.from('payments').delete().eq('member_id', id),
+        supabase.from('documents').delete().eq('member_id', id),
+        supabase.from('declarations').delete().eq('member_id', id),
+        supabase.from('medical_info').delete().eq('member_id', id),
+        supabase.from('gp_details').delete().eq('member_id', id),
+        supabase.from('next_of_kin').delete().eq('member_id', id),
+        supabase.from('children').delete().eq('member_id', id),
+        supabase.from('joint_members').delete().eq('member_id', id),
+      ]);
+      
+      // Then delete member
+      const { error } = await supabase.from('members').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      navigate('/members');
+    },
+  });
+
+  const updateStatus = useMemberStatusUpdate();
+
+  const pauseMembershipMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('members')
+        .update({ status: 'inactive' })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', id] });
+      setShowPauseConfirm(false);
+    },
+  });
+
+  const handleEdit = () => {
+    const memberCopy = { ...memberData?.member };
+    originalMemberDataRef.current = JSON.parse(JSON.stringify(memberCopy));
+    setEditedData(memberCopy);
+    setIsEditing(true);
+  };
+
+  const handleSave = () => {
+    updateMutation.mutate(editedData);
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setEditedData(null);
+    originalMemberDataRef.current = null;
+    clearUnsavedChanges();
+  };
+
+  const handleEditJoint = () => {
+    setEditedJointData({ ...memberData?.jointMember });
+    setIsEditingJoint(true);
+  };
+
+  const handleSaveJoint = () => {
+    updateJointMutation.mutate(editedJointData);
+  };
+
+  const handleCancelJoint = () => {
+    setIsEditingJoint(false);
+    setEditedJointData(null);
+  };
+
+  const updateJointField = (field: string, value: any) => {
+    setEditedJointData((prev: any) => ({ ...prev, [field]: value }));
+  };
+
+  const getMemberFullName = useCallback(() => {
+    if (memberData?.member) {
+      return `${memberData.member.first_name} ${memberData.member.last_name}`;
+    }
+    return null;
+  }, [memberData?.member]);
+
+  const detectChanges = useCallback(() => {
+    if (!isEditing || !originalMemberDataRef.current || !editedData) {
+      return [];
+    }
+    return compareObjects(originalMemberDataRef.current, editedData);
+  }, [isEditing, editedData]);
+
+  useEffect(() => {
+    if (isEditing && editedData) {
+      const changes = detectChanges();
+      const memberFullName = getMemberFullName();
+      setUnsavedChanges(changes.length > 0, changes, memberFullName, id || null);
+    }
+  }, [isEditing, editedData, detectChanges, getMemberFullName, setUnsavedChanges, id]);
+
+  useEffect(() => {
+    if (!isEditing) {
+      clearUnsavedChanges();
+    }
+  }, [isEditing, clearUnsavedChanges]);
+
+  useEffect(() => {
+    if (pendingNavigation && hasUnsavedChanges) {
+      setShowChangeReasonModal(true);
+    }
+  }, [pendingNavigation, hasUnsavedChanges]);
+
+  const handleSaveWithReason = async (reason: string) => {
+    if (!editedData || !originalMemberDataRef.current) return;
+
+    setIsSavingWithReason(true);
+    try {
+      const changes = detectChanges();
+      assertCanSetActive(editedData.status, originalMemberDataRef.current?.status);
+
+      const { error } = await supabase
+        .from('members')
+        .update(editedData)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      if (changes.length > 0) {
+        await logActivity(
+          id!,
+          ActivityTypes.MEMBER_UPDATED,
+          {
+            oldValues: Object.fromEntries(changes.map(c => [c.field, c.oldValue])),
+            newValues: Object.fromEntries(changes.map(c => [c.field, c.newValue])),
+            changeReason: reason || undefined,
+          }
+        );
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['member-detail', id] });
+      setIsEditing(false);
+      setEditedData(null);
+      originalMemberDataRef.current = null;
+      clearUnsavedChanges();
+      setShowChangeReasonModal(false);
+
+      if (pendingNavigation) {
+        const targetPath = pendingNavigation.to;
+        confirmNavigation();
+        if (targetPath === 'back') {
+          navigate(-1);
+        } else {
+          navigate(targetPath);
+        }
+      }
+    } catch (error: any) {
+      console.error('Failed to save:', error);
+      showToast(
+        error?.message || 'Failed to save member',
+        'error'
+      );
+    } finally {
+      setIsSavingWithReason(false);
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setIsEditing(false);
+    setEditedData(null);
+    originalMemberDataRef.current = null;
+    clearUnsavedChanges();
+    setShowChangeReasonModal(false);
+
+    if (pendingNavigation) {
+      const targetPath = pendingNavigation.to;
+      confirmNavigation();
+      if (targetPath === 'back') {
+        navigate(-1);
+      } else {
+        navigate(targetPath);
+      }
+    }
+  };
+
+  const handleCloseChangeModal = () => {
+    setShowChangeReasonModal(false);
+    cancelNavigation();
+  };
+
+  // Cancel editing when switching away from editable tabs + scroll to top
+  useEffect(() => {
+    if (isEditing && !EDITABLE_TABS.includes(activeTab)) {
+      setIsEditing(false);
+      setEditedData(null);
+    }
+    // Scroll to top when tab changes
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab, isEditing]);
+
+  const updateField = (field: string, value: any) => {
+    setEditedData((prev: any) => ({ ...prev, [field]: value }));
+  };
+
+  // Calculate age
+  const calculateAge = (dob: string) => {
+    if (!dob) return null;
+    const today = new Date();
+    const birthDate = new Date(dob);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Calculate unpause fees (joining + annual — independent of payment outstanding)
+  const calculateUnpauseFees = useCallback(() => {
+    if (!memberData?.member) return;
+
+    const age = calculateAge(memberData.member.dob || memberData.member.date_of_birth);
+    let joiningFee = 0;
+
+    if (age) {
+      if (age >= 18 && age <= 25) joiningFee = 75;
+      else if (age >= 26 && age <= 35) joiningFee = 100;
+      else if (age >= 36 && age <= 45) joiningFee = 200;
+      else if (age >= 46 && age <= 55) joiningFee = 300;
+      else if (age >= 56) joiningFee = 500;
+    }
+
+    const membershipFee = 100;
+    const total = joiningFee + membershipFee;
+
+    setUnpauseCalculation({
+      joiningFee,
+      membershipFee,
+      total,
+    });
+  }, [memberData?.member]);
+
+  useEffect(() => {
+    if (memberData?.member?.status === 'paused') {
+      calculateUnpauseFees();
+    }
+  }, [memberData?.member?.status, memberData?.member?.dob, calculateUnpauseFees]);
+
+  // Log access when member detail page is opened
+  useEffect(() => {
+    if (!memberData?.member?.id) return;
+
+    const logAccess = async () => {
+      try {
+        // Get current user info
+        const userInfo = await getCurrentUserInfo();
+        const userName = userInfo?.full_name || userInfo?.email || 'Unknown User';
+
+        // Log to access_log table (GDPR compliance)
+        await supabase.from('access_log').insert({
+          member_id: memberData.member.id,
+          accessed_by: userName,
+          access_type: 'view',
+          accessed_data: ['personal_data', 'contact_info'],
+          accessed_at: new Date().toISOString(),
+        });
+
+        await logActivity(memberData.member.id, ActivityTypes.DATA_ACCESSED);
+      } catch (error) {
+        console.error('Failed to log access:', error);
+      }
+    };
+
+    logAccess();
+  }, [memberData?.member?.id]);
+
+  // GDPR: Export member data
+  const exportMemberData = async () => {
+    const { member, jointMember, children, nextOfKin, gpDetails, medicalInfo, payments } = memberData || {};
+    if (!member) return;
+
+    try {
+      const exportData = {
+        export_info: {
+          exported_at: new Date().toISOString(),
+          exported_by_committee: true,
+          member_request_date: new Date().toISOString(),
+          data_controller: 'Falkirk Central Mosque - Central Region Muslim Funeral Service',
+          purpose: 'GDPR Right to Access (Article 15)',
+        },
+        personal_data: {
+          title: member.title,
+          first_name: member.first_name,
+          last_name: member.last_name,
+          date_of_birth: member.date_of_birth ?? member.dob,
+          email: member.email,
+          mobile: member.mobile,
+          phone_home: member.phone_home ?? member.home_phone,
+          phone_work: member.phone_work ?? member.work_phone,
+          address: member.address ?? member.address_line_1,
+          town: member.town,
+          city: member.city,
+          postcode: member.postcode,
+          status: member.status,
+          created_at: member.created_at,
+          updated_at: member.updated_at,
+        },
+        joint_member: member.app_type === 'joint' && jointMember ? {
+          title: jointMember.title,
+          first_name: jointMember.first_name,
+          last_name: jointMember.last_name,
+          date_of_birth: jointMember.date_of_birth ?? jointMember.dob,
+          email: jointMember.email,
+          mobile: jointMember.mobile,
+          relation: jointMember.relation,
+        } : null,
+        children: children || [],
+        next_of_kin: nextOfKin || [],
+        gp_details: gpDetails || null,
+        medical_info: medicalInfo || null,
+        consents: {
+          consent_obtained_via: member.consent_obtained_via,
+          paper_form_version: member.paper_form_version,
+          paper_form_date: member.paper_form_date,
+        },
+        signatures: {
+          main_signature: member.main_signature,
+          main_signature_date: member.main_signature_date,
+          joint_signature: member.joint_signature,
+        },
+        payments: payments || [],
+      };
+
+      const jsonString = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `CRMFS_Data_${member.first_name}_${member.last_name}_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      const { data: { user } } = await supabase.auth.getUser();
+
+      await supabase.from('activity_log').insert({
+        member_id: member.id,
+        action_type: 'data_export',
+        entity_type: 'member',
+        description: 'Committee exported member data for GDPR Right to Access request',
+        user_id: user?.id,
+        user_email: user?.email,
+      });
+
+      await supabase.from('access_log').insert({
+        member_id: member.id,
+        accessed_by: 'Committee Member',
+        access_type: 'export',
+        accessed_data: ['all_data'],
+        accessed_at: new Date().toISOString(),
+      });
+
+      alert('Data exported successfully. Send this file to the member via email or post.');
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('Failed to export data. Please try again.');
+    }
+  };
+
+  // GDPR: Load access logs
+  const loadAccessLogs = async () => {
+    if (!memberData?.member) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('access_log')
+        .select('*')
+        .eq('member_id', memberData.member.id)
+        .order('accessed_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      setAccessLogs(data || []);
+    } catch (error) {
+      console.error('Failed to load access logs:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (showAccessLog) {
+      loadAccessLogs();
+    }
+  }, [showAccessLog, memberData?.member?.id]);
+
+  const paymentSummary = memberData?.payments
+    ? getMemberPaymentSummary(memberData.payments)
+    : null;
+  const paymentDisplayStatus = memberData?.payments
+    ? getMemberPaymentDisplayStatus(memberData.payments)
+    : null;
+
+  const overdueEnforcedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!id || !memberData?.member || !memberData.payments?.length) return;
+
+    const fingerprint = `${id}:${memberData.payments.map((p: any) => `${p.id}-${p.payment_status}`).join(',')}:${paymentSummary?.outstanding ?? 0}`;
+    if (overdueEnforcedRef.current === fingerprint) return;
+
+    const display = getMemberPaymentDisplayStatus(memberData.payments);
+    if (display.kind !== 'failed') {
+      overdueEnforcedRef.current = fingerprint;
+      return;
+    }
+
+    enforceOverduePaymentRules(
+      id,
+      memberData.member,
+      memberData.payments
+    ).then((result) => {
+      overdueEnforcedRef.current = fingerprint;
+      if (result.changed) {
+        queryClient.invalidateQueries({ queryKey: ['member-detail', id] });
+      }
+    });
+  }, [id, memberData?.member, memberData?.payments, paymentSummary?.outstanding, queryClient]);
+
+  const activationEligibility = memberData?.member
+    ? getMemberActivationEligibility(
+        memberData.member,
+        memberData.children || [],
+        memberData.payments || []
+      )
+    : null;
+
+  if (isLoading) {
+    return (
+      <CompactLayout>
+        <div className="space-y-4">
+          <ProfileHeaderSkeleton />
+          <FormSkeleton />
+        </div>
+      </CompactLayout>
+    );
+  }
+
+  if (!memberData?.member) {
+    return (
+      <CompactLayout>
+        <div className="text-center py-12">
+          <p className="text-gray-500">Member not found</p>
+        </div>
+      </CompactLayout>
+    );
+  }
+
+  const { member, children, payments } = memberData;
+  const age = calculateAge(member.dob);
+
+  return (
+    <CompactLayout
+      showSubNav={true}
+      subNav={
+        <MemberSubNav
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          counts={{
+            children: children.length,
+            documents: memberData.documents.length,
+            payments: payments.length,
+          }}
+          showJointMember={member.app_type === 'joint'}
+          quickActions={{
+            onPrint: () => window.print(),
+            onExport: exportMemberData,
+            onEmail: () => setShowEmailPanel(true),
+            onDeleteRequest: () => setShowDeletionRequestModal(true),
+          }}
+        />
+      }
+    >
+      <div className="space-y-6">
+        {/* Hero Section with Green Gradient */}
+        <div className="bg-gradient-to-r from-[#2d5016] to-[#3d6622] rounded-lg shadow-lg p-8 text-white">
+          {/* Top Bar */}
+          <div className="flex items-center justify-between mb-6">
+            <button
+              onClick={() => {
+                if (hasUnsavedChanges) {
+                  setShowChangeReasonModal(true);
+                } else {
+                  navigate('/members');
+                }
+              }}
+              className="inline-flex items-center gap-2 text-white/90 hover:text-white transition-colors text-sm font-medium"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Members
+            </button>
+
+            {/* Actions Menu */}
+            <div className="relative">
+              {isEditing && isEditableTab ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCancel}
+                    disabled={updateMutation.isPending}
+                    className="inline-flex items-center px-4 py-2 text-sm bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={updateMutation.isPending}
+                    className="inline-flex items-center px-4 py-2 text-sm bg-white text-[#2d5016] rounded-lg hover:bg-white/90 transition-colors font-semibold"
+                  >
+                    {updateMutation.isPending ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#2d5016] mr-2"></div>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Save
+                      </>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setShowActionsMenu(!showActionsMenu)}
+                    className="inline-flex items-center px-4 py-2 text-sm bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
+                  >
+                    <MoreVertical className="h-4 w-4 mr-1" />
+                    Actions
+                  </button>
+
+                  {showActionsMenu && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-10"
+                        onClick={() => setShowActionsMenu(false)}
+                      />
+                      <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20 overflow-visible">
+                        {isEditableTab ? (
+                          <button
+                            onClick={() => {
+                              handleEdit();
+                              setShowActionsMenu(false);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                          >
+                            <Edit className="h-4 w-4 mr-3 text-gray-400" />
+                            Edit Member
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setActiveTab('personal');
+                              setShowActionsMenu(false);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-500 hover:bg-gray-50 flex items-center"
+                          >
+                            <Edit className="h-4 w-4 mr-3 text-gray-300" />
+                            Edit Personal Info
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => {
+                            setActiveTab('payments');
+                            setShowActionsMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                        >
+                          <CreditCard className="h-4 w-4 mr-3 text-gray-400" />
+                          Record Payment
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            window.print();
+                            setShowActionsMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                        >
+                          <FileText className="h-4 w-4 mr-3 text-gray-400" />
+                          Print Summary
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setShowEmailPanel(true);
+                            setShowActionsMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                        >
+                          <Upload className="h-4 w-4 mr-3 text-gray-400" />
+                          Send Email
+                        </button>
+
+                        <div className="border-t border-gray-100 my-1"></div>
+
+                        {member.status === 'paused' ? (
+                          <div className="px-4 py-2">
+                            <button
+                              onClick={async () => {
+                                if ((paymentSummary?.outstanding ?? 0) > 0) {
+                                  setShowActionsMenu(false);
+                                  return;
+                                }
+                                calculateUnpauseFees();
+                                const { pendingTotal } = await checkOutstandingPayments(id!);
+                                setUnpausePendingTotal(pendingTotal);
+                                setShowUnpauseModal(true);
+                                setShowActionsMenu(false);
+                              }}
+                              disabled={(paymentSummary?.outstanding ?? 0) > 0}
+                              className="w-full py-1 text-left text-sm text-emerald-600 hover:bg-emerald-50 flex items-center rounded-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                            >
+                              <PlayCircle className="h-4 w-4 mr-3" />
+                              Unpause Member
+                            </button>
+                            {(paymentSummary?.outstanding ?? 0) > 0 && (
+                              <p className="mt-1.5 text-xs leading-snug text-amber-800 bg-amber-50 rounded-md px-2 py-1.5">
+                                Clear outstanding balance of £
+                                {paymentSummary!.outstanding.toFixed(2)} before unpause.
+                              </p>
+                            )}
+                          </div>
+                        ) : member.status === 'active' ? (
+                          <button
+                            onClick={() => {
+                              updateStatus.mutate({
+                                memberId: id!,
+                                newStatus: 'inactive',
+                              });
+                              setShowActionsMenu(false);
+                            }}
+                            disabled={updateStatus.isPending}
+                            className="w-full px-4 py-2 text-left text-sm text-yellow-600 hover:bg-yellow-50 flex items-center disabled:opacity-50"
+                          >
+                            <Pause className="h-4 w-4 mr-3" />
+                            {updateStatus.isPending ? 'Pausing...' : 'Pause Member'}
+                          </button>
+                        ) : (member.status === 'inactive' || member.status === 'pending') && (
+                          <div className="px-4 py-2 border-b border-gray-50 last:border-b-0">
+                            <button
+                              onClick={async () => {
+                                setShowActionsMenu(false);
+                                setIsCheckingActivation(true);
+                                try {
+                                  const eligibility = getMemberActivationEligibility(
+                                    member,
+                                    children,
+                                    payments
+                                  );
+                                  const { pendingTotal } = await checkOutstandingPayments(id!);
+                                  setActivationPendingTotal(
+                                    Math.max(pendingTotal, eligibility.outstandingBalance)
+                                  );
+                                  setActivationBlockers(
+                                    eligibility.blockers.filter(
+                                      (b) => !b.includes('Outstanding balance')
+                                    )
+                                  );
+                                  setShowActivationConfirm(true);
+                                } finally {
+                                  setIsCheckingActivation(false);
+                                }
+                              }}
+                              disabled={
+                                updateStatus.isPending ||
+                                isCheckingActivation ||
+                                !activationEligibility?.canActivate
+                              }
+                              className="w-full py-1 text-left text-sm text-green-600 rounded-md hover:bg-green-50 flex items-center disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-3 shrink-0" />
+                              {isCheckingActivation ? 'Checking...' : 'Activate Member'}
+                            </button>
+                            {!activationEligibility?.canActivate && activationEligibility && (
+                              <p className="mt-1.5 text-xs leading-snug text-amber-800 bg-amber-50 rounded-md px-2 py-1.5">
+                                {activationEligibility.blockers.join(' · ')}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        <button
+                          onClick={() => {
+                            setShowDeleteConfirm(true);
+                            setShowActionsMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center"
+                        >
+                          <Trash2 className="h-4 w-4 mr-3" />
+                          Delete Member
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Member Name & Status */}
+          <div className="flex items-center gap-4 mb-5">
+            <h1 className="text-3xl font-bold text-white">
+              {member.title} {member.first_name} {member.last_name}
+            </h1>
+            <span
+              className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide ${
+                member.status === 'active'
+                  ? 'bg-emerald-500 text-white'
+                  : member.status === 'paused'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-yellow-500 text-white'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-white"></span>
+              {member.status}
+            </span>
+          </div>
+
+          {/* Member ID */}
+          <p className="text-[#D4AF37] text-sm font-medium font-mono mb-6">
+            {member.membership_number || `#${id?.slice(0, 8)}`}
+          </p>
+
+          {/* Quick Info Strip */}
+          <div className="flex flex-wrap gap-6 text-sm text-white/90">
+            <div className="flex items-center gap-2">
+              <Phone className="h-4 w-4" />
+              <span>{member.mobile}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              <span>{member.email}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              <span>{age ? `${age} years old` : 'N/A'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {(() => {
+                const outstanding = paymentSummary?.outstanding ?? 0;
+                const isClear =
+                  outstanding === 0 &&
+                  (paymentDisplayStatus?.kind === 'clear' || member.status === 'paused');
+                const isFailed = paymentDisplayStatus?.kind === 'failed';
+                return (
+                  <>
+                    {isClear ? (
+                      <CheckCircle className="h-4 w-4 text-emerald-300" />
+                    ) : isFailed ? (
+                      <AlertCircle className="h-4 w-4 text-red-300" />
+                    ) : (
+                      <AlertTriangle className="h-4 w-4 text-amber-300" />
+                    )}
+                    <span
+                      className={
+                        isClear
+                          ? 'text-emerald-100 font-medium'
+                          : isFailed
+                          ? 'text-red-200 font-semibold'
+                          : 'text-amber-100 font-medium'
+                      }
+                    >
+                      {isClear
+                        ? 'No Outstanding Payments'
+                        : isFailed
+                        ? 'Failed Payment'
+                        : 'Payment Due'}
+                    </span>
+                  </>
+                );
+              })()}
+            </div>
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              <span>{member.city}, {member.postcode}</span>
+            </div>
+          </div>
+
+          {/* Last Updated Info */}
+          {lastUpdateInfo && (
+            <div className="mt-4 pt-4 border-t border-white/20 text-xs text-white/70">
+              <span>Last updated: </span>
+              <span className="text-[#D4AF37] font-medium">
+                {new Date(lastUpdateInfo.updated_at).toLocaleDateString('en-GB', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </span>
+              <span> by </span>
+              <span className="text-white font-medium">{lastUpdateInfo.updated_by}</span>
+            </div>
+          )}
+
+          {/* Status Indicators for Documents and Declarations */}
+          {member.status === 'pending' && (
+            <div className="mt-4 pt-4 border-t border-white/20">
+              <p className="text-xs text-white/70 mb-2 uppercase tracking-wide font-medium">Pending Requirements</p>
+              <div className="flex flex-wrap gap-3">
+                {/* Documents Status */}
+                {(() => {
+                  const hasMainDocs = hasRequiredDocuments(
+                    memberDocumentInputFromMember(member, children)
+                  );
+                  return (
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
+                      hasMainDocs
+                        ? 'bg-emerald-500/20 text-emerald-100'
+                        : 'bg-amber-500/20 text-amber-100'
+                    }`}>
+                      {hasMainDocs ? (
+                        <>
+                          <CheckCircle className="h-3.5 w-3.5" />
+                          Documents Uploaded
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="h-3.5 w-3.5" />
+                          Awaiting Documents
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Declarations Status */}
+                {(() => {
+                  const declarations = memberData?.declarations;
+                  const hasDeclarations = declarations?.main_medical_consent && declarations?.main_final_declaration;
+                  return (
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
+                      hasDeclarations
+                        ? 'bg-emerald-500/20 text-emerald-100'
+                        : 'bg-amber-500/20 text-amber-100'
+                    }`}>
+                      {hasDeclarations ? (
+                        <>
+                          <CheckCircle className="h-3.5 w-3.5" />
+                          Declarations Signed
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="h-3.5 w-3.5" />
+                          Awaiting Declarations
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Paused Member Warning */}
+        {member.status === 'paused' && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+            <div className="flex items-start">
+              <AlertCircle className="h-5 w-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <h4 className="text-sm font-semibold text-red-900">
+                  Membership Suspended
+                </h4>
+                <p className="text-sm text-red-800 mt-1">
+                  This membership was paused
+                  {member.paused_date &&
+                    ` on ${new Date(member.paused_date).toLocaleDateString('en-GB')}`}
+                  {(member.paused_reason ||
+                    (member.late_warnings_count != null &&
+                      member.late_warnings_count > 0)) &&
+                    ` – ${
+                      member.paused_reason ||
+                      `Late payment - ${member.late_warnings_count} warning${
+                        member.late_warnings_count === 1 ? '' : 's'
+                      } issued`
+                    }`}
+                </p>
+                <p className="text-sm text-red-800 mt-2">
+                  <strong>To reactivate:</strong> Member must pay joining fee (£{unpauseCalculation.joiningFee.toFixed(2)})
+                  + annual membership fee (£{unpauseCalculation.membershipFee.toFixed(2)}) = <strong>£{unpauseCalculation.total.toFixed(2)}</strong>
+                </p>
+                <p className="text-xs text-red-700 mt-2">
+                  Note: Late fees are waived upon reactivation.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Content Area */}
+        {activeTab === 'personal' && (
+          <PersonalInfoTab
+            member={isEditing ? editedData : member}
+            jointMember={isEditingJoint ? editedJointData : memberData?.jointMember}
+            isEditing={isEditing}
+            isEditingJoint={isEditingJoint}
+            updateField={updateField}
+            updateJointField={updateJointField}
+            onEditJoint={handleEditJoint}
+            onSaveJoint={handleSaveJoint}
+            onCancelJoint={handleCancelJoint}
+            isSavingJoint={updateJointMutation.isPending}
+            setActiveTab={setActiveTab}
+            setShowEmailPanel={setShowEmailPanel}
+          />
+        )}
+
+        {activeTab === 'joint' && (
+          <JointMemberTab
+            jointMember={isEditingJoint ? editedJointData : memberData?.jointMember}
+            isEditing={isEditingJoint}
+            onEdit={handleEditJoint}
+            onSave={handleSaveJoint}
+            onCancel={handleCancelJoint}
+            updateField={updateJointField}
+            isSaving={updateJointMutation.isPending}
+          />
+        )}
+
+        {activeTab === 'children' && (
+          <ChildrenTab children={memberData?.children || []} memberId={id!} />
+        )}
+
+        {activeTab === 'nok' && (
+          <NextOfKinTab nextOfKin={memberData?.nextOfKin || []} memberId={id!} />
+        )}
+
+        {activeTab === 'medical' && (
+          <MedicalInfoTab medicalInfo={memberData?.medicalInfo || []} memberId={id!} />
+        )}
+
+        {activeTab === 'gp' && (
+          <GPDetailsTab gpDetails={memberData?.gpDetails} memberId={id!} />
+        )}
+
+        {activeTab === 'declarations' && (
+          <DeclarationsTab declarations={memberData?.declarations} memberId={id!} member={memberData?.member} jointMember={memberData?.jointMember} />
+        )}
+
+        {activeTab === 'documents' && (
+          <DocumentsTab
+            member={memberData?.member}
+            memberId={id!}
+            children={memberData?.children || []}
+          />
+        )}
+
+        {activeTab === 'payments' && (
+          <PaymentsTab
+            payments={memberData?.payments || []}
+            memberId={id!}
+            member={member}
+            children={children}
+          />
+        )}
+
+        {activeTab === 'activity' && (
+          <ActivityLogTab memberId={id!} />
+        )}
+
+        {!['personal', 'joint', 'children', 'nok', 'medical', 'gp', 'declarations', 'documents', 'payments', 'activity'].includes(activeTab) && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <p className="text-gray-500">Content for {activeTab} tab coming soon...</p>
+          </div>
+        )}
+      </div>
+
+      {/* Confirmation Modals */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-red-600">
+                Delete Member
+              </h3>
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeletePassword('');
+                  setDeleteError('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <div className="flex items-start">
+                  <AlertCircle className="h-5 w-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-red-800">
+                      Warning: This action cannot be undone!
+                    </p>
+                    <p className="text-xs text-red-700 mt-1">
+                      All member data, payment history, and records will be permanently deleted.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-sm text-gray-600 mb-4">
+                You are about to delete: <strong>{memberData?.member?.first_name} {memberData?.member?.last_name}</strong>
+              </p>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Enter password to confirm deletion:
+                </label>
+                <input
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => {
+                    setDeletePassword(e.target.value);
+                    setDeleteError('');
+                  }}
+                  placeholder="Enter password"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && deletePassword) {
+                      e.preventDefault();
+                      document.getElementById('delete-confirm-btn')?.click();
+                    }
+                  }}
+                />
+                {deleteError && (
+                  <p className="text-sm text-red-600 mt-2">{deleteError}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeletePassword('');
+                  setDeleteError('');
+                }}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                disabled={deleteMutation.isPending}
+              >
+                Cancel
+              </button>
+              <button
+                id="delete-confirm-btn"
+                onClick={async () => {
+                  // Check password - CHANGE THIS PASSWORD TO YOUR SECURE PASSWORD
+                  if (deletePassword !== 'Test123!') {
+                    setDeleteError('Incorrect password');
+                    return;
+                  }
+
+                  // Delete member
+                  deleteMutation.mutate();
+                  setShowDeleteConfirm(false);
+                  setDeletePassword('');
+                  setDeleteError('');
+                }}
+                disabled={!deletePassword || deleteMutation.isPending}
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleteMutation.isPending ? 'Deleting...' : 'Delete Permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPauseConfirm && (
+        <ConfirmModal
+          title="Pause Membership"
+          message="This will change the member's status to inactive. You can reactivate them later by editing their status."
+          confirmText="Pause"
+          confirmColor="yellow"
+          onConfirm={() => pauseMembershipMutation.mutate()}
+          onCancel={() => setShowPauseConfirm(false)}
+          isLoading={pauseMembershipMutation.isPending}
+        />
+      )}
+
+      <ActivationConfirmModal
+        isOpen={showActivationConfirm}
+        onClose={() => setShowActivationConfirm(false)}
+        onConfirm={() => {
+          setShowActivationConfirm(false);
+          updateStatus.mutate(
+            { memberId: id!, newStatus: 'active' },
+            {
+              onSuccess: () => {
+                showToast('Member activated', 'success');
+              },
+              onError: () => {
+                showToast('Failed to activate member', 'error');
+              },
+            }
+          );
+        }}
+        memberName={member ? `${member.first_name} ${member.last_name}` : ''}
+        hasPendingPayments={activationPendingTotal > 0}
+        pendingTotal={activationPendingTotal}
+        activationBlockers={activationBlockers}
+        isLoading={updateStatus.isPending}
+      />
+
+      {/* Unpause Membership Modal */}
+      {showUnpauseModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <PlayCircle className="h-5 w-5 mr-2 text-emerald-600" />
+                Unpause Membership
+              </h3>
+              <button
+                onClick={() => setShowUnpauseModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Member Info */}
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm font-medium text-gray-900">
+                {member?.first_name} {member?.last_name}
+              </p>
+              <p className="text-xs text-gray-600">
+                Membership No: {member?.membership_number || id?.slice(0, 8)}
+              </p>
+              <p className="text-xs text-gray-600">
+                Age: {calculateAge(member?.date_of_birth)} years
+              </p>
+            </div>
+
+            {/* Fee Breakdown */}
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-blue-900 mb-3">
+                Reactivation Fees
+              </h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-blue-800">Joining Fee (age-based):</span>
+                  <span className="font-medium text-blue-900">
+                    £{unpauseCalculation.joiningFee.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-blue-800">Annual Membership Fee:</span>
+                  <span className="font-medium text-blue-900">
+                    £{unpauseCalculation.membershipFee.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>Late Fees (waived):</span>
+                  <span className="font-medium line-through">£0.00</span>
+                </div>
+                <div className="border-t border-blue-300 pt-2 mt-2">
+                  <div className="flex justify-between font-semibold text-blue-900">
+                    <span>Total Due:</span>
+                    <span className="text-lg">£{unpauseCalculation.total.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {(paymentSummary?.outstanding ?? 0) > 0 && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-300 rounded-lg flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-red-900">
+                    Outstanding balance: £{paymentSummary!.outstanding.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-red-800 mt-0.5">
+                    Record payments on the Payments tab until the balance is £0 before
+                    unpausing.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {unpausePendingTotal > 0 && (paymentSummary?.outstanding ?? 0) === 0 && (
+              <div className="mb-4 p-4 bg-amber-50 border border-amber-300 rounded-lg flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">Outstanding balance: £{unpausePendingTotal.toFixed(2)}</p>
+                  <p className="text-xs text-amber-800 mt-0.5">
+                    This member has existing pending payments. Reactivating will subject them to the late payment process for the outstanding amount.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Important Notice */}
+            <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <h5 className="text-xs font-semibold text-yellow-900 mb-2">
+                Important Information:
+              </h5>
+              <ul className="text-xs text-yellow-800 space-y-1">
+                <li>• Member must pay full reactivation fee to unpause</li>
+                <li>• Previous late fees are waived as a one-time courtesy</li>
+                <li>• Membership will be active from payment date</li>
+                <li>• Next renewal: January 1st, {new Date().getFullYear() + 1}</li>
+              </ul>
+            </div>
+
+            {/* Payment Status Toggle */}
+            <div className="mb-6">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={paymentReceived}
+                  onChange={(e) => setPaymentReceived(e.target.checked)}
+                  className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                />
+                <span className="ml-3 text-sm text-gray-700">
+                  Payment received (£{unpauseCalculation.total.toFixed(2)})
+                </span>
+              </label>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowUnpauseModal(false);
+                  setPaymentReceived(false);
+                }}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if ((paymentSummary?.outstanding ?? 0) > 0) {
+                    showToast(
+                      'Clear the outstanding balance before unpausing.',
+                      'error'
+                    );
+                    return;
+                  }
+                  if (!paymentReceived) {
+                    alert('Please confirm payment has been received');
+                    return;
+                  }
+
+                  try {
+                    // Record payment
+                    const { error: paymentError } = await supabase
+                      .from('payments')
+                      .insert({
+                        member_id: member?.id,
+                        amount: unpauseCalculation.total,
+                        payment_type: 'reactivation',
+                        payment_method: 'cash',
+                        payment_status: 'completed',
+                        payment_date: new Date().toISOString(),
+                        total_amount: unpauseCalculation.total,
+                        notes: `Membership reactivation - Joining fee £${unpauseCalculation.joiningFee} + Annual fee £100`
+                      });
+
+                    if (paymentError) throw paymentError;
+
+                    // Update member status
+                    const { error: memberError } = await supabase
+                      .from('members')
+                      .update({
+                        status: 'active',
+                        late_warnings_count: 0,
+                        paused_date: null,
+                        paused_reason: null,
+                        last_payment_date: new Date().toISOString()
+                      })
+                      .eq('id', member?.id);
+
+                    if (memberError) throw memberError;
+
+                    // Success
+                    setShowUnpauseModal(false);
+                    setPaymentReceived(false);
+                    queryClient.invalidateQueries({ queryKey: ['member-detail', id] });
+                    alert('Membership successfully reactivated!');
+                  } catch (error) {
+                    console.error('Unpause error:', error);
+                    alert('Failed to reactivate membership. Please try again.');
+                  }
+                }}
+                disabled={
+                  !paymentReceived || (paymentSummary?.outstanding ?? 0) > 0
+                }
+                className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Reactivate Membership
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deletion Request Modal */}
+      {showDeletionRequestModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <AlertCircle className="h-5 w-5 mr-2 text-red-600" />
+                Create Deletion Request
+              </h3>
+              <button
+                onClick={() => {
+                  setShowDeletionRequestModal(false);
+                  setDeletionReason('');
+                  setDeletionRequestedBy('');
+                  setDeletionConfirmation('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <h4 className="text-sm font-semibold text-blue-900 mb-2">Committee Instructions</h4>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• Create this request when a member contacts you to delete their account</li>
+                <li>• Member request can be via email, phone, or letter</li>
+                <li>• Committee must review and approve/reject within 30 days</li>
+              </ul>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  How did member request deletion? *
+                </label>
+                <select
+                  value={deletionRequestedBy}
+                  onChange={(e) => setDeletionRequestedBy(e.target.value)}
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="">Select method</option>
+                  <option value="email">Email</option>
+                  <option value="phone">Phone call</option>
+                  <option value="letter">Letter/Post</option>
+                  <option value="in_person">In person</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Member's Reason for Deletion *
+                </label>
+                <textarea
+                  value={deletionReason}
+                  onChange={(e) => setDeletionReason(e.target.value)}
+                  required
+                  rows={4}
+                  placeholder="E.g., 'Moving abroad', 'No longer need service'..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Type member's full name to confirm *
+                </label>
+                <input
+                  type="text"
+                  value={deletionConfirmation}
+                  onChange={(e) => setDeletionConfirmation(e.target.value)}
+                  required
+                  placeholder={`${member?.first_name} ${member?.last_name}`}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeletionRequestModal(false);
+                  setDeletionReason('');
+                  setDeletionRequestedBy('');
+                  setDeletionConfirmation('');
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!deletionReason.trim() || !deletionRequestedBy) {
+                    alert('Please complete all fields');
+                  return;
+                }
+
+                const expectedName = `${member?.first_name} ${member?.last_name}`;
+                if (deletionConfirmation.trim().toLowerCase() !== expectedName.toLowerCase()) {
+                  alert(`Please type the member's full name exactly: ${expectedName}`);
+                  return;
+                }
+
+                try {
+                  const { error } = await supabase
+                    .from('deletion_requests')
+                    .insert({
+                      member_id: member?.id,
+                      requester_name: expectedName,
+                      requester_email: member?.email || 'Not provided',
+                      reason: deletionReason,
+                      status: 'pending',
+                      requested_at: new Date().toISOString(),
+                        metadata: {
+                          requested_via: deletionRequestedBy,
+                          created_by_committee: true,
+                        },
+                      });
+
+                  if (error) throw error;
+
+                  const { data: { user } } = await supabase.auth.getUser();
+
+                  await supabase.from('activity_log').insert({
+                    member_id: member?.id,
+                    action_type: 'deletion_request',
+                    entity_type: 'member',
+                    description: `Committee created deletion request on behalf of member (requested via ${deletionRequestedBy})`,
+                    user_id: user?.id,
+                    user_email: user?.email,
+                  });
+
+                  setShowDeletionRequestModal(false);
+                  setDeletionReason('');
+                  setDeletionRequestedBy('');
+                  setDeletionConfirmation('');
+                  
+                  // Success - modal closes silently
+                } catch (error) {
+                  console.error('Deletion request error:', error);
+                  alert('Failed to create deletion request. Please try again.');
+                }
+              }}
+              disabled={deletionConfirmation.trim().toLowerCase() !== `${member?.first_name} ${member?.last_name}`.toLowerCase()}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Create Deletion Request
+            </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Access Log Modal */}
+      {showAccessLog && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <Eye className="h-5 w-5 mr-2 text-gray-600" />
+                Access Log - {memberData?.member?.first_name} {memberData?.member?.last_name}
+              </h3>
+              <button
+                onClick={() => setShowAccessLog(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-xs text-blue-800">
+                This log shows who accessed this member's data and when. Required for GDPR Article 30 compliance.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {accessLogs.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No access logs yet
+                </div>
+              ) : (
+                accessLogs.map((log) => (
+                  <div key={log.id} className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-sm font-medium text-gray-900">
+                            {log.accessed_by}
+                          </span>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            log.access_type === 'view' ? 'bg-blue-100 text-blue-800' :
+                            log.access_type === 'edit' ? 'bg-green-100 text-green-800' :
+                            log.access_type === 'export' ? 'bg-purple-100 text-purple-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {log.access_type}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(log.accessed_at).toLocaleString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                        {log.accessed_data && log.accessed_data.length > 0 && (
+                          <p className="text-xs text-gray-600 mt-1">
+                            Data accessed: {log.accessed_data.join(', ')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowAccessLog(false)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEmailPanel && (
+        <SendEmailPanel
+          member={member}
+          onClose={() => setShowEmailPanel(false)}
+          onEmailSent={() => {
+            queryClient.invalidateQueries({ queryKey: ['member-detail', id] });
+          }}
+        />
+      )}
+
+      <ChangeReasonModal
+        isOpen={showChangeReasonModal}
+        onClose={handleCloseChangeModal}
+        onDiscard={handleDiscardChanges}
+        onSaveWithReason={handleSaveWithReason}
+        changedFields={changedFields}
+        memberName={getMemberFullName() || undefined}
+        isSaving={isSavingWithReason}
+      />
+    </CompactLayout>
+  );
+}
+
+// Personal Info Tab Component
+function PersonalInfoTab({ member, jointMember, isEditing, isEditingJoint, updateField, updateJointField, onEditJoint, onSaveJoint, onCancelJoint, isSavingJoint, setActiveTab, setShowEmailPanel }: any) {
+  const isJoint = member?.app_type === 'joint';
+
+  const inputCls = (joint?: boolean) =>
+    `w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 ${
+      joint
+        ? 'border-green-300 focus:ring-green-500 focus:border-green-500'
+        : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
+    }`;
+
+  const MemberPersonalCard = ({ m, isMain }: { m: any; isMain: boolean }) => {
+    const editing = isMain ? isEditing : isEditingJoint;
+    const uf = isMain ? updateField : updateJointField;
+    const accent = isMain ? 'emerald' : 'green';
+    const accentColor = isMain ? 'text-[#2d5016]' : 'text-green-700';
+    const fullName = [m?.title, m?.first_name, m?.last_name].filter(Boolean).join(' ');
+    return (
+      <div className={`bg-white rounded-xl border p-6 hover:shadow-lg transition-all duration-300 border-l-4 ${
+        isMain ? 'border-gray-200 border-l-[#D4AF37]' : 'border-green-200 border-l-green-600'
+      }`}>
+        {/* Header */}
+        <div className={`flex items-center justify-between pb-4 mb-5 border-b-2 border-${accent}-50`}>
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg bg-${accent}-50`}>
+              <User className={`h-5 w-5 ${accentColor}`} />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Personal Details</h3>
+              {isJoint && (
+                <p className={`text-xs font-semibold mt-0.5 ${accentColor}`}>
+                  {isMain ? 'Main Member' : 'Joint Member'}
+                </p>
+              )}
+            </div>
+          </div>
+          {fullName && (
+            <p className={`text-xl font-bold ${accentColor} text-right leading-tight`}>{fullName}</p>
+          )}
+        </div>
+
+        {/* Fields as a clean list */}
+        <div className="divide-y divide-gray-50">
+          {/* Title + Member Type row */}
+          <div className="grid grid-cols-2 gap-x-6 py-2.5">
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Title</p>
+              {editing ? (
+                <select value={m?.title || ''} onChange={(e) => uf?.('title', e.target.value)} className={inputCls(!isMain)}>
+                  <option value="">Select...</option>
+                  <option value="Mr">Mr</option>
+                  <option value="Mrs">Mrs</option>
+                  <option value="Miss">Miss</option>
+                  <option value="Ms">Ms</option>
+                  <option value="Dr">Dr</option>
+                </select>
+              ) : (
+                <p className="text-sm font-medium text-gray-900">{m?.title || '—'}</p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{isMain ? 'Member Type' : 'Role'}</p>
+              <p className={`text-sm font-semibold capitalize ${accentColor}`}>{isMain ? member?.app_type : 'Joint'}</p>
+            </div>
+          </div>
+
+          {/* First + Last name row */}
+          <div className="grid grid-cols-2 gap-x-6 py-2.5">
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">First Name</p>
+              {editing ? (
+                <input type="text" value={m?.first_name || ''} onChange={(e) => uf?.('first_name', e.target.value)} className={inputCls(!isMain)} />
+              ) : (
+                <p className="text-sm font-medium text-gray-900">{m?.first_name || '—'}</p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Last Name</p>
+              {editing ? (
+                <input type="text" value={m?.last_name || ''} onChange={(e) => uf?.('last_name', e.target.value)} className={inputCls(!isMain)} />
+              ) : (
+                <p className="text-sm font-medium text-gray-900">{m?.last_name || '—'}</p>
+              )}
+            </div>
+          </div>
+
+          {/* DOB + Status row */}
+          <div className="grid grid-cols-2 gap-x-6 py-2.5">
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Date of Birth</p>
+              {editing ? (
+                <input type="date" value={m?.dob || ''} onChange={(e) => uf?.('dob', e.target.value)} className={inputCls(!isMain)} />
+              ) : (
+                <p className="text-sm font-medium text-gray-900">
+                  {m?.dob ? <>{new Date(m.dob).toLocaleDateString()} <span className="text-gray-400">({calculateAge(m.dob)} yrs)</span></> : '—'}
+                </p>
+              )}
+            </div>
+            {isMain && (
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Status</p>
+                {isEditing ? (
+                  <>
+                    <select value={member?.status || ''} onChange={(e) => updateField?.('status', e.target.value)} className={inputCls()}>
+                      <option value="pending">Pending</option>
+                      {member?.status === 'active' && (
+                        <option value="active">Active</option>
+                      )}
+                      <option value="inactive">Inactive</option>
+                      <option value="paused">Paused</option>
+                    </select>
+                    {member?.status !== 'active' && (
+                      <p className="text-xs text-amber-700 mt-1">
+                        Use Actions → Activate Member when payment and documents are complete.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <span className={`inline-flex items-center gap-1.5 text-sm font-semibold ${
+                    member?.status === 'active' ? 'text-emerald-600' : member?.status === 'paused' ? 'text-red-600' : 'text-yellow-600'
+                  }`}>
+                    <span className="w-2 h-2 rounded-full bg-current"></span>
+                    {member?.status?.charAt(0).toUpperCase() + member?.status?.slice(1)}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {isMain && !isEditing && (
+          <div className="mt-5 pt-4 border-t border-gray-100">
+            <button onClick={() => {}} className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2d5016] text-white rounded-lg hover:bg-[#1f3810] transition-all duration-200 font-semibold text-sm hover:shadow-md hover:-translate-y-0.5">
+              <Edit className="h-4 w-4" />
+              Edit Details
+            </button>
+          </div>
+        )}
+        {!isMain && !isEditingJoint && (
+          <div className="mt-5 pt-4 border-t border-green-100">
+            <button onClick={onEditJoint} className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-all duration-200 font-semibold text-sm hover:shadow-md hover:-translate-y-0.5">
+              <Edit className="h-4 w-4" />
+              Edit Joint Member
+            </button>
+          </div>
+        )}
+        {!isMain && isEditingJoint && (
+          <div className="mt-5 pt-4 border-t border-green-100 flex gap-3">
+            <button onClick={onCancelJoint} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm">
+              <X className="h-4 w-4" />
+              Cancel
+            </button>
+            <button onClick={onSaveJoint} disabled={isSavingJoint} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-all duration-200 font-semibold text-sm">
+              {isSavingJoint ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>Saving...</> : <><Save className="h-4 w-4" />Save</>}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const MemberContactCard = ({ m, isMain }: { m: any; isMain: boolean }) => {
+    const editing = isMain ? isEditing : isEditingJoint;
+    const uf = isMain ? updateField : updateJointField;
+    return (
+      <div className={`bg-white rounded-xl border p-6 hover:shadow-lg transition-all duration-300 ${isMain ? 'border-gray-200' : 'border-green-200'}`}>
+        <div className={`flex items-center gap-3 pb-4 mb-5 border-b-2 ${isMain ? 'border-emerald-50' : 'border-green-50'}`}>
+          <div className={`p-2 rounded-lg ${isMain ? 'bg-emerald-50' : 'bg-green-50'}`}>
+            <Phone className={`h-5 w-5 ${isMain ? 'text-[#2d5016]' : 'text-green-700'}`} />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Contact Information</h3>
+            {isJoint && (
+              <p className={`text-xs font-semibold mt-0.5 ${isMain ? 'text-emerald-700' : 'text-green-700'}`}>
+                {isMain ? 'Main Member' : 'Joint Member'}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className={`flex items-start gap-3 p-3 rounded-lg border ${isMain ? 'bg-emerald-50/30 border-emerald-100' : 'bg-green-50/30 border-green-100'}`}>
+            <Phone className={`h-5 w-5 mt-0.5 ${isMain ? 'text-[#2d5016]' : 'text-green-700'}`} />
+            <div className="flex-1">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Mobile</label>
+              {editing ? (
+                <input type="tel" value={m?.mobile || ''} onChange={(e) => uf?.('mobile', e.target.value)} className={inputCls(!isMain)} />
+              ) : (
+                <p className="text-base font-medium text-gray-900">{m?.mobile || 'N/A'}</p>
+              )}
+            </div>
+          </div>
+
+          <div className={`flex items-start gap-3 p-3 rounded-lg border ${isMain ? 'bg-emerald-50/30 border-emerald-100' : 'bg-green-50/30 border-green-100'}`}>
+            <Upload className={`h-5 w-5 mt-0.5 ${isMain ? 'text-[#2d5016]' : 'text-green-700'}`} />
+            <div className="flex-1">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Email</label>
+              {editing ? (
+                <input type="email" value={m?.email || ''} onChange={(e) => uf?.('email', e.target.value)} className={inputCls(!isMain)} />
+              ) : (
+                <p className="text-base font-medium text-gray-900">{m?.email || 'N/A'}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Home Phone</label>
+              {editing ? (
+                <input type="tel" value={m?.home_phone || ''} onChange={(e) => uf?.('home_phone', e.target.value)} className={inputCls(!isMain)} />
+              ) : (
+                <p className="text-base font-medium text-gray-400">{m?.home_phone || 'N/A'}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Work Phone</label>
+              {editing ? (
+                <input type="tel" value={m?.work_phone || ''} onChange={(e) => uf?.('work_phone', e.target.value)} className={inputCls(!isMain)} />
+              ) : (
+                <p className="text-base font-medium text-gray-400">{m?.work_phone || 'N/A'}</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {isMain && !isEditing && (
+          <div className="mt-6 pt-5 border-t border-gray-100 flex gap-3">
+            <button onClick={() => setShowEmailPanel(true)} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm">
+              <Upload className="h-4 w-4" />
+              Send Email
+            </button>
+            <button onClick={() => window.location.href = `tel:${member?.mobile}`} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm">
+              <Phone className="h-4 w-4" />
+              Call Member
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const MemberAddressCard = ({ m, isMain }: { m: any; isMain: boolean }) => {
+    const editing = isMain ? isEditing : isEditingJoint;
+    const uf = isMain ? updateField : updateJointField;
+    return (
+      <div className={`bg-white rounded-xl border p-6 hover:shadow-lg transition-all duration-300 ${isMain ? 'border-gray-200' : 'border-green-200'}`}>
+        <div className={`flex items-center gap-3 pb-4 mb-5 border-b-2 ${isMain ? 'border-emerald-50' : 'border-green-50'}`}>
+          <div className={`p-2 rounded-lg ${isMain ? 'bg-emerald-50' : 'bg-green-50'}`}>
+            <MapPin className={`h-5 w-5 ${isMain ? 'text-[#2d5016]' : 'text-green-700'}`} />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Address</h3>
+            {isJoint && (
+              <p className={`text-xs font-semibold mt-0.5 ${isMain ? 'text-emerald-700' : 'text-green-700'}`}>
+                {isMain ? 'Main Member' : 'Joint Member'}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {!editing && (
+          <div className={`flex items-start gap-4 p-4 rounded-lg border-l-4 mb-5 ${
+            isMain ? 'bg-emerald-50/30 border-l-[#D4AF37]' : 'bg-green-50/30 border-l-green-600'
+          }`}>
+            <MapPin className={`h-8 w-8 flex-shrink-0 ${isMain ? 'text-[#2d5016]' : 'text-green-700'}`} />
+            <div>
+              <p className="text-base font-medium text-gray-900 leading-relaxed">{m?.address_line_1 || 'N/A'}</p>
+              <p className="text-base font-medium text-gray-900 leading-relaxed">
+                {m?.town}{m?.town && m?.city && ', '}{m?.city}
+              </p>
+              <p className={`text-base font-semibold leading-relaxed ${isMain ? 'text-[#2d5016]' : 'text-green-700'}`}>{m?.postcode}</p>
+            </div>
+          </div>
+        )}
+
+        {editing && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Address Line 1</label>
+              <input type="text" value={m?.address_line_1 || ''} onChange={(e) => uf?.('address_line_1', e.target.value)} className={inputCls(!isMain)} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Town</label>
+              <input type="text" value={m?.town || ''} onChange={(e) => uf?.('town', e.target.value)} className={inputCls(!isMain)} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">City</label>
+              <input type="text" value={m?.city || ''} onChange={(e) => uf?.('city', e.target.value)} className={inputCls(!isMain)} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Postcode</label>
+              <input type="text" value={m?.postcode || ''} onChange={(e) => uf?.('postcode', e.target.value)} className={inputCls(!isMain)} />
+            </div>
+          </div>
+        )}
+
+        {isMain && !isEditing && (
+          <div className="pt-5 border-t border-gray-100 flex gap-3">
+            <button onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${m?.address_line_1}, ${m?.city}, ${m?.postcode}`)}`)} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm">
+              <MapPin className="h-4 w-4" />
+              View on Map
+            </button>
+            <button onClick={() => {}} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm">
+              <Edit className="h-4 w-4" />
+              Edit Address
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {isJoint ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <MemberPersonalCard m={member} isMain={true} />
+          <MemberPersonalCard m={jointMember} isMain={false} />
+          <MemberContactCard m={member} isMain={true} />
+          <MemberContactCard m={jointMember} isMain={false} />
+          <MemberAddressCard m={member} isMain={true} />
+          <MemberAddressCard m={jointMember} isMain={false} />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <MemberPersonalCard m={member} isMain={true} />
+          <MemberContactCard m={member} isMain={true} />
+          <div className="lg:col-span-2">
+            <MemberAddressCard m={member} isMain={true} />
+          </div>
+        </div>
+      )}
+
+      {/* Membership Info Card - Full Width */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300 border-l-4 border-l-[#D4AF37]">
+        <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-emerald-50">
+          <div className="p-2 bg-emerald-50 rounded-lg">
+            <Shield className="h-5 w-5 text-[#2d5016]" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900">Membership Information</h3>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              Member ID
+            </label>
+            <p className="text-base font-bold text-[#D4AF37]">#{member?.id?.slice(0, 8)}</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              Member Since
+            </label>
+            <p className="text-base font-medium text-gray-900">
+              {member?.join_date ? new Date(member.join_date).toLocaleDateString() : 'N/A'}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              Next Renewal
+            </label>
+            <p className="text-base font-semibold text-[#2d5016]">
+              {member?.next_renewal_date ? new Date(member.next_renewal_date).toLocaleDateString() : 'N/A'}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              Total Paid
+            </label>
+            <p className="text-xl font-bold text-[#2d5016]">
+              £{calculateTotalPaid(member).toFixed(2)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 pt-5 border-t border-gray-100 flex gap-3">
+          <button
+            onClick={() => setActiveTab('payments')}
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2d5016] text-white rounded-lg hover:bg-[#1f3810] transition-all duration-200 font-semibold text-sm hover:shadow-md hover:-translate-y-0.5"
+          >
+            <CreditCard className="h-4 w-4" />
+            View Payments
+          </button>
+          <button
+            onClick={() => setActiveTab('payments')}
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
+          >
+            <PoundSterling className="h-4 w-4" />
+            Add Payment
+          </button>
+        </div>
+      </div>
+
+      {/* Notes Card (if exists) */}
+      {(member?.notes || isEditing) && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-emerald-50">
+            <div className="p-2 bg-emerald-50 rounded-lg">
+              <FileText className="h-5 w-5 text-[#2d5016]" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900">Notes</h3>
+          </div>
+
+          {isEditing ? (
+            <textarea
+              value={member?.notes || ''}
+              onChange={(e) => updateField?.('notes', e.target.value)}
+              className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              rows={4}
+              placeholder="Add any additional notes about this member..."
+            />
+          ) : (
+            <p className="text-base text-gray-700 leading-relaxed whitespace-pre-wrap">
+              {member?.notes || 'No notes'}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Helper function for calculating total paid
+function calculateTotalPaid(member: any): number {
+  // Use existing payments data from member if available
+  if (member?.payments && Array.isArray(member.payments)) {
+    return member.payments.reduce((sum: number, payment: any) =>
+      sum + (payment.total_amount || 0), 0
+    );
+  }
+  return 0;
+}
+
+// Helper function for calculating age from DOB
+function calculateAge(dob: string): number | null {
+  if (!dob) return null;
+  const birthDate = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+// Helper Components
+function ConfirmModal({ title, message, confirmText, confirmColor, onConfirm, onCancel, isLoading }: any) {
+  const colorClasses = {
+    red: 'bg-red-600 hover:bg-red-700',
+    yellow: 'bg-yellow-600 hover:bg-yellow-700',
+    gray: 'bg-gray-600 hover:bg-gray-700',
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
+        <p className="text-sm text-gray-600 mb-6">{message}</p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onCancel}
+            disabled={isLoading}
+            className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isLoading}
+            className={`px-4 py-2 text-sm text-white rounded-lg transition-colors ${colorClasses[confirmColor as keyof typeof colorClasses]}`}
+          >
+            {isLoading ? 'Processing...' : confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Joint Member Tab Component
+function JointMemberTab({ jointMember, isEditing, onEdit, onSave, onCancel, updateField, isSaving }: any) {
+  if (!jointMember) {
+    return (
+      <div className="bg-white rounded-xl border border-green-200 p-6">
+        <div className="text-center py-8">
+          <Users className="h-12 w-12 mx-auto mb-4 text-green-300" />
+          <p className="text-gray-500 font-medium">No joint member registered</p>
+          <p className="text-sm text-gray-400 mt-1">
+            This is a single membership or joint member details haven't been added yet.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const calculateAge = (dob: string) => {
+    if (!dob) return null;
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
+    return age;
+  };
+
+  const inputCls = 'w-full px-3 py-2 text-sm border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500';
+
+  return (
+    <div className="space-y-6">
+      {/* Joint member identity banner */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-200 rounded-xl">
+        <div className="p-2 bg-green-100 rounded-lg">
+          <Users className="h-5 w-5 text-green-700" />
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-green-900">
+            {[jointMember.title, jointMember.first_name, jointMember.last_name].filter(Boolean).join(' ')}
+          </p>
+          <p className="text-xs text-green-600 capitalize">{jointMember.relation ? `Relationship: ${jointMember.relation}` : 'Joint Member'}</p>
+        </div>
+        {!isEditing && (
+          <button
+            onClick={onEdit}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-all duration-200 font-semibold text-sm"
+          >
+            <Edit className="h-4 w-4" />
+            Edit
+          </button>
+        )}
+        {isEditing && (
+          <div className="flex gap-2">
+            <button onClick={onCancel} className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 text-sm font-medium">
+              <X className="h-4 w-4" />
+              Cancel
+            </button>
+            <button onClick={onSave} disabled={isSaving} className="inline-flex items-center gap-2 px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-all duration-200 font-semibold text-sm">
+              {isSaving ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>Saving...</> : <><Save className="h-4 w-4" />Save</>}
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Personal Details Card */}
+        <div className="bg-white rounded-xl border border-green-200 border-l-4 border-l-green-600 p-6 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-green-50">
+            <div className="p-2 bg-green-50 rounded-lg">
+              <User className="h-5 w-5 text-green-700" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Personal Details</h3>
+              <p className="text-xs font-semibold text-green-700 mt-0.5">Joint Member</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Title</label>
+                {isEditing ? (
+                  <select value={jointMember?.title || ''} onChange={(e) => updateField?.('title', e.target.value)} className={inputCls}>
+                    <option value="">Select...</option>
+                    <option value="Mr">Mr</option>
+                    <option value="Mrs">Mrs</option>
+                    <option value="Miss">Miss</option>
+                    <option value="Ms">Ms</option>
+                    <option value="Dr">Dr</option>
+                  </select>
+                ) : (
+                  <p className="text-base font-medium text-gray-900">{jointMember?.title || 'N/A'}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Relationship</label>
+                {isEditing ? (
+                  <select value={jointMember?.relation || ''} onChange={(e) => updateField?.('relation', e.target.value)} className={inputCls}>
+                    <option value="">Select...</option>
+                    <option value="spouse">Spouse</option>
+                    <option value="partner">Partner</option>
+                    <option value="other">Other</option>
+                  </select>
+                ) : (
+                  <p className="text-base font-semibold text-green-700 capitalize">{jointMember?.relation || 'N/A'}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">First Name</label>
+                {isEditing ? (
+                  <input type="text" value={jointMember?.first_name || ''} onChange={(e) => updateField?.('first_name', e.target.value)} className={inputCls} />
+                ) : (
+                  <p className="text-base font-medium text-gray-900">{jointMember?.first_name}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Last Name</label>
+                {isEditing ? (
+                  <input type="text" value={jointMember?.last_name || ''} onChange={(e) => updateField?.('last_name', e.target.value)} className={inputCls} />
+                ) : (
+                  <p className="text-base font-medium text-gray-900">{jointMember?.last_name}</p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Date of Birth</label>
+              {isEditing ? (
+                <input type="date" value={jointMember?.dob || ''} onChange={(e) => updateField?.('dob', e.target.value)} className={inputCls} />
+              ) : (
+                <p className="text-base font-medium text-gray-900">
+                  {jointMember?.dob ? (
+                    <>{new Date(jointMember.dob).toLocaleDateString()}{' '}<span className="text-gray-500 text-sm">({calculateAge(jointMember.dob)} years)</span></>
+                  ) : 'N/A'}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Contact Information Card */}
+        <div className="bg-white rounded-xl border border-green-200 p-6 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-green-50">
+            <div className="p-2 bg-green-50 rounded-lg">
+              <Phone className="h-5 w-5 text-green-700" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Contact Information</h3>
+              <p className="text-xs font-semibold text-green-700 mt-0.5">Joint Member</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 p-3 bg-green-50/30 rounded-lg border border-green-100">
+              <Phone className="h-5 w-5 text-green-700 mt-0.5" />
+              <div className="flex-1">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Mobile</label>
+                {isEditing ? (
+                  <input type="tel" value={jointMember?.mobile || ''} onChange={(e) => updateField?.('mobile', e.target.value)} className={inputCls} />
+                ) : (
+                  <p className="text-base font-medium text-gray-900">{jointMember?.mobile || 'N/A'}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-3 bg-green-50/30 rounded-lg border border-green-100">
+              <Upload className="h-5 w-5 text-green-700 mt-0.5" />
+              <div className="flex-1">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Email</label>
+                {isEditing ? (
+                  <input type="email" value={jointMember?.email || ''} onChange={(e) => updateField?.('email', e.target.value)} className={inputCls} />
+                ) : (
+                  <p className="text-base font-medium text-gray-900">{jointMember?.email || 'N/A'}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Home Phone</label>
+                {isEditing ? (
+                  <input type="tel" value={jointMember?.home_phone || ''} onChange={(e) => updateField?.('home_phone', e.target.value)} className={inputCls} />
+                ) : (
+                  <p className="text-base font-medium text-gray-400">{jointMember?.home_phone || 'N/A'}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Work Phone</label>
+                {isEditing ? (
+                  <input type="tel" value={jointMember?.work_phone || ''} onChange={(e) => updateField?.('work_phone', e.target.value)} className={inputCls} />
+                ) : (
+                  <p className="text-base font-medium text-gray-400">{jointMember?.work_phone || 'N/A'}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {!isEditing && (
+            <div className="mt-6 pt-5 border-t border-green-100 flex gap-3">
+              <button onClick={() => window.location.href = `tel:${jointMember?.mobile}`} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm">
+                <Phone className="h-4 w-4" />
+                Call
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Address Card */}
+        <div className="lg:col-span-2 bg-white rounded-xl border border-green-200 p-6 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-green-50">
+            <div className="p-2 bg-green-50 rounded-lg">
+              <MapPin className="h-5 w-5 text-green-700" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Address</h3>
+              <p className="text-xs font-semibold text-green-700 mt-0.5">Joint Member</p>
+            </div>
+          </div>
+
+          {!isEditing && (
+            <div className="flex items-start gap-4 p-4 bg-green-50/30 rounded-lg border-l-4 border-l-green-600 mb-5">
+              <MapPin className="h-8 w-8 text-green-700 flex-shrink-0" />
+              <div>
+                <p className="text-base font-medium text-gray-900 leading-relaxed">{jointMember?.address_line_1 || 'N/A'}</p>
+                <p className="text-base font-medium text-gray-900 leading-relaxed">
+                  {jointMember?.town}{jointMember?.town && jointMember?.city && ', '}{jointMember?.city}
+                </p>
+                <p className="text-base font-semibold text-green-700 leading-relaxed">{jointMember?.postcode}</p>
+              </div>
+            </div>
+          )}
+
+          {isEditing && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Address Line 1</label>
+                <input type="text" value={jointMember?.address_line_1 || ''} onChange={(e) => updateField?.('address_line_1', e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Town</label>
+                <input type="text" value={jointMember?.town || ''} onChange={(e) => updateField?.('town', e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">City</label>
+                <input type="text" value={jointMember?.city || ''} onChange={(e) => updateField?.('city', e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Postcode</label>
+                <input type="text" value={jointMember?.postcode || ''} onChange={(e) => updateField?.('postcode', e.target.value)} className={inputCls} />
+              </div>
+            </div>
+          )}
+
+          {!isEditing && (
+            <div className="pt-5 border-t border-green-100">
+              <button
+                onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${jointMember?.address_line_1}, ${jointMember?.city}, ${jointMember?.postcode}`)}`)}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
+              >
+                <MapPin className="h-4 w-4" />
+                View on Map
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// GP Details Tab Component
+function GPDetailsTab({ gpDetails, memberId }: any) {
+  const [showGPModal, setShowGPModal] = useState(false);
+  
+  if (!gpDetails) {
+    return (
+      <>
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="text-center py-8">
+            <Stethoscope className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <p className="text-gray-500 font-medium">No GP details recorded</p>
+            <p className="text-sm text-gray-400 mt-1 mb-4">
+              GP information hasn't been added yet.
+            </p>
+            <button
+              onClick={() => setShowGPModal(true)}
+              className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <Stethoscope className="h-4 w-4 mr-2" />
+              Add GP Details
+            </button>
+          </div>
+        </div>
+
+        {showGPModal && (
+          <GPDetailsModal
+            isOpen={showGPModal}
+            onClose={() => setShowGPModal(false)}
+            memberId={memberId}
+            gpDetails={null}
+          />
+        )}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="space-y-4">
+        {/* Header with Edit Button */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">GP Practice Information</h3>
+          <button
+            onClick={() => setShowGPModal(true)}
+            className="inline-flex items-center px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            <Edit className="h-4 w-4 mr-1" />
+            Edit GP Details
+          </button>
+        </div>
+
+        {/* GP Information Card */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+            <Stethoscope className="h-4 w-4 mr-2 text-gray-400" />
+            GP Practice Information
+          </h3>
+          <dl className="space-y-2">
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Practice Name: </span>
+              <span className="text-sm text-gray-900">{gpDetails.gp_name_surgery || 'N/A'}</span>
+            </div>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Address: </span>
+              <span className="text-sm text-gray-900">{gpDetails.address_line_1 || 'N/A'}</span>
+            </div>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Town: </span>
+              <span className="text-sm text-gray-900">{gpDetails.town || 'N/A'}</span>
+            </div>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">City: </span>
+              <span className="text-sm text-gray-900">{gpDetails.city || 'N/A'}</span>
+            </div>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Postcode: </span>
+              <span className="text-sm text-gray-900">{gpDetails.postcode || 'N/A'}</span>
+            </div>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Phone: </span>
+              <span className="text-sm text-gray-900">{gpDetails.phone || 'N/A'}</span>
+            </div>
+            <div className="py-1">
+              <span className="text-xs text-gray-500 font-medium">Email: </span>
+              <span className="text-sm text-gray-900">{gpDetails.email || 'N/A'}</span>
+            </div>
+          </dl>
+        </div>
+      </div>
+
+      {showGPModal && (
+        <GPDetailsModal
+          isOpen={showGPModal}
+          onClose={() => setShowGPModal(false)}
+          memberId={memberId}
+          gpDetails={gpDetails}
+        />
+      )}
+    </>
+  );
+}
+
+// Declarations Tab Component
+function DeclarationsTab({ declarations, memberId, member, jointMember }: any) {
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+
+  if (!declarations) {
+    return (
+      <>
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="text-center py-8">
+            <CheckSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <p className="text-gray-500 font-medium">No declarations recorded</p>
+            <p className="text-sm text-gray-400 mt-1 mb-4">
+              Declarations haven't been completed yet.
+            </p>
+            <button
+              onClick={() => setShowSignatureModal(true)}
+              className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <CheckSquare className="h-4 w-4 mr-2" />
+              Sign Declarations
+            </button>
+          </div>
+        </div>
+
+        {showSignatureModal && (
+          <DeclarationsSignatureModal
+            isOpen={showSignatureModal}
+            onClose={() => setShowSignatureModal(false)}
+            memberId={memberId}
+            member={member}
+            jointMember={jointMember}
+            declarations={null}
+          />
+        )}
+      </>
+    );
+  }
+
+  const hasMainSignatures = declarations.main_medical_signature || declarations.main_final_signature;
+  const isComplete = declarations.main_medical_signature && declarations.main_final_signature;
+
+  return (
+    <>
+      <div className="space-y-4">
+        {/* Header with Sign Button */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Declaration Signatures</h3>
+          {!isComplete && (
+            <button
+              onClick={() => setShowSignatureModal(true)}
+              className="inline-flex items-center px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <CheckSquare className="h-4 w-4 mr-1" />
+              {hasMainSignatures ? 'Update Signatures' : 'Sign Declarations'}
+            </button>
+          )}
+        </div>
+
+        {/* Medical Consent - Main Member */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+            <h3 className="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-2">
+              {declarations.main_medical_consent && (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              )}
+              Section 6: Medical Consent Declaration{member?.first_name || member?.last_name ? ` — ${[member.first_name, member.last_name].filter(Boolean).join(' ')}` : ''}
+            </h3>
+          </div>
+          
+          {/* Declaration Text */}
+          <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
+            <p className="text-sm text-gray-700 leading-relaxed italic">
+              "I confirm that I have no known medical conditions or illnesses, other than those I have already 
+              disclosed in Section 5 (Medical Info) of this application, that could invalidate my application."
+            </p>
+          </div>
+
+          {/* Signature Details */}
+          {declarations.main_medical_signature ? (
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-900">Signed and Agreed</p>
+                  {declarations.main_medical_consent_date && (
+                    <p className="text-xs text-green-700 mt-1">
+                      Signed on {new Date(declarations.main_medical_consent_date).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+              <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-amber-900">Not Yet Signed</p>
+                <p className="text-xs text-amber-700 mt-1">
+                  This declaration has not been signed by the applicant
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Final Declaration - Main Member */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-purple-50 border-l-4 border-purple-500 p-4 mb-4">
+            <h3 className="text-sm font-semibold text-purple-900 mb-2 flex items-center gap-2">
+              {declarations.main_final_declaration && (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              )}
+              Section 7: Final Declaration & Terms{member?.first_name || member?.last_name ? ` — ${[member.first_name, member.last_name].filter(Boolean).join(' ')}` : ''}
+            </h3>
+          </div>
+          
+          {/* Declaration Text */}
+          <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200 space-y-3">
+            <p className="text-sm text-gray-700 leading-relaxed italic flex items-start gap-2">
+              <CheckSquare className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+              <span>"I accept the Terms & Conditions of Central Region Muslim Funeral Service"</span>
+            </p>
+            <p className="text-sm text-gray-700 leading-relaxed italic flex items-start gap-2">
+              <CheckSquare className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+              <span>"I agree to contribute to the emergency fund if required"</span>
+            </p>
+            <p className="text-sm text-gray-700 leading-relaxed italic flex items-start gap-2">
+              <CheckSquare className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+              <span>"I confirm that all information provided in this application is accurate and complete"</span>
+            </p>
+          </div>
+
+          {/* Signature Details */}
+          {declarations.main_final_signature ? (
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-900">Signed and Agreed</p>
+                  {declarations.main_final_declaration_date && (
+                    <p className="text-xs text-green-700 mt-1">
+                      Signed on {new Date(declarations.main_final_declaration_date).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+              <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-amber-900">Not Yet Signed</p>
+                <p className="text-xs text-amber-700 mt-1">
+                  This declaration has not been signed by the applicant
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Medical Consent - Joint Member */}
+        {member?.app_type === 'joint' && declarations.joint_medical_consent !== undefined && declarations.joint_medical_consent !== null && (
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-blue-50 border-l-4 border-blue-500 p-3 mb-4">
+              <h3 className="text-sm font-semibold text-blue-900 mb-1">
+                Section 6: Medical Consent{jointMember?.first_name || jointMember?.last_name ? ` — ${[jointMember.first_name, jointMember.last_name].filter(Boolean).join(' ')}` : ' - Applicant 2'}
+              </h3>
+            </div>
+            <dl className="space-y-2">
+              <div className="flex justify-between items-start py-1">
+                <dt className="text-xs text-gray-500 font-medium">Consent Given</dt>
+                <dd className="text-sm text-gray-900 text-right">
+                  {declarations.joint_medical_consent ? (
+                    <span className="inline-flex items-center text-green-600">
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Yes
+                    </span>
+                  ) : (
+                    <span className="text-red-600">No</span>
+                  )}
+                </dd>
+              </div>
+              {declarations.joint_medical_signature && (
+                <div className="flex justify-between items-start py-1">
+                  <dt className="text-xs text-gray-500 font-medium">Signature</dt>
+                  <dd className="text-lg text-gray-900 text-right font-serif italic">
+                    {declarations.joint_medical_signature}
+                  </dd>
+                </div>
+              )}
+              {declarations.joint_medical_consent_date && (
+                <div className="flex justify-between items-start py-1">
+                  <dt className="text-xs text-gray-500 font-medium">Date Signed</dt>
+                  <dd className="text-sm text-gray-900 text-right">
+                    {new Date(declarations.joint_medical_consent_date).toLocaleDateString()}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </div>
+        )}
+
+        {/* Final Declaration - Joint Member */}
+        {member?.app_type === 'joint' && declarations.joint_final_declaration !== undefined && declarations.joint_final_declaration !== null && (
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-purple-50 border-l-4 border-purple-500 p-3 mb-4">
+              <h3 className="text-sm font-semibold text-purple-900 mb-1">
+                Section 7: Final Declaration{jointMember?.first_name || jointMember?.last_name ? ` — ${[jointMember.first_name, jointMember.last_name].filter(Boolean).join(' ')}` : ' - Applicant 2'}
+              </h3>
+            </div>
+            <dl className="space-y-2">
+              <div className="flex justify-between items-start py-1">
+                <dt className="text-xs text-gray-500 font-medium">Declaration Accepted</dt>
+                <dd className="text-sm text-gray-900 text-right">
+                  {declarations.joint_final_declaration ? (
+                    <span className="inline-flex items-center text-green-600">
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Yes
+                    </span>
+                  ) : (
+                    <span className="text-red-600">No</span>
+                  )}
+                </dd>
+              </div>
+              {declarations.joint_final_signature && (
+                <div className="flex justify-between items-start py-1">
+                  <dt className="text-xs text-gray-500 font-medium">Signature</dt>
+                  <dd className="text-lg text-gray-900 text-right font-serif italic">
+                    {declarations.joint_final_signature}
+                  </dd>
+                </div>
+              )}
+              {declarations.joint_final_declaration_date && (
+                <div className="flex justify-between items-start py-1">
+                  <dt className="text-xs text-gray-500 font-medium">Date Signed</dt>
+                  <dd className="text-sm text-gray-900 text-right">
+                    {new Date(declarations.joint_final_declaration_date).toLocaleDateString()}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </div>
+        )}
+      </div>
+
+      {showSignatureModal && (
+        <DeclarationsSignatureModal
+          isOpen={showSignatureModal}
+          onClose={() => setShowSignatureModal(false)}
+          memberId={memberId}
+          member={member}
+          jointMember={jointMember}
+          declarations={declarations}
+        />
+      )}
+    </>
+  );
+}
+// ============================================
+// BATCH 2 TAB COMPONENTS
+// Add these to the end of MemberDetail.tsx
+// ============================================
+
+// Children Tab Component
+function ChildrenTab({ children, memberId }: any) {
+  const queryClient = useQueryClient();
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingChild, setEditingChild] = useState<any>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+
+  const deleteChildMutation = useMutation({
+    mutationFn: async (childId: string) => {
+      const { error } = await supabase
+        .from('children')
+        .delete()
+        .eq('id', childId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+      setShowDeleteConfirm(null);
+    },
+  });
+
+  if (children.length === 0) {
+    return (
+      <>
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="text-center py-8">
+            <Baby className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <p className="text-gray-500 font-medium">No children registered</p>
+            <p className="text-sm text-gray-400 mt-1 mb-4">
+              Add children to this membership
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowAddModal(true)}
+              className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <Baby className="h-4 w-4 mr-2" />
+              Add Child
+            </button>
+          </div>
+        </div>
+
+        {showAddModal && (
+          <ChildModal
+            isOpen={showAddModal}
+            onClose={() => setShowAddModal(false)}
+            memberId={memberId}
+          />
+        )}
+      </>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header with Add Button */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">
+          Children ({children.length})
+        </h3>
+        <button
+          type="button"
+          onClick={() => setShowAddModal(true)}
+          className="inline-flex items-center px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+        >
+          <Baby className="h-4 w-4 mr-1" />
+          Add Child
+        </button>
+      </div>
+
+      {/* Children List */}
+      <div className="space-y-3">
+        {children.map((child: any) => {
+          const age = child.dob
+            ? Math.floor(
+                (new Date().getTime() - new Date(child.dob).getTime()) /
+                  (365.25 * 24 * 60 * 60 * 1000)
+              )
+            : null;
+
+          return (
+            <div
+              key={child.id}
+              className="bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <h4 className="text-base font-semibold text-gray-900">
+                      {child.first_name} {child.last_name}
+                    </h4>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                      {child.relation || 'N/A'}
+                    </span>
+                    {age !== null && (
+                      <span className="text-sm text-gray-500">
+                        {age} year{age !== 1 ? 's' : ''} old
+                      </span>
+                    )}
+                  </div>
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                    <div>
+                      <dt className="text-xs text-gray-500">Date of Birth</dt>
+                      <dd className="text-gray-900">
+                        {child.dob
+                          ? new Date(child.dob).toLocaleDateString()
+                          : 'N/A'}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+                <div className="flex items-center space-x-2 ml-4">
+                  <button
+                    onClick={() => setEditingChild(child)}
+                    className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                    title="Edit"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirm(child.id)}
+                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Real Modals */}
+      {showAddModal && (
+        <ChildModal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          memberId={memberId}
+        />
+      )}
+
+      {editingChild && (
+        <ChildModal
+          isOpen={!!editingChild}
+          onClose={() => setEditingChild(null)}
+          memberId={memberId}
+          child={editingChild}
+        />
+      )}
+
+      {showDeleteConfirm && (
+        <ConfirmModal
+          title="Delete Child"
+          message="Are you sure you want to remove this child from the membership?"
+          confirmText="Delete"
+          confirmColor="red"
+          onConfirm={() => deleteChildMutation.mutate(showDeleteConfirm)}
+          onCancel={() => setShowDeleteConfirm(null)}
+          isLoading={deleteChildMutation.isPending}
+        />
+      )}
+    </div>
+  );
+}
+
+// Next of Kin Tab Component
+function NextOfKinTab({ nextOfKin, memberId }: any) {
+  const queryClient = useQueryClient();
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingContact, setEditingContact] = useState<any>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+
+  const deleteContactMutation = useMutation({
+    mutationFn: async (contactId: string) => {
+      const { error } = await supabase
+        .from('next_of_kin')
+        .delete()
+        .eq('id', contactId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+      setShowDeleteConfirm(null);
+    },
+  });
+
+  if (nextOfKin.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="text-center py-8">
+          <Heart className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+          <p className="text-gray-500 font-medium">No emergency contacts</p>
+          <p className="text-sm text-gray-400 mt-1 mb-4">
+            Add emergency contacts for this member
+          </p>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            <Heart className="h-4 w-4 mr-2" />
+            Add Contact
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header with Add Button */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">
+          Emergency Contacts ({nextOfKin.length})
+        </h3>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="inline-flex items-center px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+        >
+          <Heart className="h-4 w-4 mr-1" />
+          Add Contact
+        </button>
+      </div>
+
+      {/* Contacts List */}
+      <div className="space-y-4">
+        {nextOfKin.map((contact: any, index: number) => (
+          <div
+            key={contact.id}
+            className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300"
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                {/* Name and Badge */}
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-emerald-50 rounded-lg">
+                    <Heart className="h-5 w-5 text-[#2d5016]" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900">
+                      {contact.title} {contact.first_name} {contact.last_name}
+                    </h4>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-sm text-[#2d5016] font-medium capitalize">
+                        {contact.relationship || 'N/A'}
+                      </span>
+                      {index === 0 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-[#D4AF37] text-white">
+                          Primary
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contact Details Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Mobile */}
+                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                    <Phone className="h-4 w-4 text-[#2d5016] mt-0.5" />
+                    <div>
+                      <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Mobile</dt>
+                      <dd className="text-sm font-medium text-gray-900 mt-0.5">{contact.mobile || 'N/A'}</dd>
+                    </div>
+                  </div>
+
+                  {/* Home Phone */}
+                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                    <Phone className="h-4 w-4 text-gray-400 mt-0.5" />
+                    <div>
+                      <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Home Phone</dt>
+                      <dd className="text-sm font-medium text-gray-900 mt-0.5">{contact.phone || 'N/A'}</dd>
+                    </div>
+                  </div>
+
+                  {/* Email */}
+                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg md:col-span-2">
+                    <Upload className="h-4 w-4 text-[#2d5016] mt-0.5" />
+                    <div>
+                      <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Email</dt>
+                      <dd className="text-sm font-medium text-gray-900 mt-0.5">{contact.email || 'N/A'}</dd>
+                    </div>
+                  </div>
+
+                  {/* Address */}
+                  <div className="flex items-start gap-3 p-3 bg-emerald-50/50 rounded-lg border-l-4 border-l-[#D4AF37] md:col-span-2">
+                    <MapPin className="h-4 w-4 text-[#2d5016] mt-0.5" />
+                    <div>
+                      <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Address</dt>
+                      <dd className="text-sm font-medium text-gray-900 mt-0.5">
+                        {contact.address_line_1 && (
+                          <>
+                            {contact.address_line_1}
+                            <br />
+                          </>
+                        )}
+                        {(contact.town || contact.city) && (
+                          <>
+                            {contact.town}{contact.town && contact.city && ', '}{contact.city}
+                            <br />
+                          </>
+                        )}
+                        {contact.postcode && (
+                          <span className="font-semibold text-[#2d5016]">{contact.postcode}</span>
+                        )}
+                        {!contact.address_line_1 && !contact.town && !contact.city && !contact.postcode && 'N/A'}
+                      </dd>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-2 ml-4">
+                <button
+                  onClick={() => setEditingContact(contact)}
+                  className="p-2 text-gray-400 hover:text-[#2d5016] hover:bg-emerald-50 rounded-lg transition-colors"
+                  title="Edit"
+                >
+                  <Edit className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(contact.id)}
+                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Delete"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Real Modals */}
+      {showAddModal && (
+        <NextOfKinModal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          memberId={memberId}
+        />
+      )}
+
+      {editingContact && (
+        <NextOfKinModal
+          isOpen={!!editingContact}
+          onClose={() => setEditingContact(null)}
+          memberId={memberId}
+          contact={editingContact}
+        />
+      )}
+
+      {showDeleteConfirm && (
+        <ConfirmModal
+          title="Delete Contact"
+          message="Are you sure you want to remove this emergency contact?"
+          confirmText="Delete"
+          confirmColor="red"
+          onConfirm={() => deleteContactMutation.mutate(showDeleteConfirm)}
+          onCancel={() => setShowDeleteConfirm(null)}
+          isLoading={deleteContactMutation.isPending}
+        />
+      )}
+    </div>
+  );
+}
+
+// Medical Info Tab Component
+function MedicalInfoTab({ medicalInfo, memberId }: any) {
+  const queryClient = useQueryClient();
+  const [editingInfo, setEditingInfo] = useState<any>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+
+  const deleteInfoMutation = useMutation({
+    mutationFn: async (infoId: string) => {
+      const { error } = await supabase
+        .from('medical_info')
+        .delete()
+        .eq('id', infoId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+      setShowDeleteConfirm(null);
+    },
+  });
+
+  const mainInfo = medicalInfo.find((m: any) => m.member_type === 'main');
+  const jointInfo = medicalInfo.find((m: any) => m.member_type === 'joint');
+
+  const MedicalCard = ({ info, label }: { info: any; label: string }) => {
+    if (!info) return null;
+    const hasConditions = info.disclaimer?.startsWith('Yes');
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-gray-900">{label}</h3>
+          <button
+            onClick={() => setEditingInfo(info)}
+            className="p-1 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+            title="Edit"
+          >
+            <Edit className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-gray-500">Has Medical Conditions:</span>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${hasConditions ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+              {info.disclaimer || 'Not answered'}
+            </span>
+          </div>
+          {info.conditions && (
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">Condition Details:</p>
+              <p className="text-sm text-gray-800 bg-gray-50 rounded p-3 border border-gray-100 whitespace-pre-wrap">{info.conditions}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  if (medicalInfo.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="text-center py-8">
+          <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+          <p className="text-gray-500 font-medium">No medical information recorded</p>
+          <p className="text-sm text-gray-400 mt-1">
+            Medical information is collected during member registration
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-gray-900">Medical Information</h3>
+
+      <MedicalCard info={mainInfo} label="Main Member" />
+      {jointInfo && <MedicalCard info={jointInfo} label="Joint Member" />}
+
+      {editingInfo && (
+        <MedicalInfoModal
+          isOpen={!!editingInfo}
+          onClose={() => setEditingInfo(null)}
+          memberId={memberId}
+          info={editingInfo}
+        />
+      )}
+
+      {showDeleteConfirm && (
+        <ConfirmModal
+          title="Delete Medical Information"
+          message="Are you sure you want to remove this medical information?"
+          confirmText="Delete"
+          confirmColor="red"
+          onConfirm={() => deleteInfoMutation.mutate(showDeleteConfirm)}
+          onCancel={() => setShowDeleteConfirm(null)}
+          isLoading={deleteInfoMutation.isPending}
+        />
+      )}
+    </div>
+  );
+}
+
+// Documents Tab Component
+function DocumentsTab({ member, memberId, children = [] }: { member: any; memberId: string; children?: any[] }) {
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
+  const hasLegacyChildDocs =
+    member?.children_documents && Object.keys(member.children_documents).length > 0;
+  const hasAnyChildDoc = children.some((c: any) => c.birth_certificate_url);
+
+  const hasAnyDocuments =
+    member?.main_photo_id_url ||
+    member?.main_proof_address_url ||
+    member?.joint_photo_id_url ||
+    member?.joint_proof_address_url ||
+    hasAnyChildDoc ||
+    hasLegacyChildDocs;
+
+  return (
+    <>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Uploaded Documents
+          </h3>
+          <button
+            type="button"
+            onClick={() => setShowUploadModal(true)}
+            className="inline-flex items-center px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            <Upload className="h-4 w-4 mr-1" />
+            Upload &amp; Manage Documents
+          </button>
+        </div>
+
+      {/* Main Member Documents */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+          <User className="h-4 w-4 mr-2 text-emerald-600" />
+          Main Member Documents
+        </h4>
+
+        <div className="space-y-4">
+          {/* Photo ID */}
+          <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+            <div className="flex items-center flex-1">
+              <div className={`p-2 rounded-lg mr-3 ${
+                member?.main_photo_id_url
+                  ? 'bg-emerald-100'
+                  : 'bg-gray-100'
+              }`}>
+                <FileText className={`h-6 w-6 ${
+                  member?.main_photo_id_url
+                    ? 'text-emerald-600'
+                    : 'text-gray-400'
+                }`} />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-900">
+                  Photo ID (Passport / Driving Licence)
+                </p>
+                {member?.main_photo_id_url ? (
+                  <p className="text-xs text-gray-500">
+                    Uploaded • Required
+                  </p>
+                ) : (
+                  <p className="text-xs text-red-600">
+                    Not uploaded • Required
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {member?.main_photo_id_url ? (
+              <div className="flex items-center space-x-2">
+                <a
+                  href={member.main_photo_id_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
+                  title="View document"
+                >
+                  <Eye className="h-4 w-4 text-emerald-600" />
+                </a>
+                <a
+                  href={member.main_photo_id_url}
+                  download
+                  className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                  title="Download document"
+                >
+                  <Download className="h-4 w-4 text-blue-600" />
+                </a>
+              </div>
+            ) : (
+              <span className="px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                Missing
+              </span>
+            )}
+          </div>
+
+          {/* Proof of Address */}
+          <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+            <div className="flex items-center flex-1">
+              <div className={`p-2 rounded-lg mr-3 ${
+                member?.main_proof_address_url
+                  ? 'bg-emerald-100'
+                  : 'bg-gray-100'
+              }`}>
+                <FileText className={`h-6 w-6 ${
+                  member?.main_proof_address_url
+                    ? 'text-emerald-600'
+                    : 'text-gray-400'
+                }`} />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-900">
+                  Proof of Address (Utility Bill / Council Tax)
+                </p>
+                {member?.main_proof_address_url ? (
+                  <p className="text-xs text-gray-500">
+                    Uploaded • Required
+                  </p>
+                ) : (
+                  <p className="text-xs text-red-600">
+                    Not uploaded • Required
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {member?.main_proof_address_url ? (
+              <div className="flex items-center space-x-2">
+                <a
+                  href={member.main_proof_address_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
+                  title="View document"
+                >
+                  <Eye className="h-4 w-4 text-emerald-600" />
+                </a>
+                <a
+                  href={member.main_proof_address_url}
+                  download
+                  className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                  title="Download document"
+                >
+                  <Download className="h-4 w-4 text-blue-600" />
+                </a>
+              </div>
+            ) : (
+              <span className="px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                Missing
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Joint Member Documents (if applicable) */}
+      {member?.app_type === 'joint' && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+            <Users className="h-4 w-4 mr-2 text-emerald-600" />
+            Joint Member Documents
+          </h4>
+
+          <div className="space-y-4">
+            {/* Joint Photo ID */}
+            <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+              <div className="flex items-center flex-1">
+                <div className={`p-2 rounded-lg mr-3 ${
+                  member?.joint_photo_id_url
+                    ? 'bg-emerald-100'
+                    : 'bg-gray-100'
+                }`}>
+                  <FileText className={`h-6 w-6 ${
+                    member?.joint_photo_id_url
+                      ? 'text-emerald-600'
+                      : 'text-gray-400'
+                  }`} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">
+                    Photo ID (Passport / Driving Licence)
+                  </p>
+                  {member?.joint_photo_id_url ? (
+                    <p className="text-xs text-gray-500">
+                      Uploaded • Required
+                    </p>
+                  ) : (
+                    <p className="text-xs text-red-600">
+                      Not uploaded • Required
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {member?.joint_photo_id_url ? (
+                <div className="flex items-center space-x-2">
+                  <a
+                    href={member.joint_photo_id_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
+                    title="View document"
+                  >
+                    <Eye className="h-4 w-4 text-emerald-600" />
+                  </a>
+                  <a
+                    href={member.joint_photo_id_url}
+                    download
+                    className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                    title="Download document"
+                  >
+                    <Download className="h-4 w-4 text-blue-600" />
+                  </a>
+                </div>
+              ) : (
+                <span className="px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                  Missing
+                </span>
+              )}
+            </div>
+
+            {/* Joint Proof of Address */}
+            <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+              <div className="flex items-center flex-1">
+                <div className={`p-2 rounded-lg mr-3 ${
+                  member?.joint_proof_address_url
+                    ? 'bg-emerald-100'
+                    : 'bg-gray-100'
+                }`}>
+                  <FileText className={`h-6 w-6 ${
+                    member?.joint_proof_address_url
+                      ? 'text-emerald-600'
+                      : 'text-gray-400'
+                  }`} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">
+                    Proof of Address (Utility Bill / Council Tax)
+                  </p>
+                  {member?.joint_proof_address_url ? (
+                    <p className="text-xs text-gray-500">
+                      Uploaded • Required
+                    </p>
+                  ) : (
+                    <p className="text-xs text-red-600">
+                      Not uploaded • Required
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {member?.joint_proof_address_url ? (
+                <div className="flex items-center space-x-2">
+                  <a
+                    href={member.joint_proof_address_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
+                    title="View document"
+                  >
+                    <Eye className="h-4 w-4 text-emerald-600" />
+                  </a>
+                  <a
+                    href={member.joint_proof_address_url}
+                    download
+                    className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                    title="Download document"
+                  >
+                    <Download className="h-4 w-4 text-blue-600" />
+                  </a>
+                </div>
+              ) : (
+                <span className="px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                  Missing
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Children Documents */}
+      {children.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+            <Baby className="h-4 w-4 mr-2 text-emerald-600" />
+            Children's Documents
+          </h4>
+
+          <div className="space-y-4">
+            {children.map((child: any) => {
+              const childName = [child.first_name, child.last_name].filter(Boolean).join(' ') || 'Child';
+              const certUrl = child.birth_certificate_url;
+
+              return (
+                <div
+                  key={child.id}
+                  className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+                >
+                  <div className="flex items-center flex-1">
+                    <div
+                      className={`p-2 rounded-lg mr-3 ${
+                        certUrl ? 'bg-emerald-100' : 'bg-gray-100'
+                      }`}
+                    >
+                      <FileText
+                        className={`h-6 w-6 ${certUrl ? 'text-emerald-600' : 'text-gray-400'}`}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">
+                        {childName} — Birth Certificate / Passport
+                      </p>
+                      {certUrl ? (
+                        <p className="text-xs text-gray-500">Uploaded • Optional</p>
+                      ) : (
+                        <p className="text-xs text-red-600">Not uploaded • Optional</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {certUrl ? (
+                    <div className="flex items-center space-x-2">
+                      <a
+                        href={certUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
+                        title="View document"
+                      >
+                        <Eye className="h-4 w-4 text-emerald-600" />
+                      </a>
+                      <a
+                        href={certUrl}
+                        download
+                        className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                        title="Download document"
+                      >
+                        <Download className="h-4 w-4 text-blue-600" />
+                      </a>
+                    </div>
+                  ) : (
+                    <span className="px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                      Missing
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Legacy children_documents on member row (if any URLs not on children records) */}
+            {hasLegacyChildDocs &&
+              Object.entries(member.children_documents).map(([key, url]: [string, any]) => {
+                const alreadyShown = children.some((c: any) => c.birth_certificate_url === url);
+                if (alreadyShown || !url) return null;
+
+                return (
+                  <div
+                    key={`legacy-${key}`}
+                    className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+                  >
+                    <div className="flex items-center flex-1">
+                      <div className="p-2 rounded-lg mr-3 bg-emerald-100">
+                        <FileText className="h-6 w-6 text-emerald-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">
+                          Birth Certificate / Passport (archived)
+                        </p>
+                        <p className="text-xs text-gray-500">Uploaded</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 hover:bg-emerald-100 rounded-lg transition-colors"
+                        title="View document"
+                      >
+                        <Eye className="h-4 w-4 text-emerald-600" />
+                      </a>
+                      <a
+                        href={url}
+                        download
+                        className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                        title="Download document"
+                      >
+                        <Download className="h-4 w-4 text-blue-600" />
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* Documents Summary */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h5 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
+          <Info className="h-4 w-4 mr-2" />
+          Document Information
+        </h5>
+        <ul className="text-xs text-blue-800 space-y-1">
+          <li>• Documents are required before membership can be approved</li>
+          <li>• Contact admin to upload missing documents</li>
+        </ul>
+      </div>
+
+      {/* Empty State (if no documents) */}
+      {!hasAnyDocuments && (
+        <div className="text-center py-12 bg-gray-50 rounded-lg">
+          <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-sm font-medium text-gray-900 mb-2">
+            No Documents Uploaded
+          </h3>
+          <p className="text-sm text-gray-500 mb-4">
+            This member has not uploaded any documents yet.
+          </p>
+        </div>
+      )}
+    </div>
+
+    {showUploadModal && (
+      <DocumentUploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        memberId={memberId}
+        member={member}
+        children={children}
+      />
+    )}
+  </>
+  );
+}
+
+function PaymentBreakdownDetail({ payment, notes }: { payment: any; notes?: string | null }) {
+  const lineItems = [
+    { label: 'Main Member - Joining Fee', value: payment.main_joining_fee },
+    { label: 'Main Member - Membership Fee', value: payment.main_membership_fee },
+    { label: 'Main Member - Miscellaneous', value: payment.main_misc },
+    { label: 'Joint Member - Joining Fee', value: payment.joint_joining_fee },
+    { label: 'Joint Member - Membership Fee', value: payment.joint_membership_fee },
+    { label: 'Joint Member - Miscellaneous', value: payment.joint_misc },
+    { label: 'Late Fee', value: payment.late_fee, isLate: true },
+  ].filter((item) => Number(item.value) > 0);
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-3 space-y-1.5">
+      <p className="text-xs font-semibold text-gray-700 mb-2">Fee breakdown</p>
+      {lineItems.length === 0 ? (
+        <p className="text-xs text-gray-500">No line-item breakdown recorded.</p>
+      ) : (
+        lineItems.map((item) => (
+          <div key={item.label} className="flex justify-between text-xs">
+            <span className={item.isLate ? 'text-red-600' : 'text-gray-600'}>{item.label}:</span>
+            <span className={item.isLate ? 'text-red-600 font-medium' : 'text-gray-900 font-medium'}>
+              {formatMoney(Number(item.value))}
+            </span>
+          </div>
+        ))
+      )}
+      <div className="flex justify-between text-xs pt-2 mt-2 border-t border-gray-200">
+        <span className="text-gray-900 font-semibold">Total due</span>
+        <span className="text-gray-900 font-bold">{formatMoney(Number(payment.total_amount))}</span>
+      </div>
+      {notes && <p className="text-xs text-gray-600 mt-2 italic">Note: {notes}</p>}
+    </div>
+  );
+}
+
+function PaymentsTab({ payments, memberId, member, children }: any) {
+  const queryClient = useQueryClient();
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [showRecordModal, setShowRecordModal] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<any>(null);
+  const [showPaymentMenu, setShowPaymentMenu] = useState<string | null>(null);
+  const [expandedPayments, setExpandedPayments] = useState<Set<string>>(new Set());
+
+  const togglePaymentExpanded = (paymentId: string) => {
+    const newExpanded = new Set(expandedPayments);
+    if (newExpanded.has(paymentId)) {
+      newExpanded.delete(paymentId);
+    } else {
+      newExpanded.add(paymentId);
+    }
+    setExpandedPayments(newExpanded);
+  };
+
+  const paymentTotals = sumPaymentAmounts(payments);
+  const sortedPayments = [...payments].sort((a: any, b: any) => {
+    const aTime = new Date(a.payment_date || a.created_at).getTime();
+    const bTime = new Date(b.payment_date || b.created_at).getTime();
+    return bTime - aTime;
+  });
+
+  const exportPayment = (payment: any) => {
+    const dataStr = JSON.stringify(payment, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `payment-${payment.id}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const printPayment = (payment: any) => {
+    const printWindow = window.open('', '', 'width=800,height=600');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Payment Receipt - ${payment.id}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; }
+            h1 { color: #065f46; margin-bottom: 30px; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+            th { background-color: #f3f4f6; font-weight: 600; }
+            .total { font-size: 18px; font-weight: bold; background-color: #ecfdf5; }
+            .header { margin-bottom: 30px; }
+            .status { 
+              display: inline-block; 
+              padding: 4px 12px; 
+              border-radius: 4px; 
+              font-size: 12px; 
+              font-weight: 600;
+              ${payment.payment_status === 'completed' ? 'background-color: #d1fae5; color: #065f46;' : 'background-color: #fef3c7; color: #92400e;'}
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Falkirk Central Mosque - Payment Receipt</h1>
+            <p><strong>Payment ID:</strong> ${payment.id}</p>
+            <p><strong>Date:</strong> ${new Date(payment.payment_date || payment.created_at).toLocaleDateString()}</p>
+            <p><strong>Status:</strong> <span class="status">${payment.payment_status.toUpperCase()}</span></p>
+            <p><strong>Payment Method:</strong> ${payment.payment_method?.replace('_', ' ')}</p>
+            ${payment.reference_no ? `<p><strong>Reference:</strong> ${payment.reference_no}</p>` : ''}
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th style="text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${payment.main_joining_fee ? `<tr><td>Main Member - Joining Fee</td><td style="text-align: right;">£${Number(payment.main_joining_fee).toFixed(2)}</td></tr>` : ''}
+              ${payment.main_membership_fee ? `<tr><td>Main Member - Membership Fee</td><td style="text-align: right;">£${Number(payment.main_membership_fee).toFixed(2)}</td></tr>` : ''}
+              ${payment.main_misc ? `<tr><td>Main Member - Miscellaneous</td><td style="text-align: right;">£${Number(payment.main_misc).toFixed(2)}</td></tr>` : ''}
+              ${payment.joint_joining_fee ? `<tr><td>Joint Member - Joining Fee</td><td style="text-align: right;">£${Number(payment.joint_joining_fee).toFixed(2)}</td></tr>` : ''}
+              ${payment.joint_membership_fee ? `<tr><td>Joint Member - Membership Fee</td><td style="text-align: right;">£${Number(payment.joint_membership_fee).toFixed(2)}</td></tr>` : ''}
+              ${payment.joint_misc ? `<tr><td>Joint Member - Miscellaneous</td><td style="text-align: right;">£${Number(payment.joint_misc).toFixed(2)}</td></tr>` : ''}
+              ${payment.late_fee ? `<tr><td>Late Fee</td><td style="text-align: right;">£${Number(payment.late_fee).toFixed(2)}</td></tr>` : ''}
+              <tr class="total">
+                <td><strong>TOTAL</strong></td>
+                <td style="text-align: right;"><strong>£${Number(payment.total_amount).toFixed(2)}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+          
+          ${payment.notes ? `<p><strong>Notes:</strong> ${payment.notes}</p>` : ''}
+          
+          <p style="margin-top: 40px; font-size: 12px; color: #6b7280;">
+            This is a computer-generated receipt. For queries, contact Falkirk Central Mosque.
+          </p>
+        </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
+  if (payments.length === 0) {
+    return (
+      <>
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="text-center py-8">
+            <CreditCard className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <p className="text-gray-500 font-medium">No payments recorded</p>
+            <p className="text-sm text-gray-400 mt-1 mb-4">
+              Payment history will appear here
+            </p>
+            <button
+              onClick={() => setShowRecordModal(true)}
+              className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Record Payment
+            </button>
+          </div>
+        </div>
+        {showRecordModal && (
+          <RecordPaymentModal
+            memberId={memberId}
+            member={member}
+            children={children || []}
+            payments={payments}
+            onClose={() => setShowRecordModal(false)}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+              setShowRecordModal(false);
+            }}
+          />
+        )}
+      </>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="flex items-center space-x-2 mb-1">
+            <CreditCard className="h-4 w-4 text-blue-600" />
+            <p className="text-xs text-gray-500 font-medium">Total Due</p>
+          </div>
+          <p className="text-2xl font-bold text-blue-600">{formatMoney(paymentTotals.due)}</p>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="flex items-center space-x-2 mb-1">
+            <PoundSterling className="h-4 w-4 text-green-600" />
+            <p className="text-xs text-gray-500 font-medium">Total Paid</p>
+          </div>
+          <p className="text-2xl font-bold text-green-600">{formatMoney(paymentTotals.paid)}</p>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="flex items-center space-x-2 mb-1">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <p className="text-xs text-gray-500 font-medium">Outstanding</p>
+          </div>
+          <p className="text-2xl font-bold text-amber-600">{formatMoney(paymentTotals.outstanding)}</p>
+        </div>
+      </div>
+
+      {/* Payments Table */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Payment History</h3>
+            <p className="text-xs text-gray-500 mt-0.5 max-w-xl">
+              Due is the amount expected when recorded; Paid is what has been received; Outstanding is what remains.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowRecordModal(true)}
+            className="inline-flex items-center px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition-colors shrink-0"
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Record Payment
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide w-8" />
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                  Date / Time
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                  Reason
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                  Method
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                  Due
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                  Paid
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                  Outstanding
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide w-12">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {sortedPayments.map((payment: any) => {
+                const amounts = getPaymentTableRowAmounts(payment, sortedPayments);
+                const isExpanded = expandedPayments.has(payment.id);
+                return (
+                  <Fragment key={payment.id}>
+                    <tr className="hover:bg-gray-50/80 transition-colors">
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => togglePaymentExpanded(payment.id)}
+                          className="p-1 rounded hover:bg-gray-200 text-gray-500"
+                          aria-label={isExpanded ? 'Hide breakdown' : 'Show breakdown'}
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
+                        {formatPaymentDateTime(payment)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        <div className="flex flex-col gap-0.5">
+                          <span>{formatPaymentReason(payment, sortedPayments)}</span>
+                          {payment.reference_no && (
+                            <span className="text-xs text-gray-500">Ref: {payment.reference_no}</span>
+                          )}
+                          {payment.status_note && (
+                            <span className="text-xs text-amber-800 italic">{payment.status_note}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
+                        {formatPaymentMethod(payment.payment_method)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 tabular-nums">
+                        {formatMoney(amounts.due)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right font-medium text-green-700 tabular-nums">
+                        {amounts.paid > 0 ? formatMoney(amounts.paid) : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right font-medium tabular-nums">
+                        {amounts.outstanding > 0 ? (
+                          <span className="text-amber-700">{formatMoney(amounts.outstanding)}</span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right relative">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowPaymentMenu(showPaymentMenu === payment.id ? null : payment.id)
+                          }
+                          className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          <MoreVertical className="h-4 w-4 text-gray-500" />
+                        </button>
+
+                        {showPaymentMenu === payment.id && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-10"
+                              onClick={() => setShowPaymentMenu(null)}
+                            />
+                            <div className="absolute right-4 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                              <button
+                                onClick={() => {
+                                  setEditingPayment(payment);
+                                  setShowAdjustModal(true);
+                                  setShowPaymentMenu(null);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                              >
+                                <Edit className="h-4 w-4 mr-3 text-gray-400" />
+                                Adjust Payment
+                              </button>
+                              <button
+                                onClick={() => {
+                                  exportPayment(payment);
+                                  setShowPaymentMenu(null);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                              >
+                                <Download className="h-4 w-4 mr-3 text-gray-400" />
+                                Export Payment
+                              </button>
+                              <button
+                                onClick={() => {
+                                  printPayment(payment);
+                                  setShowPaymentMenu(null);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                              >
+                                <FileText className="h-4 w-4 mr-3 text-gray-400" />
+                                Print Invoice/Receipt
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr className="bg-gray-50">
+                        <td colSpan={8} className="px-4 py-3">
+                          <PaymentBreakdownDetail payment={payment} notes={payment.notes} />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+            <tfoot className="bg-gray-50 border-t border-gray-200">
+              <tr>
+                <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">
+                  Totals
+                </td>
+                <td className="px-4 py-3 text-sm font-bold text-right text-gray-900 tabular-nums">
+                  {formatMoney(paymentTotals.due)}
+                </td>
+                <td className="px-4 py-3 text-sm font-bold text-right text-green-700 tabular-nums">
+                  {formatMoney(paymentTotals.paid)}
+                </td>
+                <td className="px-4 py-3 text-sm font-bold text-right text-amber-700 tabular-nums">
+                  {formatMoney(paymentTotals.outstanding)}
+                </td>
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      {/* Adjust Payment Modal */}
+      {showAdjustModal && editingPayment && (
+        <AdjustPaymentModal
+          payment={editingPayment}
+          onClose={() => {
+            setShowAdjustModal(false);
+            setEditingPayment(null);
+          }}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+            setShowAdjustModal(false);
+            setEditingPayment(null);
+          }}
+        />
+      )}
+
+      {/* Record Payment Modal */}
+      {showRecordModal && (
+        <RecordPaymentModal
+          memberId={memberId}
+          member={member}
+          children={children || []}
+          payments={payments}
+          onClose={() => setShowRecordModal(false)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+            setShowRecordModal(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ActivityLogTab({ memberId }: any) {
+  const [expandedView, setExpandedView] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<string>('all');
+  const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null);
+
+  const { data: activityLog, isLoading } = useQuery({
+    queryKey: ['activity-log', memberId],
+    queryFn: async () => {
+      // Fetch activity logs
+      const { data: logs } = await supabase
+        .from('activity_log')
+        .select('*')
+        .eq('member_id', memberId)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (!logs || logs.length === 0) return [];
+
+      // Get unique user IDs from logs
+      const userIds = [...new Set(logs.map((log: any) => log.user_id).filter(Boolean))];
+
+      // Fetch user details for all users
+      let userMap: Record<string, any> = {};
+      if (userIds.length > 0) {
+        const { data: users } = await supabase
+          .from('users')
+          .select('id, full_name, email')
+          .in('id', userIds);
+
+        if (users) {
+          userMap = users.reduce((acc: any, user: any) => {
+            acc[user.id] = user;
+            return acc;
+          }, {});
+        }
+      }
+
+      // Attach user info to each log
+      return logs.map((log: any) => ({
+        ...log,
+        performed_by_user: userMap[log.user_id] || {
+          full_name: log.user_name,
+          email: log.user_email,
+        },
+      }));
+    },
+  });
+
+  const getActionIcon = (actionType: string) => {
+    const icons: any = {
+      created: CheckCircle,
+      updated: Edit,
+      member_edited: Edit,
+      status_changed: AlertTriangle,
+      payment_received: PoundSterling,
+      payment_recorded: PoundSterling,
+      document_uploaded: Upload,
+      marked_deceased: AlertTriangle,
+      funeral_arranged: Heart,
+      expense_added: PoundSterling,
+      contact_added: User,
+      note_added: FileText,
+    };
+    
+    return icons[actionType] || FileText;
+  };
+
+  const getActionColor = (actionType: string) => {
+    const colors: any = {
+      created: 'bg-mosque-gold-100 text-mosque-gold-800 border-mosque-gold-200',
+      updated: 'bg-blue-100 text-blue-800 border-blue-200',
+      member_edited: 'bg-blue-100 text-blue-800 border-blue-200',
+      status_changed: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      payment_received: 'bg-mosque-gold-100 text-mosque-gold-800 border-mosque-gold-200',
+      payment_recorded: 'bg-mosque-gold-100 text-mosque-gold-800 border-mosque-gold-200',
+      document_uploaded: 'bg-blue-100 text-blue-800 border-blue-200',
+      marked_deceased: 'bg-gray-100 text-gray-800 border-gray-200',
+      funeral_arranged: 'bg-gray-100 text-gray-800 border-gray-200',
+      expense_added: 'bg-orange-100 text-orange-800 border-orange-200',
+      contact_added: 'bg-blue-100 text-blue-800 border-blue-200',
+      note_added: 'bg-gray-100 text-gray-800 border-gray-200',
+    };
+    
+    return colors[actionType] || 'bg-gray-100 text-gray-800 border-gray-200';
+  };
+
+  const formatRelativeTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    
+    return date.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
+      </div>
+    );
+  }
+
+  if (!activityLog || activityLog.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="text-center py-8">
+          <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+          <p className="text-gray-500 font-medium">No activity recorded yet</p>
+          <p className="text-sm text-gray-400 mt-1">
+            All changes to this member will appear here
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Group activities by user for summary view
+  const accessSummary = activityLog.reduce((acc: any, activity: any) => {
+    const userName = activity.performed_by_user?.full_name || activity.performed_by_user?.email || 'System';
+    const userEmail = activity.performed_by_user?.email || '';
+    const key = `${userName}-${userEmail}`;
+
+    if (!acc[key]) {
+      acc[key] = {
+        userName,
+        userEmail,
+        accessCount: 0,
+        lastAccess: activity.created_at,
+        activities: []
+      };
+    }
+    acc[key].accessCount++;
+    acc[key].activities.push(activity);
+    return acc;
+  }, {});
+
+  const accessList = Object.values(accessSummary).sort((a: any, b: any) =>
+    new Date(b.lastAccess).getTime() - new Date(a.lastAccess).getTime()
+  );
+
+  // Filter activities
+  const filteredActivities = selectedFilter === 'all'
+    ? activityLog
+    : activityLog.filter((a: any) => {
+        if (selectedFilter === 'payments') return a.action_type.includes('payment');
+        if (selectedFilter === 'updates') return a.action_type === 'updated' || a.action_type === 'member_edited';
+        if (selectedFilter === 'documents') return a.action_type.includes('document');
+        return true;
+      });
+
+  return (
+    <div className="space-y-4">
+      {/* Header with Toggle */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">Audit Log</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {activityLog.length} total events from {accessList.length} user{accessList.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <button
+            onClick={() => setExpandedView(!expandedView)}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[#2d5016] bg-mosque-gold-50 hover:bg-mosque-gold-100 rounded-md transition-colors"
+          >
+            {expandedView ? (
+              <>
+                <ChevronUp className="h-3.5 w-3.5" />
+                Collapse
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-3.5 w-3.5" />
+                View Details
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Summary View - Access List */}
+        {!expandedView && (
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-gray-700 mb-3 pb-2 border-b border-gray-200">
+              Recent Access Summary
+            </div>
+            {accessList.slice(0, 10).map((access: any, index: number) => (
+              <div
+                key={index}
+                className="flex items-center justify-between py-2.5 px-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
+              >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-[#2d5016] flex items-center justify-center flex-shrink-0">
+                    <User className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {access.userName}
+                    </p>
+                    {access.userEmail && (
+                      <p className="text-xs text-gray-500 truncate">{access.userEmail}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 flex-shrink-0 ml-4">
+                  <div className="text-right">
+                    <p className="text-xs font-medium text-gray-900">
+                      {access.accessCount} event{access.accessCount !== 1 ? 's' : ''}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {formatRelativeTime(access.lastAccess)}
+                    </p>
+                  </div>
+                  <Clock className="h-4 w-4 text-gray-400" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Expanded View - Full Activity Timeline */}
+        {expandedView && (
+          <div className="space-y-4">
+            {/* Filter Buttons */}
+            <div className="flex gap-2 pb-3 border-b border-gray-200">
+              {[
+                { value: 'all', label: 'All Events' },
+                { value: 'payments', label: 'Payments' },
+                { value: 'updates', label: 'Updates' },
+                { value: 'documents', label: 'Documents' }
+              ].map((filter) => (
+                <button
+                  key={filter.value}
+                  onClick={() => setSelectedFilter(filter.value)}
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                    selectedFilter === filter.value
+                      ? 'bg-[#2d5016] text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Activity Timeline */}
+            <div className="space-y-0">
+              <div className="grid grid-cols-12 gap-4 px-3 pb-2 text-xs font-semibold text-gray-600 uppercase tracking-wide border-b border-gray-200">
+                <div className="col-span-5">Activity</div>
+                <div className="col-span-3">Performed By</div>
+                <div className="col-span-2">Date</div>
+                <div className="col-span-2">Time</div>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {filteredActivities.map((activity: any) => {
+                  const Icon = getActionIcon(activity.action_type);
+                  const performedByName = activity.performed_by_user?.full_name ||
+                                          activity.performed_by_user?.email?.split('@')[0] ||
+                                          'System';
+                  const date = new Date(activity.created_at);
+                  const hasDetails = activity.old_values || activity.new_values || activity.change_reason;
+                  const isExpanded = expandedActivityId === activity.id;
+
+                  return (
+                    <div key={activity.id}>
+                      <div
+                        className={`grid grid-cols-12 gap-4 px-3 py-3 hover:bg-gray-50 transition-colors items-center ${hasDetails ? 'cursor-pointer' : ''}`}
+                        onClick={() => hasDetails && setExpandedActivityId(isExpanded ? null : activity.id)}
+                      >
+                        <div className="col-span-5 flex items-center gap-2">
+                          <div className={`w-7 h-7 rounded flex items-center justify-center flex-shrink-0 ${getActionColor(activity.action_type)}`}>
+                            <Icon className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm text-gray-900 truncate block">
+                              {activity.description}
+                            </span>
+                            {activity.change_reason && (
+                              <span className="text-xs text-gray-500 italic truncate block">
+                                Reason: {activity.change_reason}
+                              </span>
+                            )}
+                          </div>
+                          {hasDetails && (
+                            <div className="flex-shrink-0">
+                              {isExpanded ? (
+                                <ChevronUp className="h-4 w-4 text-gray-400" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-gray-400" />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div className="col-span-3">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {performedByName}
+                          </p>
+                          {activity.performed_by_user?.email && (
+                            <p className="text-xs text-gray-500 truncate">
+                              {activity.performed_by_user.email}
+                            </p>
+                          )}
+                        </div>
+                        <div className="col-span-2 text-sm text-gray-700">
+                          {date.toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric'
+                          })}
+                        </div>
+                        <div className="col-span-2 text-sm text-gray-700 font-mono">
+                          {date.toLocaleTimeString('en-GB', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                          })}
+                        </div>
+                      </div>
+
+                      {isExpanded && hasDetails && (
+                        <div className="bg-gray-50 px-3 py-3 border-t border-gray-100">
+                          {activity.change_reason && (
+                            <div className="mb-3 p-2 bg-amber-50 rounded-lg border border-amber-200">
+                              <p className="text-xs font-medium text-amber-800">Reason for change:</p>
+                              <p className="text-sm text-amber-900">{activity.change_reason}</p>
+                            </div>
+                          )}
+
+                          {(activity.old_values || activity.new_values) && (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm">
+                                <thead className="bg-gray-100">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-600 text-xs">Field</th>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-600 text-xs">Before</th>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-600 text-xs">After</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                  {Object.keys(activity.old_values || activity.new_values || {}).map((field) => {
+                                    const oldVal = activity.old_values?.[field];
+                                    const newVal = activity.new_values?.[field];
+                                    const fieldLabel = field.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+
+                                    return (
+                                      <tr key={field} className="hover:bg-white">
+                                        <td className="px-3 py-2 font-medium text-gray-900 text-xs">
+                                          {fieldLabel}
+                                        </td>
+                                        <td className="px-3 py-2 text-red-600 text-xs">
+                                          {oldVal === null || oldVal === undefined ? '(empty)' : String(oldVal)}
+                                        </td>
+                                        <td className="px-3 py-2 text-green-600 text-xs">
+                                          {newVal === null || newVal === undefined ? '(empty)' : String(newVal)}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {filteredActivities.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <FileText className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm">No activities found for this filter</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface ChildModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  memberId: string;
+  child?: any;
+}
+
+function ChildModal({ isOpen, onClose, memberId, child }: ChildModalProps) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const [formData, setFormData] = useState({
+    first_name: child?.first_name || '',
+    last_name: child?.last_name || '',
+    dob: child?.dob || '',
+    relation: child?.relation || '',
+  });
+  const [errors, setErrors] = useState<any>({});
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (child) {
+        const { error } = await supabase
+          .from('children')
+          .update(data)
+          .eq('id', child.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('children')
+          .insert({ ...data, member_id: memberId });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+      onClose();
+    },
+    onError: (error: Error) => {
+      console.error('Child save failed:', error);
+      toast.error(child ? 'Failed to update child. Please try again.' : 'Failed to add child. Please try again.');
+    },
+  });
+
+  const validate = () => {
+    const newErrors: any = {};
+    if (!formData.first_name.trim()) newErrors.first_name = 'First name is required';
+    if (!formData.last_name.trim()) newErrors.last_name = 'Last name is required';
+    if (!formData.dob) newErrors.dob = 'Date of birth is required';
+    if (!formData.relation) newErrors.relation = 'Relation is required';
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (validate()) {
+      saveMutation.mutate(formData);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-in zoom-in-95 duration-200">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {child ? 'Edit Child' : 'Add Child'}
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              First Name *
+            </label>
+            <input
+              type="text"
+              value={formData.first_name}
+              onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                errors.first_name ? 'border-red-300' : 'border-gray-300'
+              }`}
+              autoFocus
+            />
+            {errors.first_name && (
+              <p className="text-xs text-red-600 mt-1">{errors.first_name}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Last Name *
+            </label>
+            <input
+              type="text"
+              value={formData.last_name}
+              onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                errors.last_name ? 'border-red-300' : 'border-gray-300'
+              }`}
+            />
+            {errors.last_name && (
+              <p className="text-xs text-red-600 mt-1">{errors.last_name}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date of Birth *
+            </label>
+            <input
+              type="date"
+              value={formData.dob}
+              onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                errors.dob ? 'border-red-300' : 'border-gray-300'
+              }`}
+            />
+            {errors.dob && (
+              <p className="text-xs text-red-600 mt-1">{errors.dob}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Relation *
+            </label>
+            <select
+              value={formData.relation}
+              onChange={(e) => setFormData({ ...formData, relation: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                errors.relation ? 'border-red-300' : 'border-gray-300'
+              }`}
+            >
+              <option value="">Select</option>
+              <option value="son">Son</option>
+              <option value="daughter">Daughter</option>
+              <option value="stepson">Stepson</option>
+              <option value="stepdaughter">Stepdaughter</option>
+            </select>
+            {errors.relation && (
+              <p className="text-xs text-red-600 mt-1">{errors.relation}</p>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saveMutation.isPending ? (
+                <span className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </span>
+              ) : (
+                child ? 'Update Child' : 'Add Child'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Next of Kin Modal Component
+interface NextOfKinModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  memberId: string;
+  contact?: any;
+}
+
+function NextOfKinModal({ isOpen, onClose, memberId, contact }: NextOfKinModalProps) {
+  const queryClient = useQueryClient();
+  const [formData, setFormData] = useState({
+    title: contact?.title || '',
+    first_name: contact?.first_name || '',
+    last_name: contact?.last_name || '',
+    relationship: contact?.relationship || '',
+    mobile: contact?.mobile || '',
+    phone: contact?.phone || '',
+    email: contact?.email || '',
+    address_line_1: contact?.address_line_1 || '',
+    town: contact?.town || '',
+    city: contact?.city || '',
+    postcode: contact?.postcode || '',
+  });
+  const [errors, setErrors] = useState<any>({});
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (contact) {
+        const { error } = await supabase
+          .from('next_of_kin')
+          .update(data)
+          .eq('id', contact.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('next_of_kin')
+          .insert({ ...data, member_id: memberId });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+      onClose();
+    },
+  });
+
+  const validate = () => {
+    const newErrors: any = {};
+    if (!formData.first_name.trim()) newErrors.first_name = 'First name is required';
+    if (!formData.last_name.trim()) newErrors.last_name = 'Last name is required';
+    if (!formData.relationship.trim()) newErrors.relationship = 'Relationship is required';
+    if (!formData.mobile.trim()) newErrors.mobile = 'Mobile is required';
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (validate()) {
+      saveMutation.mutate(formData);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+        <div className="px-6 py-4 border-b border-gray-200 sticky top-0 bg-white">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {contact ? 'Edit Emergency Contact' : 'Add Emergency Contact'}
+            </h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Personal Details Section */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <User className="h-4 w-4 text-[#2d5016]" />
+              Personal Details
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-[130px_1fr] gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Title
+                </label>
+                <select
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                >
+                  <option value="">Select...</option>
+                  <option value="Mr">Mr</option>
+                  <option value="Mrs">Mrs</option>
+                  <option value="Miss">Miss</option>
+                  <option value="Ms">Ms</option>
+                  <option value="Dr">Dr</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  First Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.first_name}
+                  onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                  className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                    errors.first_name ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                />
+                {errors.first_name && <p className="text-xs text-red-600 mt-1">{errors.first_name}</p>}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Last Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.last_name}
+                  onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                  className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                    errors.last_name ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                />
+                {errors.last_name && <p className="text-xs text-red-600 mt-1">{errors.last_name}</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Relationship *
+                </label>
+                <select
+                  value={formData.relationship}
+                  onChange={(e) => setFormData({ ...formData, relationship: e.target.value })}
+                  className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                    errors.relationship ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                >
+                  <option value="">Select relationship</option>
+                  <option value="spouse">Spouse</option>
+                  <option value="parent">Parent</option>
+                  <option value="child">Child</option>
+                  <option value="sibling">Sibling</option>
+                  <option value="friend">Friend</option>
+                  <option value="other">Other</option>
+                </select>
+                {errors.relationship && <p className="text-xs text-red-600 mt-1">{errors.relationship}</p>}
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Details Section */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <Phone className="h-4 w-4 text-[#2d5016]" />
+              Contact Details
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Mobile *
+                </label>
+                <input
+                  type="tel"
+                  value={formData.mobile}
+                  onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
+                  className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                    errors.mobile ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="07xxxxxxxxx"
+                />
+                {errors.mobile && <p className="text-xs text-red-600 mt-1">{errors.mobile}</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Home Phone
+                </label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Address Section */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-[#2d5016]" />
+              Address
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Address Line 1
+                </label>
+                <input
+                  type="text"
+                  value={formData.address_line_1}
+                  onChange={(e) => setFormData({ ...formData, address_line_1: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Town
+                </label>
+                <input
+                  type="text"
+                  value={formData.town}
+                  onChange={(e) => setFormData({ ...formData, town: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  City
+                </label>
+                <input
+                  type="text"
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Postcode
+                </label>
+                <input
+                  type="text"
+                  value={formData.postcode}
+                  onChange={(e) => setFormData({ ...formData, postcode: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm bg-[#2d5016] text-white rounded-lg hover:bg-[#1f3810] disabled:opacity-50"
+            >
+              {saveMutation.isPending ? (
+                <span className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </span>
+              ) : (
+                contact ? 'Update Contact' : 'Add Contact'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Medical Info Modal Component
+interface MedicalInfoModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  memberId: string;
+  info?: any;
+}
+
+function MedicalInfoModal({ isOpen, onClose, memberId, info }: MedicalInfoModalProps) {
+  const queryClient = useQueryClient();
+  const [hasConditions, setHasConditions] = useState<boolean>(
+    info?.disclaimer?.startsWith('Yes') ?? false
+  );
+  const [conditions, setConditions] = useState(info?.conditions || '');
+  const [errors, setErrors] = useState<any>({});
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const disclaimer = hasConditions ? 'Yes - has medical conditions' : 'No medical conditions';
+      const data = {
+        disclaimer,
+        conditions: hasConditions ? (conditions || null) : null,
+      };
+      if (info) {
+        const { error } = await supabase
+          .from('medical_info')
+          .update(data)
+          .eq('id', info.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('medical_info')
+          .insert({ ...data, member_id: memberId, member_type: 'main' });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+      onClose();
+    },
+  });
+
+  const validate = () => {
+    const newErrors: any = {};
+    if (hasConditions && !conditions.trim()) {
+      newErrors.conditions = 'Please provide details of the medical condition(s)';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (validate()) {
+      saveMutation.mutate();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-in zoom-in-95 duration-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {info ? 'Edit Medical Information' : 'Add Medical Information'}
+            </h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Does the member have any medical conditions?
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  checked={hasConditions === true}
+                  onChange={() => setHasConditions(true)}
+                  className="w-4 h-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
+                />
+                <span className="text-sm text-gray-700">Yes</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  checked={hasConditions === false}
+                  onChange={() => { setHasConditions(false); setConditions(''); }}
+                  className="w-4 h-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
+                />
+                <span className="text-sm text-gray-700">No</span>
+              </label>
+            </div>
+          </div>
+
+          {hasConditions && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Condition Details *
+              </label>
+              <textarea
+                value={conditions}
+                onChange={(e) => setConditions(e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${errors.conditions ? 'border-red-300' : 'border-gray-300'}`}
+                rows={4}
+                placeholder="Describe the medical condition(s), treatments, medications..."
+                autoFocus
+              />
+              {errors.conditions && <p className="text-xs text-red-600 mt-1">{errors.conditions}</p>}
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {saveMutation.isPending ? (
+                <span className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </span>
+              ) : (
+                info ? 'Update' : 'Save'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Record Payment Modal Component
+function RecordPaymentModal({
+  memberId,
+  member,
+  children = [],
+  payments = [],
+  onClose,
+  onSuccess,
+}: {
+  memberId: string;
+  member?: any;
+  children?: any[];
+  payments?: any[];
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { showToast } = useToast();
+  const [formData, setFormData] = useState({
+    payment_type: '',
+    payment_method: 'cash',
+    amount: '',
+    payment_date: new Date().toISOString().split('T')[0],
+    reference_no: '',
+    notes: '',
+  });
+  const [errors, setErrors] = useState<any>({});
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const amount = parseFloat(formData.amount);
+      const { error } = await supabase.from('payments').insert({
+        member_id: memberId,
+        payment_type: 'receipt',
+        payment_method: formData.payment_method,
+        total_amount: amount,
+        main_joining_fee: 0,
+        main_membership_fee: 0,
+        main_misc: 0,
+        joint_joining_fee: 0,
+        joint_membership_fee: 0,
+        joint_misc: 0,
+        late_fee: 0,
+        payment_date: formData.payment_date,
+        payment_status: 'completed',
+        reference_no: formData.reference_no || null,
+        notes: [
+          formData.notes?.trim(),
+          formData.payment_type
+            ? `Recorded against: ${formData.payment_type.replace(/_/g, ' ')}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(' — ') || null,
+      });
+      if (error) throw error;
+
+      const updatedPayments = [
+        ...payments,
+        {
+          payment_type: 'receipt',
+          payment_status: 'completed',
+          total_amount: amount,
+          created_at: new Date().toISOString(),
+        },
+      ];
+
+      const summary = getMemberPaymentSummary(updatedPayments);
+
+      const pendingObligations = payments.filter(
+        (p: any) => isObligationPayment(p) && p.payment_status === 'pending'
+      );
+      if (summary.outstanding === 0) {
+        for (const obligation of pendingObligations) {
+          if (!obligation.id) continue;
+          const { error: completeError } = await supabase
+            .from('payments')
+            .update({ payment_status: 'completed' })
+            .eq('id', obligation.id);
+          if (completeError) throw completeError;
+        }
+      }
+
+      if (member?.status === 'pending' && member) {
+        const eligibility = getMemberActivationEligibility(
+          member,
+          children,
+          updatedPayments
+        );
+        if (eligibility.canActivate) {
+          const { error: statusError } = await supabase
+            .from('members')
+            .update({ status: 'active' })
+            .eq('id', memberId);
+          if (statusError) throw statusError;
+          await logActivity(memberId, ActivityTypes.MEMBER_UPDATED, {
+            newValues: { status: 'active' },
+            changeReason: 'Auto-activated after payment and documents complete',
+          });
+          return { autoActivated: true as const };
+        }
+      }
+
+      if (summary.outstanding === 0) {
+        return { autoActivated: false as const, fullyPaid: true as const };
+      }
+
+      return { autoActivated: false as const, fullyPaid: false as const };
+    },
+    onSuccess: (result) => {
+      if (result?.autoActivated) {
+        showToast('Payment recorded — member activated', 'success');
+      } else if (result?.fullyPaid) {
+        showToast('Payment recorded — balance cleared', 'success');
+      } else {
+        showToast('Payment recorded', 'success');
+      }
+      onSuccess();
+    },
+    onError: () => {
+      showToast('Failed to record payment. Please try again.', 'error');
+    },
+  });
+
+  const validate = () => {
+    const newErrors: any = {};
+    if (!formData.payment_type) newErrors.payment_type = 'Please select a payment type';
+    if (!formData.amount || isNaN(parseFloat(formData.amount)) || parseFloat(formData.amount) <= 0) {
+      newErrors.amount = 'A valid amount is required';
+    }
+    if (!formData.payment_date) newErrors.payment_date = 'Payment date is required';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (validate()) createMutation.mutate();
+  };
+
+  const balanceSummary = getMemberPaymentSummary(payments);
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-in zoom-in-95 duration-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">Record Payment</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Logs money received against the member&apos;s balance. Due: {formatMoney(balanceSummary.totalDue)}
+            {' · '}Outstanding: {formatMoney(balanceSummary.outstanding)}
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Applies to</label>
+              <select
+                value={formData.payment_type}
+                onChange={(e) => setFormData({ ...formData, payment_type: e.target.value })}
+                className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${errors.payment_type ? 'border-red-500' : 'border-gray-300'}`}
+              >
+                <option value="" disabled>Select reason</option>
+                <option value="registration">Registration</option>
+                <option value="renewal">Renewal</option>
+                <option value="late_fee">Late Fee</option>
+                <option value="misc">Miscellaneous</option>
+              </select>
+              {errors.payment_type && <p className="text-red-500 text-xs mt-1">{errors.payment_type}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Payment Method</label>
+              <select
+                value={formData.payment_method}
+                onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              >
+                <option value="cash">Cash</option>
+                <option value="cheque">Cheque</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="card">Card</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Amount (£) *</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${errors.amount ? 'border-red-300' : 'border-gray-300'}`}
+                placeholder="0.00"
+                autoFocus
+              />
+              {errors.amount && <p className="text-xs text-red-600 mt-1">{errors.amount}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Payment Date *</label>
+              <input
+                type="date"
+                value={formData.payment_date}
+                onChange={(e) => setFormData({ ...formData, payment_date: e.target.value })}
+                className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${errors.payment_date ? 'border-red-300' : 'border-gray-300'}`}
+              />
+              {errors.payment_date && <p className="text-xs text-red-600 mt-1">{errors.payment_date}</p>}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Reference No. (optional)</label>
+            <input
+              type="text"
+              value={formData.reference_no}
+              onChange={(e) => setFormData({ ...formData, reference_no: e.target.value })}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              placeholder="e.g., CHQ-001"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Notes (optional)</label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              rows={2}
+              placeholder="Any additional notes..."
+            />
+          </div>
+
+          {createMutation.isError && (
+            <p className="text-sm text-red-600">Failed to record payment. Please try again.</p>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={createMutation.isPending}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={createMutation.isPending}
+              className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            >
+              {createMutation.isPending ? (
+                <span className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </span>
+              ) : 'Record Payment'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Adjust Payment Modal Component
+function AdjustPaymentModal({ payment, onClose, onSuccess }: any) {
+  const [formData, setFormData] = useState({
+    main_joining_fee: payment.main_joining_fee || 0,
+    main_membership_fee: payment.main_membership_fee || 0,
+    main_misc: payment.main_misc || 0,
+    joint_joining_fee: payment.joint_joining_fee || 0,
+    joint_membership_fee: payment.joint_membership_fee || 0,
+    joint_misc: payment.joint_misc || 0,
+    late_fee: payment.late_fee || 0,
+    payment_method: payment.payment_method || '',
+    payment_status: payment.payment_status || '',
+    reference_no: payment.reference_no || '',
+    notes: payment.notes || '',
+    status_note: payment.status_note || '',
+  });
+
+  const calculateTotal = () => {
+    return (
+      Number(formData.main_joining_fee || 0) +
+      Number(formData.main_membership_fee || 0) +
+      Number(formData.main_misc || 0) +
+      Number(formData.joint_joining_fee || 0) +
+      Number(formData.joint_membership_fee || 0) +
+      Number(formData.joint_misc || 0) +
+      Number(formData.late_fee || 0)
+    );
+  };
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const { error } = await supabase
+        .from('payments')
+        .update({
+          ...data,
+          total_amount: calculateTotal(),
+        })
+        .eq('id', payment.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      onSuccess();
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateMutation.mutate({
+      ...formData,
+      notes: formData.notes.trim(),
+      status_note: formData.status_note.trim() || null,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+        <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-200 z-10">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">Adjust Payment</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Main Member Fees */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900 mb-3">Main Member Fees</h4>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Joining Fee
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500">£</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.main_joining_fee}
+                    onChange={(e) => setFormData({ ...formData, main_joining_fee: Number(e.target.value) })}
+                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Membership Fee
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500">£</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.main_membership_fee}
+                    onChange={(e) => setFormData({ ...formData, main_membership_fee: Number(e.target.value) })}
+                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Miscellaneous
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500">£</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.main_misc}
+                    onChange={(e) => setFormData({ ...formData, main_misc: Number(e.target.value) })}
+                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Joint Member Fees */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900 mb-3">Joint Member Fees</h4>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Joining Fee
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500">£</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.joint_joining_fee}
+                    onChange={(e) => setFormData({ ...formData, joint_joining_fee: Number(e.target.value) })}
+                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Membership Fee
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500">£</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.joint_membership_fee}
+                    onChange={(e) => setFormData({ ...formData, joint_membership_fee: Number(e.target.value) })}
+                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Miscellaneous
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500">£</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.joint_misc}
+                    onChange={(e) => setFormData({ ...formData, joint_misc: Number(e.target.value) })}
+                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Late Fee */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900 mb-3">Additional Fees</h4>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Late Fee
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500">£</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.late_fee}
+                    onChange={(e) => setFormData({ ...formData, late_fee: Number(e.target.value) })}
+                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Total (Read-only) */}
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-semibold text-gray-900">Total Amount:</span>
+              <span className="text-2xl font-bold text-emerald-600">£{calculateTotal().toFixed(2)}</span>
+            </div>
+          </div>
+
+          {/* Payment Details */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Payment Method
+              </label>
+              <select
+                value={formData.payment_method}
+                onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="">Select method</option>
+                <option value="cash">Cash</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="card">Card</option>
+                <option value="cheque">Cheque</option>
+                <option value="standing_order">Standing Order</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Payment Status
+              </label>
+              <select
+                value={formData.payment_status}
+                onChange={(e) => setFormData({ ...formData, payment_status: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="">Select status</option>
+                <option value="completed">Completed</option>
+                <option value="pending">Pending</option>
+                <option value="failed">Failed</option>
+                <option value="refunded">Refunded</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Reference Number
+            </label>
+            <input
+              type="text"
+              value={formData.reference_no}
+              onChange={(e) => setFormData({ ...formData, reference_no: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              placeholder="Optional reference number"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Notes
+            </label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              rows={3}
+              placeholder="Additional notes about this payment..."
+            />
+          </div>
+
+          {['outstanding', 'overdue', 'failed'].includes(formData.payment_status) && (
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Status Note (optional)
+              </label>
+              <textarea
+                value={formData.status_note}
+                onChange={(e) => setFormData({ ...formData, status_note: e.target.value.slice(0, 500) })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-gray-50 text-sm"
+                rows={3}
+                maxLength={500}
+                placeholder="e.g., Waiting for bank transfer, Member requested payment plan, Cheque bounced - following up..."
+              />
+              <p className="text-xs text-gray-400 mt-1 text-right">{formData.status_note.length}/500</p>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={updateMutation.isPending}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={updateMutation.isPending}
+              className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {updateMutation.isPending ? (
+                <span className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </span>
+              ) : (
+                'Save Changes'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// GPDetailsModal Component
+interface GPDetailsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  memberId: string;
+  gpDetails: any;
+}
+
+function GPDetailsModal({ isOpen, onClose, memberId, gpDetails }: GPDetailsModalProps) {
+  const queryClient = useQueryClient();
+  const [formData, setFormData] = useState({
+    gp_name_surgery: gpDetails?.gp_name_surgery || '',
+    address_line_1: gpDetails?.address_line_1 || '',
+    town: gpDetails?.town || '',
+    city: gpDetails?.city || '',
+    postcode: gpDetails?.postcode || '',
+    phone: gpDetails?.phone || '',
+    email: gpDetails?.email || '',
+  });
+  const [errors, setErrors] = useState<any>({});
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (gpDetails) {
+        // Update existing GP details
+        const { error } = await supabase
+          .from('members')
+          .update({
+            gp_name_surgery: data.gp_name_surgery,
+            gp_address_line_1: data.address_line_1,
+            gp_town: data.town,
+            gp_city: data.city,
+            gp_postcode: data.postcode,
+            gp_phone: data.phone,
+            gp_email: data.email,
+          })
+          .eq('id', memberId);
+        if (error) throw error;
+      } else {
+        // Add new GP details
+        const { error } = await supabase
+          .from('members')
+          .update({
+            gp_name_surgery: data.gp_name_surgery,
+            gp_address_line_1: data.address_line_1,
+            gp_town: data.town,
+            gp_city: data.city,
+            gp_postcode: data.postcode,
+            gp_phone: data.phone,
+            gp_email: data.email,
+          })
+          .eq('id', memberId);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+      onClose();
+    },
+  });
+
+  const validate = () => {
+    const newErrors: any = {};
+    if (!formData.gp_name_surgery.trim()) newErrors.gp_name_surgery = 'Practice name is required';
+    if (!formData.postcode.trim()) newErrors.postcode = 'Postcode is required';
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (validate()) {
+      saveMutation.mutate(formData);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-in zoom-in-95 duration-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {gpDetails ? 'Edit GP Details' : 'Add GP Details'}
+            </h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Practice Name *
+            </label>
+            <input
+              type="text"
+              value={formData.gp_name_surgery}
+              onChange={(e) => setFormData({ ...formData, gp_name_surgery: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${
+                errors.gp_name_surgery ? 'border-red-300' : 'border-gray-300'
+              }`}
+              placeholder="e.g., Central Medical Practice"
+            />
+            {errors.gp_name_surgery && <p className="text-xs text-red-600 mt-1">{errors.gp_name_surgery}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Address Line 1
+            </label>
+            <input
+              type="text"
+              value={formData.address_line_1}
+              onChange={(e) => setFormData({ ...formData, address_line_1: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              placeholder="e.g., 123 Main Street"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Town
+              </label>
+              <input
+                type="text"
+                value={formData.town}
+                onChange={(e) => setFormData({ ...formData, town: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                placeholder="e.g., Falkirk"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                City
+              </label>
+              <input
+                type="text"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                placeholder="e.g., Falkirk"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Postcode *
+            </label>
+            <input
+              type="text"
+              value={formData.postcode}
+              onChange={(e) => setFormData({ ...formData, postcode: e.target.value.toUpperCase() })}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${
+                errors.postcode ? 'border-red-300' : 'border-gray-300'
+              }`}
+              placeholder="e.g., FK1 1AB"
+            />
+            {errors.postcode && <p className="text-xs text-red-600 mt-1">{errors.postcode}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Phone
+            </label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              placeholder="e.g., 01324 123456"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email
+            </label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              placeholder="e.g., reception@practice.nhs.uk"
+            />
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {saveMutation.isPending ? (
+                <span className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </span>
+              ) : (
+                gpDetails ? 'Update GP Details' : 'Add GP Details'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// DeclarationsSignatureModal Component
+interface DeclarationsSignatureModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  memberId: string;
+  member: any;
+  jointMember: any;
+  declarations: any;
+}
+
+function DeclarationsSignatureModal({ isOpen, onClose, memberId, member, jointMember, declarations }: DeclarationsSignatureModalProps) {
+  const queryClient = useQueryClient();
+  const hasJointMember = member?.app_type === 'joint';
+  
+  const [formData, setFormData] = useState({
+    main_medical_consent: declarations?.main_medical_consent || false,
+    main_medical_signature: declarations?.main_medical_signature || '',
+    main_final_declaration: declarations?.main_final_declaration || false,
+    main_final_signature: declarations?.main_final_signature || '',
+    joint_medical_consent: declarations?.joint_medical_consent || false,
+    joint_medical_signature: declarations?.joint_medical_signature || '',
+    joint_final_declaration: declarations?.joint_final_declaration || false,
+    joint_final_signature: declarations?.joint_final_signature || '',
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const today = new Date().toISOString();
+      
+      const updateData: any = {
+        member_id: memberId,
+        main_medical_consent: data.main_medical_consent,
+        main_medical_signature: data.main_medical_signature,
+        main_medical_consent_date: data.main_medical_consent ? today : null,
+        main_final_declaration: data.main_final_declaration,
+        main_final_signature: data.main_final_signature,
+        main_final_declaration_date: data.main_final_declaration ? today : null,
+      };
+
+      if (hasJointMember) {
+        updateData.joint_medical_consent = data.joint_medical_consent;
+        updateData.joint_medical_signature = data.joint_medical_signature;
+        updateData.joint_medical_consent_date = data.joint_medical_consent ? today : null;
+        updateData.joint_final_declaration = data.joint_final_declaration;
+        updateData.joint_final_signature = data.joint_final_signature;
+        updateData.joint_final_declaration_date = data.joint_final_declaration ? today : null;
+      }
+
+      // Use upsert to insert if not exists, or update if exists
+      const { error } = await supabase
+        .from('declarations')
+        .upsert(updateData, { onConflict: 'member_id' });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-detail', memberId] });
+      onClose();
+    },
+  });
+
+  const validate = () => {
+    return true;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (validate()) {
+      // Auto-populate signatures with member's full name
+      const memberFullName = `${member?.first_name} ${member?.last_name}`;
+      const jointMemberFullName = jointMember ? `${jointMember?.first_name} ${jointMember?.last_name}` : '';
+      
+      const dataToSave = {
+        ...formData,
+        main_medical_signature: formData.main_medical_consent ? memberFullName : '',
+        main_final_signature: formData.main_final_declaration ? memberFullName : '',
+        joint_medical_signature: formData.joint_medical_consent ? jointMemberFullName : '',
+        joint_final_signature: formData.joint_final_declaration ? jointMemberFullName : '',
+      };
+      saveMutation.mutate(dataToSave);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+        <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-200 z-10">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">Sign Declarations</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Main Member */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-semibold text-gray-900 pb-2 border-b">Main Member ({member?.first_name} {member?.last_name})</h4>
+            
+            {/* Medical Consent */}
+            <div className="bg-blue-50 rounded-lg p-4 space-y-3">
+              <h5 className="text-sm font-semibold text-blue-900">Section 6: Medical Consent</h5>
+              
+              <label className="flex items-start space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.main_medical_consent}
+                  onChange={(e) => setFormData({ ...formData, main_medical_consent: e.target.checked })}
+                  className="mt-1 h-4 w-4 text-emerald-600 rounded focus:ring-emerald-500"
+                />
+                <span className="text-sm text-gray-700">
+                  I consent to my GP being contacted in the event of my death to obtain relevant medical information.
+                </span>
+              </label>
+            </div>
+
+            {/* Final Declaration */}
+            <div className="bg-purple-50 rounded-lg p-4 space-y-3">
+              <h5 className="text-sm font-semibold text-purple-900">Section 7: Final Declaration</h5>
+              
+              <label className="flex items-start space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.main_final_declaration}
+                  onChange={(e) => setFormData({ ...formData, main_final_declaration: e.target.checked })}
+                  className="mt-1 h-4 w-4 text-emerald-600 rounded focus:ring-emerald-500"
+                />
+                <span className="text-sm text-gray-700">
+                  I accept the terms and conditions, agree to contribute to the emergency fund, and confirm all information is accurate.
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {/* Joint Member */}
+          {hasJointMember && (
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-gray-900 pb-2 border-b">
+                Joint Member {jointMember && `(${jointMember.first_name} ${jointMember.last_name})`}
+              </h4>
+              
+              {/* Medical Consent */}
+              <div className="bg-blue-50 rounded-lg p-4 space-y-3">
+                <h5 className="text-sm font-semibold text-blue-900">Section 6: Medical Consent</h5>
+                
+                <label className="flex items-start space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.joint_medical_consent}
+                    onChange={(e) => setFormData({ ...formData, joint_medical_consent: e.target.checked })}
+                    className="mt-1 h-4 w-4 text-emerald-600 rounded focus:ring-emerald-500"
+                  />
+                  <span className="text-sm text-gray-700">
+                    I consent to my GP being contacted in the event of my death to obtain relevant medical information.
+                  </span>
+                </label>
+              </div>
+
+              {/* Final Declaration */}
+              <div className="bg-purple-50 rounded-lg p-4 space-y-3">
+                <h5 className="text-sm font-semibold text-purple-900">Section 7: Final Declaration</h5>
+                
+                <label className="flex items-start space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.joint_final_declaration}
+                    onChange={(e) => setFormData({ ...formData, joint_final_declaration: e.target.checked })}
+                    className="mt-1 h-4 w-4 text-emerald-600 rounded focus:ring-emerald-500"
+                  />
+                  <span className="text-sm text-gray-700">
+                    I accept the terms and conditions, agree to contribute to the emergency fund, and confirm all information is accurate.
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {saveMutation.isPending ? (
+                <span className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </span>
+              ) : (
+                'Sign & Save'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// DocumentUploadModal Component
+interface DocumentUploadModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  memberId: string;
+  member: any;
+  children?: any[];
+}
+
+function DocumentUploadModal({ isOpen, onClose, memberId, member, children = [] }: DocumentUploadModalProps) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const hasJointMember = member?.app_type === 'joint';
+
+  const [files, setFiles] = useState<Record<string, File>>({});
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState<string | null>(null);
+
+  const handleDrop = (e: React.DragEvent, field: string) => {
+    e.preventDefault();
+    setDragOver(null);
+    
+    const file = e.dataTransfer.files[0];
+    if (file && (file.type.startsWith('image/') || file.type === 'application/pdf')) {
+      setFiles(prev => ({ ...prev, [field]: file }));
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFiles(prev => ({ ...prev, [field]: file }));
+    }
+  };
+
+  const uploadFile = async (file: File, path: string) => {
+    const ext = file.name.split('.').pop();
+    const fullPath = `${path}.${ext}`;
+
+    const { error } = await supabase.storage
+      .from('member-documents')
+      .upload(fullPath, file, { upsert: true });
+
+    if (error) {
+      console.error('Storage upload error:', fullPath, error);
+      throw error;
+    }
+
+    const { publicUrl } = supabase.storage
+      .from('member-documents')
+      .getPublicUrl(fullPath).data;
+
+    console.log('Upload success:', publicUrl);
+    return publicUrl;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUploading(true);
+
+    try {
+      const updates: any = {};
+
+      // Upload main member documents
+      if (files.main_photo_id) {
+        const url = await uploadFile(files.main_photo_id, `${memberId}/main_photo_id`);
+        updates.main_photo_id_url = url;
+      }
+      if (files.main_proof_address) {
+        const url = await uploadFile(files.main_proof_address, `${memberId}/main_proof_address`);
+        updates.main_proof_address_url = url;
+      }
+
+      // Upload joint member documents
+      if (hasJointMember) {
+        if (files.joint_photo_id) {
+          const url = await uploadFile(files.joint_photo_id, `${memberId}/joint_photo_id`);
+          updates.joint_photo_id_url = url;
+        }
+        if (files.joint_proof_address) {
+          const url = await uploadFile(files.joint_proof_address, `${memberId}/joint_proof_address`);
+          updates.joint_proof_address_url = url;
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        const { error } = await supabase.from('members').update(updates).eq('id', memberId);
+        if (error) throw error;
+      }
+
+      const ts = Date.now();
+      for (const child of children) {
+        const fieldKey = `child-${child.id}`;
+        const file = files[fieldKey];
+        if (!file) continue;
+
+        const ext = file.name.split('.').pop();
+        const url = await uploadFile(
+          file,
+          `${memberId}/child-${child.id}-birth-cert-${ts}.${ext}`
+        );
+        const { error: childError } = await supabase
+          .from('children')
+          .update({ birth_certificate_url: url })
+          .eq('id', child.id);
+        if (childError) throw childError;
+      }
+
+      await queryClient.resetQueries({ queryKey: ['member-detail', memberId] });
+      toast.success('Documents uploaded successfully');
+      onClose();
+    } catch (err) {
+      console.error('Upload error:', err);
+      toast.error('Failed to upload documents. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const FileUploadBox = ({ field, label, currentUrl }: { field: string; label: string; currentUrl?: string }) => (
+    <div
+      onDrop={(e) => handleDrop(e, field)}
+      onDragOver={(e) => { e.preventDefault(); setDragOver(field); }}
+      onDragLeave={() => setDragOver(null)}
+      className={`border-2 border-dashed rounded-lg p-4 transition-colors ${
+        dragOver === field
+          ? 'border-emerald-500 bg-emerald-50'
+          : files[field]
+          ? 'border-emerald-300 bg-emerald-50'
+          : 'border-gray-300 hover:border-gray-400'
+      }`}
+    >
+      <div className="text-center">
+        <Upload className={`h-8 w-8 mx-auto mb-2 ${
+          files[field] ? 'text-emerald-600' : 'text-gray-400'
+        }`} />
+        <p className="text-sm font-medium text-gray-900 mb-1">{label}</p>
+        
+        {files[field] ? (
+          <p className="text-xs text-emerald-600 mb-2">
+            ✓ {files[field].name}
+          </p>
+        ) : currentUrl ? (
+          <p className="text-xs text-gray-500 mb-2">Current file uploaded</p>
+        ) : (
+          <p className="text-xs text-gray-500 mb-2">Drag & drop or click to browse</p>
+        )}
+        
+        <input
+          type="file"
+          accept="image/*,application/pdf"
+          onChange={(e) => handleFileSelect(e, field)}
+          className="hidden"
+          id={field}
+        />
+        <label
+          htmlFor={field}
+          className="inline-block px-3 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 cursor-pointer"
+        >
+          Browse Files
+        </label>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+        <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-200 z-10">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">Upload Documents</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Main Member Documents */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+              <User className="h-4 w-4 mr-2 text-emerald-600" />
+              Main Member Documents
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FileUploadBox 
+                field="main_photo_id" 
+                label="Photo ID *" 
+                currentUrl={member?.main_photo_id_url}
+              />
+              <FileUploadBox 
+                field="main_proof_address" 
+                label="Proof of Address *" 
+                currentUrl={member?.main_proof_address_url}
+              />
+            </div>
+          </div>
+
+          {/* Joint Member Documents */}
+          {hasJointMember && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+                <Users className="h-4 w-4 mr-2 text-emerald-600" />
+                Joint Member Documents
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FileUploadBox 
+                  field="joint_photo_id" 
+                  label="Photo ID *" 
+                  currentUrl={member?.joint_photo_id_url}
+                />
+                <FileUploadBox 
+                  field="joint_proof_address" 
+                  label="Proof of Address *" 
+                  currentUrl={member?.joint_proof_address_url}
+                />
+              </div>
+            </div>
+          )}
+
+          {children.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+                <Baby className="h-4 w-4 mr-2 text-emerald-600" />
+                Children's Documents
+              </h4>
+              <div className="grid grid-cols-1 gap-4">
+                {children.map((child: any) => {
+                  const childName =
+                    [child.first_name, child.last_name].filter(Boolean).join(' ') || 'Child';
+                  const fieldKey = `child-${child.id}`;
+
+                  return (
+                    <FileUploadBox
+                      key={child.id}
+                      field={fieldKey}
+                      label={`${childName} — Birth Certificate`}
+                      currentUrl={child.birth_certificate_url}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-xs text-blue-800">
+              <strong>Accepted formats:</strong> Images (JPG, PNG) or PDF files
+            </p>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={uploading}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={uploading || Object.keys(files).length === 0}
+              className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {uploading ? (
+                <span className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Uploading...
+                </span>
+              ) : (
+                'Upload Documents'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

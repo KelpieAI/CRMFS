@@ -1,0 +1,111 @@
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from './contexts/ToastContext';
+import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { NavigationGuardProvider } from './contexts/NavigationGuardContext';
+import ErrorBoundary from './components/ErrorBoundary';
+import ProtectedRoute from './components/ProtectedRoute';
+import CompactLayout from './components/CompactLayout';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import MemberList from './pages/MemberList';
+import MemberDetail from './pages/MemberDetail';
+import AddMember from './pages/AddMember';
+import Payments from './pages/Payments';
+import Reports from './pages/Reports';
+import DeceasedMembers from './pages/DeceasedMembers';
+import DeceasedDetail from './pages/DeceasedDetail';
+import RecordDeath from './pages/RecordDeath';
+import RegistrationSuccess from './pages/RegistrationSuccess';
+import Settings from './pages/Settings';
+import DeletionRequests from './pages/DeletionRequests';
+import NotFound from './pages/NotFound';
+import ServerError from './pages/ServerError';
+import CommandPalette from './components/CommandPalette';
+import UploadDocuments from './pages/UploadDocuments';
+import SignDeclarations from './pages/SignDeclarations';
+import ApplicationsInProgressPage from './pages/ApplicationsInProgressPage';
+
+// Scroll to top on route change
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [pathname]);
+
+  return null;
+}
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 30 * 60 * 1000, // 30 minutes - AGGRESSIVE!
+      refetchOnMount: false, // Don't refetch if data exists
+      refetchOnReconnect: false, // Don't refetch on reconnect
+    },
+  },
+});
+
+function App() {
+  return (
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          {/* Scroll to top on route change */}
+          <ScrollToTop />
+          <ThemeProvider>
+            <AuthProvider>
+              <ToastProvider>
+                <NavigationGuardProvider>
+                {/* Command Palette - OUTSIDE Routes */}
+                <CommandPalette />
+
+              <Routes>
+                {/* Public Routes — no login required */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/upload-documents" element={<UploadDocuments />} />
+                <Route path="/sign-declarations" element={<SignDeclarations />} />
+
+                {/* Protected Routes - Require Authentication */}
+                <Route path="/" element={
+                  <ProtectedRoute>
+                    <CompactLayout />
+                  </ProtectedRoute>
+                }>
+                  <Route index element={<Dashboard />} />
+                  <Route path="members" element={<MemberList />} />
+                  <Route path="members/new" element={<AddMember />} />
+                  <Route path="members/:id" element={<MemberDetail />} />
+                  <Route path="payments" element={<Payments />} />
+                  <Route path="reports" element={<Reports />} />
+                  <Route path="deceased" element={<DeceasedMembers />} />
+                  <Route path="deceased/:id" element={<DeceasedDetail />} />
+                  <Route path="deceased/record/:memberId?" element={<RecordDeath />} />
+                  <Route path="settings" element={<Settings />} />
+                  <Route path="deletion-requests" element={<DeletionRequests />} />
+                  <Route path="registration-success" element={<RegistrationSuccess />} />
+                  <Route path="applications-in-progress" element={<ApplicationsInProgressPage />} />
+                </Route>
+
+                {/* Error Pages */}
+                <Route path="/404" element={<NotFound />} />
+                <Route path="/500" element={<ServerError />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+                </NavigationGuardProvider>
+              </ToastProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
+  );
+}
+
+export default App;
