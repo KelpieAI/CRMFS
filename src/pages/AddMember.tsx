@@ -9,6 +9,7 @@ import {
   registrationDocumentInput,
   resolveMemberStatusOnRegistration,
 } from '../lib/memberActivationRequirements';
+import { VERSION_STRING } from '../lib/version';
 import { useToast } from '../contexts/ToastContext';
 import DateInput from '../components/DateInput';
 import RegistrationSidebar from '../components/RegistrationSidebar';
@@ -1177,7 +1178,7 @@ export default function AddMember() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 ml-[352px] p-6">
+      <div className="flex-1 ml-[352px] p-6 pb-16">
         <div className="max-w-4xl mx-auto space-y-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">New Member Registration</h1>
@@ -1308,6 +1309,14 @@ export default function AddMember() {
         pendingTotal={0}
         isLoading={submitMutation.isPending}
       />
+
+      <footer
+        className="fixed bottom-0 left-[352px] right-0 z-20 flex h-11 items-center justify-between border-t border-gray-200 bg-white px-6 dark:border-gray-700 dark:bg-gray-900"
+        aria-label="Registration footer"
+      >
+        <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Kelpie AI</span>
+        <span className="text-xs tabular-nums text-gray-500 dark:text-gray-500">{VERSION_STRING}</span>
+      </footer>
 
       {/* Document Warning Modal */}
       {showDocWarningModal && (
