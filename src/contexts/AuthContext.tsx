@@ -19,6 +19,8 @@ interface AuthContextType {
   user: SupabaseUser | null;
   profile: UserProfile | null;
   loading: boolean;
+  postLoginSplash: boolean;
+  completePostLoginSplash: () => void;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -29,6 +31,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [postLoginSplash, setPostLoginSplash] = useState(false);
+
+  const completePostLoginSplash = () => setPostLoginSplash(false);
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -116,6 +121,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       console.log('🔔 Auth state changed:', _event, session?.user?.email);
 
+      if (_event === 'SIGNED_IN' && session?.user) {
+        setPostLoginSplash(true);
+      }
+
       setUser(session?.user ?? null);
       setLoading(false); // Set loading false IMMEDIATELY
       
@@ -146,7 +155,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut, refreshProfile }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        loading,
+        postLoginSplash,
+        completePostLoginSplash,
+        signOut,
+        refreshProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
